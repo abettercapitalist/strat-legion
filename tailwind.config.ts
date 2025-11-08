@@ -57,6 +57,19 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        stage: {
+          business: "hsl(var(--stage-business))",
+          commercial: "hsl(var(--stage-commercial))",
+          financial: "hsl(var(--stage-financial))",
+          negotiation: "hsl(var(--stage-negotiation))",
+          execution: "hsl(var(--stage-execution))",
+          performance: "hsl(var(--stage-performance))",
+        },
+        status: {
+          success: "hsl(var(--status-success))",
+          warning: "hsl(var(--status-warning))",
+          error: "hsl(var(--status-error))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
