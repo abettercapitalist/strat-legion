@@ -1,6 +1,7 @@
 import { Home, FileText, CheckSquare, FileCode, BarChart3, Settings } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
+import logo from "@/assets/PB-Logo.png";
 import {
   Sidebar,
   SidebarContent,
@@ -31,13 +32,10 @@ export function AppSidebar() {
       <SidebarContent>
         <div className="p-4 border-b border-border">
           {!isCollapsed && (
-            <div className="flex items-center gap-2">
-              <FileText className="h-6 w-6 text-primary" />
-              <span className="text-xl font-semibold">Playbook</span>
-            </div>
+            <img src={logo} alt="Playbook" className="h-8 w-auto" />
           )}
           {isCollapsed && (
-            <FileText className="h-6 w-6 text-primary mx-auto" />
+            <img src={logo} alt="Playbook" className="h-8 w-auto mx-auto" />
           )}
         </div>
         
