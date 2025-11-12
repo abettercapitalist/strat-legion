@@ -1,4 +1,4 @@
-import { Home, FileText, CheckSquare, FileCode, BarChart3, Settings } from "lucide-react";
+import { Handshake, ClipboardCheck, BarChart3, Settings, BookOpen } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -7,6 +7,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -14,21 +15,55 @@ import {
 } from "./ui/sidebar";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Templates", href: "/templates", icon: FileCode },
-  { name: "Contracts", href: "/contracts", icon: FileText },
-  { name: "Tasks", href: "/tasks", icon: CheckSquare, badge: 8 },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { 
+    name: "Deals", 
+    href: "/sales/deals", 
+    icon: Handshake,
+    children: [
+      { name: "My Deals", href: "/sales/deals" },
+      { name: "All Deals", href: "/sales/deals/all" },
+      { name: "Create New", href: "/sales/deals/new" },
+      { name: "Closed", href: "/sales/deals/closed" },
+    ]
+  },
+  { 
+    name: "Approvals", 
+    href: "/sales/approvals", 
+    icon: ClipboardCheck,
+    badge: 5,
+    children: [
+      { name: "Pending", href: "/sales/approvals", badge: 5 },
+      { name: "History", href: "/sales/approvals/history" },
+    ]
+  },
+  { 
+    name: "Response Library", 
+    href: "/sales/responses", 
+    icon: BookOpen 
+  },
+  { 
+    name: "Pipeline", 
+    href: "/sales/pipeline", 
+    icon: BarChart3,
+    children: [
+      { name: "Dashboard", href: "/sales/pipeline" },
+      { name: "Forecast", href: "/sales/pipeline/forecast" },
+    ]
+  },
+  { 
+    name: "Settings", 
+    href: "/sales/settings", 
+    icon: Settings 
+  },
 ];
 
-export function AppSidebar() {
+export function SalesSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar className={isCollapsed ? "w-16" : "w-64"} collapsible="icon">
+    <Sidebar className={isCollapsed ? "w-16" : "w-60"} collapsible="icon">
       <SidebarContent>
         <div className="p-4 border-b border-border">
           {!isCollapsed && (
@@ -40,10 +75,11 @@ export function AppSidebar() {
         </div>
         
         <SidebarGroup>
+          {!isCollapsed && <SidebarGroupLabel>Sales Module</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2 py-4">
               {navigation.map((item) => {
-                const isActive = location.pathname === item.href;
+                const isActive = location.pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild>
@@ -60,7 +96,7 @@ export function AppSidebar() {
                           <span className="flex-1">{item.name}</span>
                         )}
                         {!isCollapsed && item.badge && (
-                          <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                          <span className="bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full">
                             {item.badge}
                           </span>
                         )}
