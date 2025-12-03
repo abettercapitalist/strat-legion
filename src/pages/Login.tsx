@@ -52,11 +52,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-8">
-      <div className="w-full max-w-4xl space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-secondary p-8">
+      <div className="w-full max-w-4xl space-y-12">
+        {/* Header */}
         <div className="text-center space-y-4">
           <img src={logo} alt="Playbook" className="h-12 w-auto mx-auto" />
-          <h1 className="text-3xl font-semibold text-foreground">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Welcome to Playbook
           </h1>
           <p className="text-muted-foreground">
@@ -64,28 +65,29 @@ export default function Login() {
           </p>
         </div>
 
+        {/* Role Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {roles.map((role) => (
             <Card
               key={role.id}
-              className="cursor-pointer transition-all hover:border-primary hover:shadow-md"
+              className="cursor-pointer transition-all hover:border-primary hover:shadow-md bg-card"
               onClick={() => handleLogin(role.id)}
             >
               <CardHeader className="space-y-4">
                 <role.icon className="h-10 w-10 text-primary" />
                 <div className="space-y-2">
-                  <CardTitle className="text-xl">{role.name}</CardTitle>
+                  <CardTitle className="text-xl font-semibold">{role.name}</CardTitle>
                   <CardDescription className="text-sm font-medium text-foreground">
                     {role.title}
                   </CardDescription>
-                  <CardDescription className="text-sm">
+                  <CardDescription className="text-sm text-muted-foreground">
                     {role.description}
                   </CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
                 <Button className="w-full">
-                  Sign in as {role.name}
+                  Sign in as {role.name.split(' ')[0]}
                 </Button>
               </CardContent>
             </Card>
