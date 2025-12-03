@@ -1,4 +1,4 @@
-import { Handshake, ClipboardCheck, BarChart3, Settings, BookOpen } from "lucide-react";
+import { Handshake, ClipboardList, TrendingUp, Settings, BookOpen } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -19,41 +19,31 @@ const navigation = [
     name: "Deals", 
     href: "/sales/deals", 
     icon: Handshake,
-    children: [
-      { name: "My Deals", href: "/sales/deals" },
-      { name: "All Deals", href: "/sales/deals/all" },
-      { name: "Create New", href: "/sales/deals/new" },
-      { name: "Closed", href: "/sales/deals/closed" },
-    ]
+    badge: undefined,
   },
   { 
     name: "Approvals", 
     href: "/sales/approvals", 
-    icon: ClipboardCheck,
+    icon: ClipboardList,
     badge: 5,
-    children: [
-      { name: "Pending", href: "/sales/approvals", badge: 5 },
-      { name: "History", href: "/sales/approvals/history" },
-    ]
   },
   { 
     name: "Response Library", 
     href: "/sales/responses", 
-    icon: BookOpen 
+    icon: BookOpen,
+    badge: undefined,
   },
   { 
     name: "Pipeline", 
     href: "/sales/pipeline", 
-    icon: BarChart3,
-    children: [
-      { name: "Dashboard", href: "/sales/pipeline" },
-      { name: "Forecast", href: "/sales/pipeline/forecast" },
-    ]
+    icon: TrendingUp,
+    badge: undefined,
   },
   { 
     name: "Settings", 
     href: "/sales/settings", 
-    icon: Settings 
+    icon: Settings,
+    badge: undefined,
   },
 ];
 
@@ -63,21 +53,29 @@ export function SalesSidebar() {
   const isCollapsed = state === "collapsed";
 
   return (
-    <Sidebar className={isCollapsed ? "w-16" : "w-60"} collapsible="icon">
-      <SidebarContent>
-        <div className="p-4 border-b border-border">
-          {!isCollapsed && (
-            <img src={logo} alt="Playbook" className="h-8 w-auto" />
-          )}
-          {isCollapsed && (
-            <img src={logo} alt="Playbook" className="h-8 w-auto mx-auto" />
-          )}
+    <Sidebar 
+      className="w-60 border-r-0 bg-sidebar text-sidebar-foreground" 
+      collapsible="icon"
+    >
+      <SidebarContent className="bg-sidebar">
+        {/* Logo */}
+        <div className="p-4 border-b border-sidebar-border">
+          <img 
+            src={logo} 
+            alt="Playbook" 
+            className={`h-8 w-auto ${isCollapsed ? "mx-auto" : ""}`}
+            style={{ filter: "brightness(0) invert(1)" }}
+          />
         </div>
         
         <SidebarGroup>
-          {!isCollapsed && <SidebarGroupLabel>Sales Module</SidebarGroupLabel>}
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
+              Sales Module
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1 px-2 py-4">
+            <SidebarMenu className="space-y-1 px-2 py-2">
               {navigation.map((item) => {
                 const isActive = location.pathname.startsWith(item.href);
                 return (
@@ -85,15 +83,15 @@ export function SalesSidebar() {
                     <SidebarMenuButton asChild>
                       <NavLink
                         to={item.href}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                           isActive
-                            ? "bg-primary text-primary-foreground"
-                            : "text-foreground hover:bg-secondary"
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
                         }`}
                       >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && (
-                          <span className="flex-1">{item.name}</span>
+                          <span className="flex-1 text-sm">{item.name}</span>
                         )}
                         {!isCollapsed && item.badge && (
                           <span className="bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full">
