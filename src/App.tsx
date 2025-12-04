@@ -17,6 +17,7 @@ import LawClauses from "./pages/law/Clauses";
 import LawCreateClause from "./pages/law/CreateClause";
 import LawChangeRequests from "./pages/law/ChangeRequests";
 import LawDashboard from "./pages/law/LearningDashboard";
+import LawHome from "./pages/law/Home";
 
 // Sales Module Pages
 import SalesDeals from "./pages/sales/Deals";
@@ -40,7 +41,8 @@ const App = () => (
             
             {/* Law Module Routes */}
             <Route path="/law" element={<ProtectedRoute><LawLayout /></ProtectedRoute>}>
-              <Route index element={<Navigate to="/law/templates" replace />} />
+              <Route index element={<Navigate to="/law/home" replace />} />
+              <Route path="home" element={<LawHome />} />
               <Route path="templates" element={<LawTemplates />} />
               <Route path="templates/new" element={<LawCreateTemplate />} />
               <Route path="templates/:id/edit" element={<LawCreateTemplate />} />
