@@ -278,6 +278,7 @@ export function SaveTemplateDialog({
         toast({
           title: "Template downloaded",
           description: "The template has been saved to your computer.",
+          duration: 7000,
         });
         handleOpenChange(false);
         return;
@@ -302,6 +303,7 @@ export function SaveTemplateDialog({
     toast({
       title: "Template downloaded",
       description: "The template has been saved to your computer.",
+      duration: 7000,
     });
     handleOpenChange(false);
   };

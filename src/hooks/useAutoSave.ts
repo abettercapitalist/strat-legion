@@ -33,7 +33,7 @@ export function useAutoSave({
     if (templateName.trim()) {
       return templateName;
     }
-    return `Untitled Draft - ${format(date, "MMMM dd yy")}`;
+    return `Untitled Draft - ${format(date, "yyyy MMM dd")}`;
   }, [templateName]);
 
   // Auto-save current draft

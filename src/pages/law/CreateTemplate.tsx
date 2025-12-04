@@ -272,7 +272,7 @@ export default function CreateTemplate() {
             <DialogTitle>Draft Saved</DialogTitle>
           </DialogHeader>
           <div className="py-4 text-center">
-            <p className="text-sm text-primary font-medium">
+            <p className="text-sm text-muted-foreground font-medium">
               {savedDraftName}
             </p>
           </div>
