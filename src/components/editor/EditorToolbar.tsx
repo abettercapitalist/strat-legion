@@ -10,13 +10,13 @@ import {
   ListOrdered,
   Table,
   Columns2,
-  Highlighter,
   Type,
   Link2,
   ChevronDown,
   AlignVerticalJustifyStart,
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
+  Highlighter,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,33 +39,34 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface EditorToolbarProps {
   editor: Editor;
 }
 
-// Professional fonts - Using web-safe alternatives
-// Note: Concourse and Equity from practicaltypography.com require licensing
-// Using Georgia (serif) and system sans-serif as fallbacks
+// Professional fonts - Using web-safe alternatives with Concourse-like option
 const FONTS = [
   { name: 'Georgia', value: 'Georgia, serif', type: 'serif' },
   { name: 'Equity Text', value: '"Equity Text B", Georgia, serif', type: 'serif' },
   { name: 'Equity Caps', value: '"Equity Caps B", Georgia, serif', type: 'serif' },
+  { name: 'Concourse Text', value: '"Source Sans 3", "Inter", -apple-system, sans-serif', type: 'sans' },
   { name: 'System Sans', value: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', type: 'sans' },
-  { name: 'Concourse Text', value: '"Concourse Text", -apple-system, sans-serif', type: 'sans' },
-  { name: 'Concourse Capital', value: '"Concourse Capital", -apple-system, sans-serif', type: 'sans' },
   { name: 'separator', value: '', type: 'separator' },
   { name: 'Custom Fonts...', value: 'custom', type: 'action' },
 ];
 
-const FONT_WEIGHTS = [
-  { label: '1', value: '300' },
-  { label: '2', value: '400' },
-  { label: '3', value: '500' },
-  { label: '4', value: '600' },
-  { label: '5', value: '700' },
+// Standard font sizes
+const FONT_SIZES = [
+  { label: '10', value: '10px' },
+  { label: '11', value: '11px' },
+  { label: '12', value: '12px' },
+  { label: '14', value: '14px' },
+  { label: '16', value: '16px' },
+  { label: '18', value: '18px' },
+  { label: '20', value: '20px' },
+  { label: '24', value: '24px' },
 ];
 
 const HIGHLIGHT_COLORS = [
@@ -92,12 +93,14 @@ const LINE_SPACING = [
   { label: 'Double', value: '2' },
 ];
 
-const SECTION_NUMBERING_STYLES = [
-  { name: 'None', value: 'none' },
-  { name: 'MSCD Alphanumeric', value: 'mscd-alpha', description: '1, (a), (i), (A)' },
-  { name: 'MSCD Digital', value: 'mscd-digital', description: '1, 1.1, 1.1.a' },
-  { name: 'Article', value: 'article', description: 'Article I, Section 1' },
-  { name: 'Decimal', value: 'decimal', description: '1.0, 1.1, 1.1.1' },
+// Formatting styles for the Formatting dropdown
+const FORMATTING_STYLES = [
+  { name: 'Title', value: 'title', description: '1.5x size, capitalized' },
+  { name: 'Body text', value: 'body', description: 'Standard paragraph' },
+  { name: 'MSCD Sections', value: 'mscd-alpha', description: '1, (a), (i), (A)' },
+  { name: 'MSCD Articles', value: 'mscd-digital', description: '1, 1.1, 1.1.a' },
+  { name: 'Articles', value: 'article', description: 'Article I, Section 1' },
+  { name: 'Section text', value: 'section-text', description: 'Indented body text' },
 ];
 
 const ENUMERATED_LIST_STYLES = [
@@ -107,11 +110,93 @@ const ENUMERATED_LIST_STYLES = [
   { name: 'Tabulated (1)', value: 'tabulated-numeric' },
 ];
 
+// Custom Line Spacing Icon - lines with vertical bidirectional arrow
+function LineSpacingIcon({ className }: { className?: string }) {
+  return (
+    <svg 
+      className={className} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      {/* Three horizontal lines */}
+      <line x1="9" y1="6" x2="21" y2="6" />
+      <line x1="9" y1="12" x2="21" y2="12" />
+      <line x1="9" y1="18" x2="21" y2="18" />
+      {/* Bidirectional vertical arrow */}
+      <line x1="4" y1="5" x2="4" y2="19" />
+      <polyline points="2,7 4,5 6,7" />
+      <polyline points="2,17 4,19 6,17" />
+    </svg>
+  );
+}
+
 export function EditorToolbar({ editor }: EditorToolbarProps) {
   const [activeHighlight, setActiveHighlight] = useState(HIGHLIGHT_COLORS[0].value);
   const [crossRefContext, setCrossRefContext] = useState<'full' | 'none'>('full');
+  const [lastFormattingStyle, setLastFormattingStyle] = useState<string>('body');
 
   const isInTable = editor.isActive('table');
+
+  // Get current font size from editor
+  const currentFontSize = editor.getAttributes('textStyle').fontSize || '16px';
+
+  // Apply formatting style
+  const applyFormattingStyle = (style: string) => {
+    setLastFormattingStyle(style);
+    
+    switch (style) {
+      case 'title':
+        // Title: 1.5x size (24px if base is 16px), capitalized font
+        editor.chain().focus()
+          .setFontFamily('"Source Sans 3", "Inter", -apple-system, sans-serif')
+          .run();
+        // Apply title formatting via section numbering extension
+        editor.chain().focus().setSectionNumbering('none').run();
+        break;
+      case 'body':
+        // Body text: standard paragraph
+        editor.chain().focus().setSectionNumbering('none').run();
+        break;
+      case 'section-text':
+        // Section text: indented body text
+        editor.chain().focus().setSectionNumbering('none').run();
+        break;
+      case 'mscd-alpha':
+      case 'mscd-digital':
+      case 'article':
+        editor.chain().focus().setSectionNumbering(style).run();
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Smart defaults: Listen for Enter key after heading styles
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        // Check if current style is a heading style
+        const headingStyles = ['mscd-alpha', 'mscd-digital', 'article'];
+        if (headingStyles.includes(lastFormattingStyle)) {
+          // After a slight delay, switch to section-text
+          setTimeout(() => {
+            setLastFormattingStyle('section-text');
+          }, 50);
+        }
+      }
+    };
+
+    const editorElement = document.querySelector('.ProseMirror');
+    editorElement?.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      editorElement?.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [lastFormattingStyle]);
 
   return (
     <div className="flex flex-wrap items-center gap-1 p-2 border-b border-border bg-muted/30">
@@ -145,24 +230,50 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         </SelectContent>
       </Select>
 
-      {/* Font Weight Selector */}
+      {/* Font Size Selector */}
       <Select
-        value={editor.getAttributes('textStyle').fontWeight || '400'}
+        value={currentFontSize}
         onValueChange={(value) => {
-          editor.chain().focus().setFontWeight(value).run();
+          editor.chain().focus().setMark('textStyle', { fontSize: value }).run();
         }}
       >
-        <SelectTrigger className="w-[60px] h-8 text-xs">
-          <SelectValue placeholder="Wt" />
+        <SelectTrigger className="w-[70px] h-8 text-xs">
+          <SelectValue placeholder="Size" />
         </SelectTrigger>
         <SelectContent>
-          {FONT_WEIGHTS.map((weight) => (
-            <SelectItem key={weight.value} value={weight.value} className="text-xs">
-              {weight.label}
+          {FONT_SIZES.map((size) => (
+            <SelectItem key={size.value} value={size.value} className="text-xs">
+              {size.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+
+      {/* Formatting Dropdown - moved here after font size */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" title="Formatting">
+            <Type className="h-4 w-4" />
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {FORMATTING_STYLES.map((style) => (
+            <DropdownMenuItem
+              key={style.value}
+              onClick={() => applyFormattingStyle(style.value)}
+              className={cn(lastFormattingStyle === style.value && 'bg-accent')}
+            >
+              <div className="flex flex-col">
+                <span>{style.name}</span>
+                {style.description && (
+                  <span className="text-xs text-muted-foreground">{style.description}</span>
+                )}
+              </div>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <div className="w-px h-6 bg-border mx-1" />
 
@@ -192,7 +303,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Text Color">
-            <Type className="h-4 w-4" />
+            <span className="text-sm font-semibold">A</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-2">
@@ -210,14 +321,16 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         </PopoverContent>
       </Popover>
 
-      {/* Highlight */}
+      {/* Highlight - with highlighter icon inside the color box */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" title="Highlight">
             <div
-              className="w-4 h-4 rounded border border-border"
+              className="w-5 h-5 rounded border border-border flex items-center justify-center"
               style={{ backgroundColor: activeHighlight }}
-            />
+            >
+              <Highlighter className="h-3 w-3 text-gray-700" />
+            </div>
             <ChevronDown className="h-3 w-3" />
           </Button>
         </PopoverTrigger>
@@ -283,11 +396,11 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Line Spacing */}
+      {/* Line Spacing - with custom icon */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-8 w-8" title="Line Spacing">
-            <Highlighter className="h-4 w-4" />
+            <LineSpacingIcon className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
@@ -303,42 +416,6 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       </DropdownMenu>
 
       <div className="w-px h-6 bg-border mx-1" />
-
-      {/* Bullets */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn('h-8 w-8', editor.isActive('bulletList') && 'bg-accent')}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        title="Bullet List"
-      >
-        <List className="h-4 w-4" />
-      </Button>
-
-      {/* Section Numbering */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" title="Section Numbering">
-            <span className="text-xs font-mono">§</span>
-            <ChevronDown className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {SECTION_NUMBERING_STYLES.map((style) => (
-            <DropdownMenuItem
-              key={style.value}
-              onClick={() => editor.chain().focus().setSectionNumbering(style.value).run()}
-            >
-              <div className="flex flex-col">
-                <span>{style.name}</span>
-                {style.description && (
-                  <span className="text-xs text-muted-foreground">{style.description}</span>
-                )}
-              </div>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
 
       {/* Enumerated Lists */}
       <DropdownMenu>
@@ -358,6 +435,17 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Bullets - moved next to Enumerated Lists */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn('h-8 w-8', editor.isActive('bulletList') && 'bg-accent')}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        title="Bullet List"
+      >
+        <List className="h-4 w-4" />
+      </Button>
 
       {/* Cross-References */}
       <DropdownMenu>
@@ -386,12 +474,12 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
             <DropdownMenuItem
               onClick={() => editor.chain().focus().insertCrossReference('1', crossRefContext).run()}
             >
-              Section 1 - Definitions
+              Section 1 - Terms and conditions
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => editor.chain().focus().insertCrossReference('2', crossRefContext).run()}
             >
-              Section 2 - Terms and Conditions
+              Section 2 - Definitions
             </DropdownMenuItem>
           </div>
         </DropdownMenuContent>

@@ -22,20 +22,20 @@ interface ContractEditorProps {
   onChange?: (content: string) => void;
 }
 
-const initialContent = `<h1 style="text-align: center">AGREEMENT</h1>
-<p>This agreement is between Playbook, Inc., a Utah corporation, and NewCo, Ltd., an English limited company.</p>
+const initialContent = `<h1 style="text-align: center">Agreement</h1>
+<p>This agreement is between TestCo, Inc., a Utah corporation, and NewCo, Ltd., an English limited company.</p>
 <p>The parties agree as follows:</p>
-<p><strong>1. TERMS AND CONDITIONS</strong></p>
+<p><strong>1. Terms and conditions</strong></p>
 <p>The terms and conditions of this Agreement are as follows:</p>
-<p><strong>2. DEFINITIONS</strong></p>
+<p><strong>2. Definitions</strong></p>
 <p>"Effective Date" means the date this Agreement is executed by both parties.</p>
-<p><strong>3. Effectiveness; Date.</strong></p>
+<p><strong>3. Effectiveness; date.</strong></p>
 <p>This agreement will become effective when both parties have signed it. The date of this agreement is the date it is signed by the last party to sign it.</p>
 <p>Each party is signing this agreement on the date associated with that party's signature.</p>
 <table style="width: 100%; border: none;">
   <tr>
     <td style="width: 50%; vertical-align: top; border: none; padding-right: 24px;">
-      <p><strong>Playbook, Inc.</strong></p>
+      <p><strong>TestCo, Inc.</strong></p>
       <p>Signature: _____________________</p>
       <p>Name: _____________________</p>
       <p>Title: _____________________</p>
