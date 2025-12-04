@@ -11,6 +11,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import FontFamily from '@tiptap/extension-font-family';
 import { EditorToolbar } from './EditorToolbar';
 import { FontWeight } from './extensions/FontWeight';
+import { FontSize } from './extensions/FontSize';
 import { Columns } from './extensions/Columns';
 import { SectionNumbering } from './extensions/SectionNumbering';
 import { EnumeratedList } from './extensions/EnumeratedList';
@@ -75,6 +76,7 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
       TextStyle,
       FontFamily,
       FontWeight,
+      FontSize,
       LineHeight,
       Table.configure({
         resizable: true,

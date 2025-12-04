@@ -52,6 +52,7 @@ const FONTS = [
   { name: 'Equity Text', value: '"Equity Text B", Georgia, serif', type: 'serif' },
   { name: 'Equity Caps', value: '"Equity Caps B", Georgia, serif', type: 'serif' },
   { name: 'Concourse Text', value: '"Source Sans 3", "Inter", -apple-system, sans-serif', type: 'sans' },
+  { name: 'Concourse Caps', value: '"Inter", -apple-system, sans-serif', type: 'sans', caps: true },
   { name: 'System Sans', value: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', type: 'sans' },
   { name: 'separator', value: '', type: 'separator' },
   { name: 'Custom Fonts...', value: 'custom', type: 'action' },
@@ -150,20 +151,27 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
     
     switch (style) {
       case 'title':
-        // Title: 1.5x size (24px if base is 16px), capitalized font
+        // Title: 1.5x size (24px if base is 16px), Concourse Caps (uppercase)
         editor.chain().focus()
-          .setFontFamily('"Source Sans 3", "Inter", -apple-system, sans-serif')
+          .setFontFamily('"Inter", -apple-system, sans-serif')
+          .setFontSize('24px')
           .run();
         // Apply title formatting via section numbering extension
         editor.chain().focus().setSectionNumbering('none').run();
         break;
       case 'body':
         // Body text: standard paragraph
-        editor.chain().focus().setSectionNumbering('none').run();
+        editor.chain().focus()
+          .setFontSize('16px')
+          .setSectionNumbering('none')
+          .run();
         break;
       case 'section-text':
         // Section text: indented body text
-        editor.chain().focus().setSectionNumbering('none').run();
+        editor.chain().focus()
+          .setFontSize('16px')
+          .setSectionNumbering('none')
+          .run();
         break;
       case 'mscd-alpha':
       case 'mscd-digital':
@@ -234,7 +242,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       <Select
         value={currentFontSize}
         onValueChange={(value) => {
-          editor.chain().focus().setMark('textStyle', { fontSize: value }).run();
+          editor.chain().focus().setFontSize(value).run();
         }}
       >
         <SelectTrigger className="w-[70px] h-8 text-xs">
