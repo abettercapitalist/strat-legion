@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
+import { saveDraft as saveDraftToFileSystem } from "@/lib/mockFileSystem";
 
 export interface DraftVersion {
   id: string;
@@ -13,6 +14,8 @@ interface AutoSaveOptions {
   templateName: string;
   autoSaveInterval?: number; // in ms, default 30 seconds
   versionInterval?: number; // in ms, default 3 minutes
+  category?: "Sales" | "Procurement" | "Employment" | "Services" | "Partnership";
+  userEmail?: string;
 }
 
 export function useAutoSave({
@@ -20,6 +23,8 @@ export function useAutoSave({
   templateName,
   autoSaveInterval = 30000, // 30 seconds (Google Docs standard)
   versionInterval = 180000, // 3 minutes for version history
+  category = "Sales",
+  userEmail,
 }: AutoSaveOptions) {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [versions, setVersions] = useState<DraftVersion[]>([]);
@@ -47,21 +52,15 @@ export function useAutoSave({
 
     const timer = setTimeout(() => {
       const now = new Date();
-      const draftData = {
-        id: currentDraftId,
-        name: getDraftName(now),
-        content,
-        savedAt: now.toISOString(),
-        templateName,
-      };
+      const draftName = getDraftName(now);
       
-      // Save to localStorage (simulating system storage)
-      localStorage.setItem(`playbook-draft-${currentDraftId}`, JSON.stringify(draftData));
+      // Save to mock file system (persists in localStorage)
+      saveDraftToFileSystem(draftName, content, category, userEmail);
       setLastSaved(now);
     }, autoSaveInterval);
 
     return () => clearTimeout(timer);
-  }, [content, currentDraftId, getDraftName, autoSaveInterval, templateName]);
+  }, [content, getDraftName, autoSaveInterval, category, userEmail]);
 
   // Create version snapshots every versionInterval
   useEffect(() => {
@@ -85,22 +84,23 @@ export function useAutoSave({
     return () => clearInterval(timer);
   }, [content, getDraftName, versionInterval]);
 
-  // Manual save
+  // Manual save - now saves to mock file system
   const saveDraft = useCallback(() => {
     const now = new Date();
-    const draftData = {
-      id: currentDraftId,
-      name: getDraftName(now),
+    const draftName = getDraftName(now);
+    
+    // Save to mock file system (persists in localStorage)
+    const savedTemplate = saveDraftToFileSystem(draftName, content, category, userEmail);
+    setLastSaved(now);
+    
+    return {
+      id: savedTemplate.id,
+      name: savedTemplate.name,
       content,
       savedAt: now.toISOString(),
       templateName,
     };
-    
-    localStorage.setItem(`playbook-draft-${currentDraftId}`, JSON.stringify(draftData));
-    setLastSaved(now);
-    
-    return draftData;
-  }, [content, currentDraftId, getDraftName, templateName]);
+  }, [content, getDraftName, templateName, category, userEmail]);
 
   // Discard draft
   const discardDraft = useCallback(() => {

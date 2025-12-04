@@ -1,7 +1,8 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MoreVertical, Copy, Archive, Eye } from "lucide-react";
+import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DropdownMenu,
@@ -9,106 +10,70 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const templates = [
-  {
-    id: "1",
-    name: "Framework Agreement",
-    category: "Sales",
-    version: "v2.1",
-    status: "Active",
-    lastModified: "2025-11-10",
-  },
-  {
-    id: "2",
-    name: "Mutual NDA",
-    category: "Sales",
-    version: "v1.0",
-    status: "Active",
-    lastModified: "2025-11-08",
-  },
-  {
-    id: "3",
-    name: "Enterprise SaaS Agreement",
-    category: "Sales",
-    version: "v3.0",
-    status: "Active",
-    lastModified: "2025-11-05",
-  },
-  {
-    id: "4",
-    name: "Professional Services Agreement",
-    category: "Services",
-    version: "v1.2",
-    status: "Active",
-    lastModified: "2025-10-28",
-  },
-  {
-    id: "5",
-    name: "Master Vendor Agreement",
-    category: "Procurement",
-    version: "v1.0",
-    status: "Active",
-    lastModified: "2025-10-15",
-  },
-];
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAllTemplates, getActiveTemplates, getDraftTemplates, deleteTemplate, MockTemplate } from "@/lib/mockFileSystem";
+import { useToast } from "@/hooks/use-toast";
 
 const categories = ["All", "Sales", "Procurement", "Employment", "Services", "Partnership"];
-const statuses = ["All", "Active", "Draft", "Archived"];
 
 export default function Templates() {
-  return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Templates</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage contract templates and their configurations
-          </p>
-        </div>
-        <Link to="/law/templates/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Template
-          </Button>
-        </Link>
-      </div>
+  const [templates, setTemplates] = useState<MockTemplate[]>([]);
+  const [drafts, setDrafts] = useState<MockTemplate[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const { toast } = useToast();
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search templates..."
-            className="pl-10"
-          />
-        </div>
-        <div className="flex gap-2">
-          {categories.map((cat) => (
-            <Button
-              key={cat}
-              variant={cat === "All" ? "default" : "outline"}
-              size="sm"
-            >
-              {cat}
-            </Button>
-          ))}
-        </div>
-      </div>
+  useEffect(() => {
+    // Load templates from mock file system
+    setTemplates(getActiveTemplates());
+    setDrafts(getDraftTemplates());
+  }, []);
 
-      <div className="border border-border rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-muted/30">
-            <tr className="text-left text-sm text-muted-foreground">
-              <th className="px-6 py-4 font-medium">Name</th>
-              <th className="px-6 py-4 font-medium">Category</th>
-              <th className="px-6 py-4 font-medium">Version</th>
-              <th className="px-6 py-4 font-medium">Status</th>
-              <th className="px-6 py-4 font-medium">Last Modified</th>
-              <th className="px-6 py-4 font-medium w-12"></th>
+  const refreshTemplates = () => {
+    setTemplates(getActiveTemplates());
+    setDrafts(getDraftTemplates());
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    deleteTemplate(id);
+    refreshTemplates();
+    toast({
+      title: "Template deleted",
+      description: `"${name}" has been removed.`,
+    });
+  };
+
+  const filterTemplates = (items: MockTemplate[]) => {
+    return items.filter(t => {
+      const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  };
+
+  const TemplateTable = ({ items, showDraftActions = false }: { items: MockTemplate[], showDraftActions?: boolean }) => (
+    <div className="border border-border rounded-lg overflow-hidden">
+      <table className="w-full">
+        <thead className="bg-muted/30">
+          <tr className="text-left text-sm text-muted-foreground">
+            <th className="px-6 py-4 font-medium">Name</th>
+            <th className="px-6 py-4 font-medium">Category</th>
+            <th className="px-6 py-4 font-medium">Version</th>
+            <th className="px-6 py-4 font-medium">Status</th>
+            <th className="px-6 py-4 font-medium">Last Modified</th>
+            <th className="px-6 py-4 font-medium w-12"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {items.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No templates found</p>
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {templates.map((template) => (
+          ) : (
+            items.map((template) => (
               <tr key={template.id} className="hover:bg-muted/20 transition-colors">
                 <td className="px-6 py-4">
                   <Link
@@ -129,7 +94,13 @@ export default function Templates() {
                 <td className="px-6 py-4">
                   <Badge
                     variant="outline"
-                    className="bg-status-success/10 text-status-success border-status-success/20"
+                    className={
+                      template.status === "Active"
+                        ? "bg-status-success/10 text-status-success border-status-success/20"
+                        : template.status === "Draft"
+                        ? "bg-status-warning/10 text-status-warning border-status-warning/20"
+                        : "bg-muted text-muted-foreground"
+                    }
                   >
                     {template.status}
                   </Badge>
@@ -153,18 +124,85 @@ export default function Templates() {
                         <Eye className="h-4 w-4 mr-2" />
                         View Usage
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        <Archive className="h-4 w-4 mr-2" />
-                        Archive
-                      </DropdownMenuItem>
+                      {showDraftActions && (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDelete(template.id, template.name)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                      {!showDraftActions && (
+                        <DropdownMenuItem className="text-destructive">
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archive
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold">Templates</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage contract templates and their configurations
+          </p>
+        </div>
+        <Link to="/law/templates/new">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Template
+          </Button>
+        </Link>
       </div>
+
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search templates..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          {categories.map((cat) => (
+            <Button
+              key={cat}
+              variant={cat === selectedCategory ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(cat)}
+            >
+              {cat}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <Tabs defaultValue="all" className="w-full">
+        <TabsList>
+          <TabsTrigger value="all">All Templates ({templates.length})</TabsTrigger>
+          <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
+        </TabsList>
+        <TabsContent value="all" className="mt-6">
+          <TemplateTable items={filterTemplates(templates)} />
+        </TabsContent>
+        <TabsContent value="drafts" className="mt-6">
+          <TemplateTable items={filterTemplates(drafts)} showDraftActions />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
