@@ -208,7 +208,13 @@ export default function CreateTemplate() {
               <Label htmlFor="category" className="sr-only">
                 Category
               </Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={(value) => {
+                if (value === 'new') {
+                  // TODO: Open new category dialog
+                  return;
+                }
+                setCategory(value);
+              }}>
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -218,6 +224,9 @@ export default function CreateTemplate() {
                   <SelectItem value="employment">Employment</SelectItem>
                   <SelectItem value="services">Services</SelectItem>
                   <SelectItem value="partnership">Partnership</SelectItem>
+                  <SelectItem value="new" className="text-primary font-medium">
+                    New category...
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

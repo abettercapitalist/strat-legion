@@ -10,8 +10,9 @@
 
 @layer base {
   :root {
-    /* Typography - Fallback fonts for prototype */
+    /* Typography - Concourse Text for headings, Georgia for body */
     --font-body: Georgia, "Times New Roman", serif;
+    --font-heading: "Source Sans 3", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
     --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: "JetBrains Mono", Consolas, monospace;
 
@@ -131,7 +132,7 @@
 
   /* Typography hierarchy through size and weight, not color */
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-ui);
+    font-family: var(--font-heading);
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1.3;
@@ -177,25 +178,29 @@
   .ProseMirror h2,
   .ProseMirror h3,
   .ProseMirror h4 {
-    font-family: var(--font-ui);
+    font-family: var(--font-heading);
     font-weight: 600;
     margin-top: 1.5em;
     margin-bottom: 0.5em;
   }
 
+  /* Title style: 1.5x body size, centered, capitalized font */
   .ProseMirror h1 {
     font-size: 1.5rem;
     text-align: center;
-    text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
-  .ProseMirror h2 {
-    font-size: 1.25rem;
+  /* Section headings: same size as body text, not capitalized */
+  .ProseMirror h2,
+  .ProseMirror h3,
+  .ProseMirror h4 {
+    font-size: 1rem;
   }
 
-  .ProseMirror h3 {
-    font-size: 1.125rem;
+  /* Section text: indented to align with heading text */
+  .ProseMirror .section-text {
+    margin-left: 2rem;
   }
 
   .ProseMirror p {
