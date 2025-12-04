@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { UserProvider } from "./contexts/UserContext";
+import { RBACProvider } from "./contexts/RBACContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LawLayout } from "./components/LawLayout";
 import { SalesLayout } from "./components/SalesLayout";
@@ -18,6 +19,7 @@ import LawCreateClause from "./pages/law/CreateClause";
 import LawChangeRequests from "./pages/law/ChangeRequests";
 import LawDashboard from "./pages/law/LearningDashboard";
 import LawHome from "./pages/law/Home";
+import LawSettings from "./pages/law/Settings";
 
 // Sales Module Pages
 import SalesDeals from "./pages/sales/Deals";
@@ -31,11 +33,12 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <UserProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
+      <RBACProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             
@@ -54,7 +57,7 @@ const App = () => (
               <Route path="requests/approved" element={<LawChangeRequests />} />
               <Route path="requests/rejected" element={<LawChangeRequests />} />
               <Route path="dashboard" element={<LawDashboard />} />
-              <Route path="settings" element={<div className="text-center py-16 text-muted-foreground">Settings - Coming Soon</div>} />
+              <Route path="settings" element={<LawSettings />} />
             </Route>
 
             {/* Sales Module Routes */}
@@ -78,6 +81,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+    </RBACProvider>
     </UserProvider>
   </QueryClientProvider>
 );

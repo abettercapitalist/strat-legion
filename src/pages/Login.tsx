@@ -11,6 +11,7 @@ import logo from "@/assets/PB-Logo.png";
 // Mock users with email/password credentials
 const mockUsers: Record<string, { password: string; role: UserRole }> = {
   "sarah.chen@testco.com": { password: "1testLOGin!", role: "law" },
+  "bobby.darin@testco.com": { password: "1testLOGin!", role: "legal-ops" },
   "john.smith@testco.com": { password: "1testLOGin!", role: "sales" },
   "david.lee@testco.com": { password: "1testLOGin!", role: "manager" },
   "rachel.adams@testco.com": { password: "1testLOGin!", role: "finance" },
@@ -42,8 +43,8 @@ export default function Login() {
       login(user.role);
       toast.success("Signed in successfully");
       
-      if (user.role === "law") {
-        navigate("/law/templates");
+      if (user.role === "law" || user.role === "legal-ops") {
+        navigate("/law/home");
       } else {
         navigate("/sales/deals");
       }

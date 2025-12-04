@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
-export type UserRole = "law" | "sales" | "manager" | "finance";
+export type UserRole = "law" | "legal-ops" | "sales" | "manager" | "finance";
 
 export interface User {
   name: string;
   role: UserRole;
   email: string;
+  title?: string;
 }
 
 interface UserContextType {
@@ -21,21 +22,31 @@ const roleUsers: Record<UserRole, User> = {
     name: "Sarah Chen",
     role: "law",
     email: "sarah.chen@playbook.com",
+    title: "General Counsel",
+  },
+  "legal-ops": {
+    name: "Bobby Darin",
+    role: "legal-ops",
+    email: "bobby.darin@playbook.com",
+    title: "Director of Legal Ops",
   },
   sales: {
     name: "John Smith",
     role: "sales",
     email: "john.smith@playbook.com",
+    title: "Account Executive",
   },
   manager: {
     name: "David Lee",
     role: "manager",
     email: "david.lee@playbook.com",
+    title: "Sales Manager",
   },
   finance: {
     name: "Rachel Adams",
     role: "finance",
     email: "rachel.adams@playbook.com",
+    title: "Finance Reviewer",
   },
 };
 
