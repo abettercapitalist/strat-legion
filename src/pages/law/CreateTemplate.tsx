@@ -1,167 +1,113 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const steps = [
-  "Basic Info",
-  "Add Clauses",
-  "Configure Properties",
-  "Review & Publish",
-];
+import { ContractEditor } from "@/components/editor";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function CreateTemplate() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
+  const [templateName, setTemplateName] = useState("");
+  const [category, setCategory] = useState("");
+  const [content, setContent] = useState("");
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/law/templates")}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-semibold">Create New Template</h1>
-          <p className="text-muted-foreground mt-1">
-            Step {currentStep + 1} of {steps.length}: {steps[currentStep]}
-          </p>
+    <div className="h-[calc(100vh-7rem)] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-border">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/law/templates")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold">Create New Template</h1>
+            <p className="text-sm text-muted-foreground">
+              Design your contract template with the editor below
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => navigate("/law/templates")}>
+            Cancel
+          </Button>
+          <Button>
+            <Save className="h-4 w-4 mr-2" />
+            Save Template
+          </Button>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Progress value={((currentStep + 1) / steps.length) * 100} />
-        <div className="flex justify-between text-sm text-muted-foreground">
-          {steps.map((step, index) => (
-            <span
-              key={step}
-              className={index <= currentStep ? "text-foreground font-medium" : ""}
-            >
-              {step}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {currentStep === 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>
-              Define the core details of your template
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Template Name</Label>
+      {/* Main Content */}
+      <div className="flex-1 flex gap-6 pt-6 min-h-0">
+        {/* Editor Section */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Template Meta */}
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <Label htmlFor="templateName" className="sr-only">
+                Template Name
+              </Label>
               <Input
-                id="name"
-                placeholder="e.g., Enterprise SaaS Agreement"
+                id="templateName"
+                placeholder="Template Name (e.g., Enterprise SaaS Agreement)"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="text-lg font-medium"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe the purpose and use cases for this template..."
-                className="min-h-[100px] resize-none"
-              />
+            <div className="w-48">
+              <Label htmlFor="category" className="sr-only">
+                Category
+              </Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="procurement">Procurement</SelectItem>
+                  <SelectItem value="employment">Employment</SelectItem>
+                  <SelectItem value="services">Services</SelectItem>
+                  <SelectItem value="partnership">Partnership</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select>
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="procurement">Procurement</SelectItem>
-                    <SelectItem value="employment">Employment</SelectItem>
-                    <SelectItem value="services">Services</SelectItem>
-                    <SelectItem value="partnership">Partnership</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select defaultValue="draft">
-                  <SelectTrigger id="status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-6">
-              <Button variant="outline" onClick={() => navigate("/law/templates")}>
-                Cancel
-              </Button>
-              <Button onClick={() => setCurrentStep(1)}>
-                Continue to Add Clauses
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {currentStep === 1 && (
-        <div className="text-center py-16 text-muted-foreground">
-          Step 2: Add Clauses - Implementation in progress
-          <div className="mt-4 flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => setCurrentStep(0)}>
-              Back
-            </Button>
-            <Button onClick={() => setCurrentStep(2)}>
-              Continue
-            </Button>
+          {/* WYSIWYG Editor */}
+          <div className="flex-1 min-h-0">
+            <ContractEditor content={content} onChange={setContent} />
           </div>
         </div>
-      )}
 
-      {currentStep === 2 && (
-        <div className="text-center py-16 text-muted-foreground">
-          Step 3: Configure Properties - Implementation in progress
-          <div className="mt-4 flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => setCurrentStep(1)}>
-              Back
-            </Button>
-            <Button onClick={() => setCurrentStep(3)}>
-              Continue
-            </Button>
-          </div>
+        {/* Clause Library Sidebar (placeholder) */}
+        <div className="w-80 flex-shrink-0">
+          <Card className="h-full">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Clause Library</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Available clauses will appear here. Drag and drop to add to your template.
+              </p>
+              {/* Clause library content will be built next */}
+            </CardContent>
+          </Card>
         </div>
-      )}
-
-      {currentStep === 3 && (
-        <div className="text-center py-16 text-muted-foreground">
-          Step 4: Review & Publish - Implementation in progress
-          <div className="mt-4 flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => setCurrentStep(2)}>
-              Back
-            </Button>
-            <Button onClick={() => navigate("/law/templates")}>
-              Publish Template
-            </Button>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
