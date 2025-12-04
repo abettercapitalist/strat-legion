@@ -3,6 +3,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ContractEditor } from "@/components/editor";
+import { SaveTemplateDialog } from "@/components/editor/SaveTemplateDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,7 @@ export default function CreateTemplate() {
   const [templateName, setTemplateName] = useState("");
   const [category, setCategory] = useState("");
   const [content, setContent] = useState("");
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   return (
     <div className="h-[calc(100vh-7rem)] flex flex-col">
@@ -43,7 +45,7 @@ export default function CreateTemplate() {
           <Button variant="outline" onClick={() => navigate("/law/templates")}>
             Cancel
           </Button>
-          <Button>
+          <Button onClick={() => setSaveDialogOpen(true)}>
             <Save className="h-4 w-4 mr-2" />
             Save Template
           </Button>
@@ -108,6 +110,14 @@ export default function CreateTemplate() {
           </Card>
         </div>
       </div>
+
+      <SaveTemplateDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        templateName={templateName}
+        templateContent={content}
+        category={category}
+      />
     </div>
   );
 }
