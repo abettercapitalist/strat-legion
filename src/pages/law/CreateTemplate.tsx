@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, ChevronDown, History } from "lucide-react";
+import { ArrowLeft, Save, ChevronDown, History, Check } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ContractEditor } from "@/components/editor";
@@ -28,6 +28,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -39,6 +46,8 @@ export default function CreateTemplate() {
   const [content, setContent] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>("choice");
+  const [draftSavedDialogOpen, setDraftSavedDialogOpen] = useState(false);
+  const [savedDraftName, setSavedDraftName] = useState("");
 
   const {
     lastSaved,
@@ -54,6 +63,12 @@ export default function CreateTemplate() {
   const handleOpenDialog = (mode: DialogMode) => {
     setDialogMode(mode);
     setSaveDialogOpen(true);
+  };
+
+  const handleSaveAsDraft = () => {
+    const name = templateName || getDraftName(new Date());
+    setSavedDraftName(name);
+    setDraftSavedDialogOpen(true);
   };
 
   const handleDiscard = () => {
@@ -153,7 +168,7 @@ export default function CreateTemplate() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleOpenDialog("system")}>
+                <DropdownMenuItem onClick={handleSaveAsDraft}>
                   Save as Draft
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleOpenDialog("download")}>
@@ -244,7 +259,30 @@ export default function CreateTemplate() {
         category={category}
         initialMode={dialogMode}
         onDiscard={handleDiscard}
+        draftName={getDraftName(new Date())}
       />
+
+      {/* Draft Saved Confirmation Dialog */}
+      <Dialog open={draftSavedDialogOpen} onOpenChange={setDraftSavedDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader className="text-center pb-2">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <Check className="h-6 w-6 text-primary" />
+            </div>
+            <DialogTitle>Draft Saved</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-center">
+            <p className="text-sm text-primary font-medium">
+              {savedDraftName}
+            </p>
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={() => setDraftSavedDialogOpen(false)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

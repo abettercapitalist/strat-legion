@@ -18,11 +18,22 @@ import {
   ChevronDown,
   ArrowLeft,
   AlertTriangle,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
-export type DialogMode = "choice" | "system" | "download" | "discard";
+export type DialogMode = "choice" | "system" | "download" | "discard" | "draft-saved";
 
 interface SaveTemplateDialogProps {
   open: boolean;
@@ -32,6 +43,7 @@ interface SaveTemplateDialogProps {
   category: string;
   initialMode?: DialogMode;
   onDiscard?: () => void;
+  draftName?: string;
 }
 
 interface FolderItem {
@@ -88,6 +100,21 @@ const systemFolders: FolderItem[] = [
     ],
   },
 ];
+
+// File type configurations
+const fileTypes = {
+  documents: [
+    { value: "docx", label: "Word Document (.docx)", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+    { value: "pages", label: "Pages Document (.pages)", mime: "application/x-iwork-pages-sffpages" },
+    { value: "rtf", label: "Rich Text Format (.rtf)", mime: "application/rtf" },
+  ],
+  ebook: [
+    { value: "epub", label: "EPUB (.epub)", mime: "application/epub+zip" },
+  ],
+  pdf: [
+    { value: "pdf", label: "PDF Document (.pdf)", mime: "application/pdf" },
+  ],
+};
 
 function FolderTree({
   folders,
@@ -175,18 +202,22 @@ export function SaveTemplateDialog({
   category,
   initialMode = "choice",
   onDiscard,
+  draftName,
 }: SaveTemplateDialogProps) {
   const [mode, setMode] = useState<DialogMode>(initialMode);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(
-    initialMode === "system" ? "drafts" : (category || "sales")
+    category || "sales"
   );
+  const [selectedFileType, setSelectedFileType] = useState("docx");
+  const [savedDraftName, setSavedDraftName] = useState("");
   const { toast } = useToast();
 
   // Reset mode when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       setMode(initialMode);
-      setSelectedFolder(initialMode === "system" ? "drafts" : (category || "sales"));
+      setSelectedFolder(category || "sales");
+      setSelectedFileType("docx");
     }
     onOpenChange(newOpen);
   };
@@ -204,9 +235,29 @@ export function SaveTemplateDialog({
     handleOpenChange(false);
   };
 
+  const handleSaveDraft = () => {
+    const name = templateName || draftName || "Untitled Draft";
+    setSavedDraftName(name);
+    setMode("draft-saved");
+  };
+
+  const getFileExtension = () => {
+    return selectedFileType;
+  };
+
+  const getMimeType = () => {
+    const allTypes = [...fileTypes.documents, ...fileTypes.ebook, ...fileTypes.pdf];
+    return allTypes.find(t => t.value === selectedFileType)?.mime || "text/html";
+  };
+
   const handleDownload = async () => {
-    const fileName = `${templateName || "untitled-template"}.html`;
-    const blob = new Blob([templateContent], { type: "text/html" });
+    const baseName = templateName || "untitled-template";
+    const extension = getFileExtension();
+    const fileName = `${baseName}.${extension}`;
+    const mimeType = getMimeType();
+    
+    // For this prototype, we'll still use HTML content but with the chosen extension
+    const blob = new Blob([templateContent], { type: mimeType });
     
     // Try to use the File System Access API for native file picker
     if ('showSaveFilePicker' in window) {
@@ -215,8 +266,8 @@ export function SaveTemplateDialog({
           suggestedName: fileName,
           types: [
             {
-              description: 'HTML Document',
-              accept: { 'text/html': ['.html'] },
+              description: `${extension.toUpperCase()} Document`,
+              accept: { [mimeType]: [`.${extension}`] },
             },
           ],
         });
@@ -268,6 +319,28 @@ export function SaveTemplateDialog({
   // Render based on mode
   const renderContent = () => {
     switch (mode) {
+      case "draft-saved":
+        return (
+          <>
+            <DialogHeader className="text-center pb-2">
+              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <Check className="h-6 w-6 text-primary" />
+              </div>
+              <DialogTitle>Draft Saved</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 text-center">
+              <p className="text-sm text-primary font-medium">
+                {savedDraftName}
+              </p>
+            </div>
+            <DialogFooter className="sm:justify-center">
+              <Button onClick={() => handleOpenChange(false)}>
+                OK
+              </Button>
+            </DialogFooter>
+          </>
+        );
+
       case "discard":
         return (
           <>
@@ -283,7 +356,7 @@ export function SaveTemplateDialog({
             <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 variant="default"
-                onClick={() => setMode("choice")}
+                onClick={() => handleOpenChange(false)}
               >
                 Cancel
               </Button>
@@ -299,18 +372,21 @@ export function SaveTemplateDialog({
         );
 
       case "download":
+        const showBackInDownload = initialMode === "choice";
         return (
           <>
             <DialogHeader>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setMode("choice")}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
+                {showBackInDownload && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setMode("choice")}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
                 <div>
                   <DialogTitle>Download Template</DialogTitle>
                   <DialogDescription>
@@ -319,17 +395,55 @@ export function SaveTemplateDialog({
                 </div>
               </div>
             </DialogHeader>
-            <div className="py-6 text-center">
-              <Download className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground">
-                Click download to save the template as an HTML file to your device.
+            <div className="py-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fileType">File Format</Label>
+                <Select value={selectedFileType} onValueChange={setSelectedFileType}>
+                  <SelectTrigger id="fileType">
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Document Formats</SelectLabel>
+                      {fileTypes.documents.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>eBook Formats</SelectLabel>
+                      {fileTypes.ebook.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <Separator className="my-1" />
+                    <SelectGroup>
+                      <SelectLabel>Export Only</SelectLabel>
+                      {fileTypes.pdf.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {selectedFileType === "pdf" 
+                  ? "PDF is best for final documents. It cannot be easily edited."
+                  : "This format can be edited in compatible word processors."
+                }
               </p>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setMode("choice")}>
+              <Button variant="outline" onClick={() => showBackInDownload ? setMode("choice") : handleOpenChange(false)}>
                 Cancel
               </Button>
               <Button onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
             </DialogFooter>
@@ -434,4 +548,20 @@ export function SaveTemplateDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+// Export a function to trigger draft save directly
+export function useSaveDraft() {
+  const { toast } = useToast();
+  
+  const saveDraft = (name: string) => {
+    // In a real app, this would save to the backend
+    toast({
+      title: "Draft Saved",
+      description: name,
+    });
+    return true;
+  };
+  
+  return { saveDraft };
 }
