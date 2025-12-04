@@ -158,3 +158,121 @@
     font-size: 0.875rem !important; /* 14px minimum */
   }
 }
+
+/* Contract Editor Styles */
+@layer components {
+  .ProseMirror {
+    min-height: 100%;
+    padding: 1.5rem;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .ProseMirror:focus {
+    outline: none;
+  }
+
+  .ProseMirror h1,
+  .ProseMirror h2,
+  .ProseMirror h3,
+  .ProseMirror h4 {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+
+  .ProseMirror h1 {
+    font-size: 1.5rem;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .ProseMirror h2 {
+    font-size: 1.25rem;
+  }
+
+  .ProseMirror h3 {
+    font-size: 1.125rem;
+  }
+
+  .ProseMirror p {
+    margin-bottom: 0.75em;
+    text-align: justify;
+  }
+
+  .ProseMirror ul,
+  .ProseMirror ol {
+    padding-left: 1.5rem;
+    margin-bottom: 0.75em;
+  }
+
+  .ProseMirror ul {
+    list-style-type: disc;
+  }
+
+  .ProseMirror ol {
+    list-style-type: decimal;
+  }
+
+  .ProseMirror li {
+    margin-bottom: 0.25em;
+  }
+
+  /* Table styles */
+  .ProseMirror table {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    width: 100%;
+  }
+
+  .ProseMirror th,
+  .ProseMirror td {
+    border: 1px solid hsl(var(--border));
+    padding: 0.5rem;
+    min-width: 100px;
+    vertical-align: top;
+  }
+
+  .ProseMirror th {
+    background: hsl(var(--muted));
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .ProseMirror .selectedCell {
+    background: hsl(var(--primary) / 0.1);
+  }
+
+  /* Highlight colors */
+  .ProseMirror mark {
+    border-radius: 0.125rem;
+    padding: 0 0.125rem;
+  }
+
+  /* Cross-reference links */
+  .ProseMirror .cross-reference {
+    color: hsl(var(--primary));
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .ProseMirror .cross-reference:hover {
+    text-decoration: underline;
+  }
+
+  /* Enumerated list styles */
+  .ProseMirror .enum-inline li {
+    display: inline;
+  }
+
+  .ProseMirror .enum-inline li::after {
+    content: " ";
+  }
+
+  .ProseMirror .enum-tabulated {
+    padding-left: 2rem;
+  }
+}
