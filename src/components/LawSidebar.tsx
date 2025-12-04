@@ -1,4 +1,4 @@
-import { FileText, Library, Inbox, BarChart3, Settings } from "lucide-react";
+import { FileText, Library, Inbox, BarChart3, Settings, Home } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -15,6 +15,12 @@ import {
 } from "./ui/sidebar";
 
 const navigation = [
+  { 
+    name: "Home", 
+    href: "/law/home", 
+    icon: Home,
+    badge: undefined,
+  },
   { 
     name: "Templates", 
     href: "/law/templates", 
