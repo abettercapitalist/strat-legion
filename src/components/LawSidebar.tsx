@@ -22,6 +22,12 @@ const navigation = [
     badge: undefined,
   },
   { 
+    name: "Change Requests", 
+    href: "/law/requests", 
+    icon: Inbox,
+    badge: 3,
+  },
+  { 
     name: "Templates", 
     href: "/law/templates", 
     icon: FileText,
@@ -40,13 +46,7 @@ const navigation = [
     badge: undefined,
   },
   { 
-    name: "Change Requests", 
-    href: "/law/requests", 
-    icon: Inbox,
-    badge: 3,
-  },
-  { 
-    name: "Learning Dashboard", 
+    name: "Learning Center", 
     href: "/law/dashboard", 
     icon: BarChart3,
     badge: undefined,
