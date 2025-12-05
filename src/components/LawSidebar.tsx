@@ -1,4 +1,4 @@
-import { FileText, Library, Inbox, BarChart3, Settings, Home } from "lucide-react";
+import { FileText, Library, Inbox, BarChart3, Settings, Home, MessageSquareText } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -31,6 +31,12 @@ const navigation = [
     name: "Clause Library", 
     href: "/law/clauses", 
     icon: Library,
+    badge: undefined,
+  },
+  { 
+    name: "Response Library", 
+    href: "/law/responses", 
+    icon: MessageSquareText,
     badge: undefined,
   },
   { 

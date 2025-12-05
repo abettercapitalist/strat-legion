@@ -20,6 +20,7 @@ import LawChangeRequests from "./pages/law/ChangeRequests";
 import LawDashboard from "./pages/law/LearningDashboard";
 import LawHome from "./pages/law/Home";
 import LawSettings from "./pages/law/Settings";
+import LawResponseLibrary from "./pages/law/ResponseLibrary";
 
 // Sales Module Pages
 import SalesDeals from "./pages/sales/Deals";
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="clauses" element={<LawClauses />} />
               <Route path="clauses/new" element={<LawCreateClause />} />
               <Route path="clauses/:id/edit" element={<LawCreateClause />} />
+              <Route path="responses" element={<LawResponseLibrary />} />
               <Route path="requests" element={<LawChangeRequests />} />
               <Route path="requests/approved" element={<LawChangeRequests />} />
               <Route path="requests/rejected" element={<LawChangeRequests />} />
