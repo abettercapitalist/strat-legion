@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAllTemplates, getActiveTemplates, getDraftTemplates, deleteTemplate, MockTemplate } from "@/lib/mockFileSystem";
+import { getAllTemplates, getActiveTemplates, getDraftTemplates, deleteTemplate, saveDraft, MockTemplate } from "@/lib/mockFileSystem";
 import { useToast } from "@/hooks/use-toast";
 
 const categories = ["All", "Sales", "Procurement", "Employment", "Services", "Partnership"];
@@ -32,10 +32,22 @@ export default function Templates() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      toast({
-        title: "Template imported",
-        description: `"${file.name}" has been imported as a draft.`,
-      });
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string || "";
+        // Extract name without extension
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        
+        // Save as draft
+        saveDraft(nameWithoutExt, content, "Sales");
+        refreshTemplates();
+        
+        toast({
+          title: "Template imported",
+          description: `"${nameWithoutExt}" has been imported as a draft.`,
+        });
+      };
+      reader.readAsText(file);
       // Reset input so same file can be selected again
       e.target.value = "";
     }
