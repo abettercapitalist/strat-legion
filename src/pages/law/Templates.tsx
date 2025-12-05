@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,24 @@ export default function Templates() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportTemplate = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      toast({
+        title: "Template imported",
+        description: `"${file.name}" has been imported as a draft.`,
+      });
+      // Reset input so same file can be selected again
+      e.target.value = "";
+    }
+  };
 
   useEffect(() => {
     // Load templates from mock file system
@@ -159,12 +177,34 @@ export default function Templates() {
             Manage contract templates and their configurations
           </p>
         </div>
-        <Link to="/law/templates/new">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Template
-          </Button>
-        </Link>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".docx,.doc,.rtf,.pdf,.txt"
+          className="hidden"
+        />
+        <DropdownMenu>
+          <div className="flex">
+            <Button asChild className="rounded-r-none">
+              <Link to="/law/templates/new">
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Template
+              </Link>
+            </Button>
+            <DropdownMenuTrigger asChild>
+              <Button className="rounded-l-none border-l border-primary-foreground/20 px-2">
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+          </div>
+          <DropdownMenuContent align="end" className="bg-popover">
+            <DropdownMenuItem onClick={handleImportTemplate}>
+              <Upload className="h-4 w-4 mr-2" />
+              Import New Template
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex items-center gap-4">
