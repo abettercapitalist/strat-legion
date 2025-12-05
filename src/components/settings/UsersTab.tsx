@@ -225,7 +225,7 @@ export function UsersTab() {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, email: e.target.value }))
                 }
-                placeholder="john.doe@playbook.com"
+                placeholder="john.doe@testco.com"
               />
             </div>
 

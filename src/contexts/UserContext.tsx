@@ -21,31 +21,31 @@ const roleUsers: Record<UserRole, User> = {
   law: {
     name: "Sarah Chen",
     role: "law",
-    email: "sarah.chen@playbook.com",
+    email: "sarah.chen@testco.com",
     title: "General Counsel",
   },
   "legal-ops": {
     name: "Bobby Darin",
     role: "legal-ops",
-    email: "bobby.darin@playbook.com",
+    email: "bobby.darin@testco.com",
     title: "Director of Legal Ops",
   },
   sales: {
     name: "John Smith",
     role: "sales",
-    email: "john.smith@playbook.com",
+    email: "john.smith@testco.com",
     title: "Account Executive",
   },
   manager: {
     name: "David Lee",
     role: "manager",
-    email: "david.lee@playbook.com",
+    email: "david.lee@testco.com",
     title: "Sales Manager",
   },
   finance: {
     name: "Rachel Adams",
     role: "finance",
-    email: "rachel.adams@playbook.com",
+    email: "rachel.adams@testco.com",
     title: "Finance Reviewer",
   },
 };

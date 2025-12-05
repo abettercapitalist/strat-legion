@@ -149,7 +149,7 @@ const defaultUsers: SystemUser[] = [
   {
     id: "user-1",
     name: "Sarah Chen",
-    email: "sarah.chen@playbook.com",
+    email: "sarah.chen@testco.com",
     roleIds: ["role-gc"],
     department: "Legal",
     title: "General Counsel",
@@ -159,7 +159,7 @@ const defaultUsers: SystemUser[] = [
   {
     id: "user-2",
     name: "Bobby Darin",
-    email: "bobby.darin@playbook.com",
+    email: "bobby.darin@testco.com",
     roleIds: ["role-legal-ops-director"],
     department: "Legal",
     title: "Director of Legal Ops",
@@ -169,7 +169,7 @@ const defaultUsers: SystemUser[] = [
   {
     id: "user-3",
     name: "Michael Torres",
-    email: "michael.torres@playbook.com",
+    email: "michael.torres@testco.com",
     roleIds: ["role-contract-counsel"],
     department: "Legal",
     title: "Contract Counsel",
@@ -179,7 +179,7 @@ const defaultUsers: SystemUser[] = [
   {
     id: "user-4",
     name: "John Smith",
-    email: "john.smith@playbook.com",
+    email: "john.smith@testco.com",
     roleIds: ["role-sales-ae"],
     department: "Sales",
     title: "Account Executive",
@@ -189,7 +189,7 @@ const defaultUsers: SystemUser[] = [
   {
     id: "user-5",
     name: "Emily Johnson",
-    email: "emily.johnson@playbook.com",
+    email: "emily.johnson@testco.com",
     roleIds: ["role-sales-ae"],
     department: "Sales",
     title: "Senior Account Executive",
@@ -199,7 +199,7 @@ const defaultUsers: SystemUser[] = [
   {
     id: "user-6",
     name: "David Lee",
-    email: "david.lee@playbook.com",
+    email: "david.lee@testco.com",
     roleIds: ["role-sales-manager"],
     department: "Sales",
     title: "Sales Manager",
@@ -209,7 +209,7 @@ const defaultUsers: SystemUser[] = [
   {
     id: "user-7",
     name: "Rachel Adams",
-    email: "rachel.adams@playbook.com",
+    email: "rachel.adams@testco.com",
     roleIds: ["role-finance"],
     department: "Finance",
     title: "Finance Reviewer",
