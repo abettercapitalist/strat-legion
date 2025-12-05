@@ -220,20 +220,27 @@ const defaultUsers: SystemUser[] = [
 
 const STORAGE_KEY = "playbook_rbac";
 
-export function RBACProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<SystemUser[]>(defaultUsers);
-  const [roles, setRoles] = useState<Role[]>(defaultRoles);
-  const [permissions] = useState<Permission[]>(defaultPermissions);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+function getInitialData() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
       const data = JSON.parse(stored);
-      if (data.users) setUsers(data.users);
-      if (data.roles) setRoles(data.roles);
+      return {
+        users: data.users || defaultUsers,
+        roles: data.roles || defaultRoles,
+      };
+    } catch {
+      return { users: defaultUsers, roles: defaultRoles };
     }
-  }, []);
+  }
+  return { users: defaultUsers, roles: defaultRoles };
+}
+
+export function RBACProvider({ children }: { children: ReactNode }) {
+  const initialData = getInitialData();
+  const [users, setUsers] = useState<SystemUser[]>(initialData.users);
+  const [roles, setRoles] = useState<Role[]>(initialData.roles);
+  const [permissions] = useState<Permission[]>(defaultPermissions);
 
   // Save to localStorage on changes
   useEffect(() => {
