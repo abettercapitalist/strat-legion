@@ -1,4 +1,4 @@
-import { Handshake, ClipboardList, Settings, BookOpen, Home, Users } from "lucide-react";
+import { Handshake, ClipboardList, Settings, BookOpen, Home, Users, Target } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -31,6 +31,12 @@ const navigation = [
     name: "My Customers", 
     href: "/sales/customers", 
     icon: Users,
+    badge: undefined,
+  },
+  { 
+    name: "My Targets", 
+    href: "/sales/targets", 
+    icon: Target,
     badge: undefined,
   },
   { 
@@ -83,7 +89,9 @@ export function SalesSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2 py-2">
               {navigation.map((item) => {
-                const isActive = location.pathname.startsWith(item.href);
+                const isActive = item.href === "/sales" 
+                  ? location.pathname === "/sales" 
+                  : location.pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild>

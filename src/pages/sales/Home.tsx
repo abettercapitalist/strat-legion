@@ -252,7 +252,7 @@ export default function SalesHome() {
                   <span className="text-2xl font-semibold">${targetProgress.team.current}K</span>
                   <span className="text-sm text-muted-foreground">of ${targetProgress.team.goal}K</span>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-primary rounded-full transition-all duration-500"
                     style={{ width: `${(targetProgress.team.current / targetProgress.team.goal) * 100}%` }}
@@ -276,9 +276,9 @@ export default function SalesHome() {
                   <span className="text-2xl font-semibold">${targetProgress.personal.current}K</span>
                   <span className="text-sm text-muted-foreground">of ${targetProgress.personal.goal}K</span>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-primary to-status-success rounded-full transition-all duration-500"
+                    className="h-full bg-primary rounded-full transition-all duration-500"
                     style={{ width: `${(targetProgress.personal.current / targetProgress.personal.goal) * 100}%` }}
                   />
                 </div>
@@ -340,7 +340,7 @@ export default function SalesHome() {
       </Card>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <Link to="/sales/deals">
           <Card className="border-border hover:border-primary/30 hover:shadow-md transition-all cursor-pointer h-full group">
             <CardContent className="pt-6">
@@ -358,12 +358,26 @@ export default function SalesHome() {
         <Link to="/sales/customers">
           <Card className="border-border hover:border-primary/30 hover:shadow-md transition-all cursor-pointer h-full group">
             <CardContent className="pt-6">
-              <div className="p-3 rounded-lg bg-status-success/10 w-fit mb-4 group-hover:bg-status-success/20 transition-colors">
-                <Users className="h-5 w-5 text-status-success" />
+              <div className="p-3 rounded-lg bg-muted w-fit mb-4 group-hover:bg-muted/80 transition-colors">
+                <Users className="h-5 w-5 text-muted-foreground" />
               </div>
               <h3 className="font-medium group-hover:text-primary transition-colors">My Customers</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Customer relationships and history
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/sales/targets">
+          <Card className="border-border hover:border-primary/30 hover:shadow-md transition-all cursor-pointer h-full group">
+            <CardContent className="pt-6">
+              <div className="p-3 rounded-lg bg-primary/10 w-fit mb-4 group-hover:bg-primary/20 transition-colors">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+              <h3 className="font-medium group-hover:text-primary transition-colors">My Targets</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Track your quarterly progress
               </p>
             </CardContent>
           </Card>
