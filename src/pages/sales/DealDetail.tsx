@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Download, Edit, Plus } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { NegotiationTab } from "@/components/contracts/NegotiationTab";
 
 export default function ContractDetail() {
   const navigate = useNavigate();
@@ -42,10 +43,10 @@ export default function ContractDetail() {
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="overview">Business Overview</TabsTrigger>
-          <TabsTrigger value="legal">Legal Details</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks & Workflow</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="negotiation">Negotiation</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-8">
@@ -156,10 +157,14 @@ export default function ContractDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="legal">
+        <TabsContent value="negotiation">
+          <NegotiationTab />
+        </TabsContent>
+
+        <TabsContent value="documents">
           <Card className="border border-border">
             <CardContent className="p-8">
-              <p className="text-muted-foreground">Legal details view - coming soon</p>
+              <p className="text-muted-foreground">Documents view - coming soon</p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -168,14 +173,6 @@ export default function ContractDetail() {
           <Card className="border border-border">
             <CardContent className="p-8">
               <p className="text-muted-foreground">Tasks view - coming soon</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="documents">
-          <Card className="border border-border">
-            <CardContent className="p-8">
-              <p className="text-muted-foreground">Documents view - coming soon</p>
             </CardContent>
           </Card>
         </TabsContent>
