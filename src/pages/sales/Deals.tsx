@@ -30,14 +30,6 @@ import {
   ChevronRight
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
 
 interface Deal {
   id: string;
@@ -249,86 +241,49 @@ export default function MyDeals() {
         </DropdownMenu>
       </div>
 
-      {/* Pipeline Visualization - Full Width Bar Chart */}
-      <Card className="border-border overflow-hidden">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+      {/* Pipeline Visualization - Clean Stacked Bar */}
+      <Card className="border-border">
+        <CardContent className="pt-6 pb-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               Deal Pipeline
-            </CardTitle>
-            <span className="text-2xl font-semibold">${totalPipeline}K <span className="text-sm font-normal text-muted-foreground">total value</span></span>
+            </span>
+            <span className="text-2xl font-semibold">${totalPipeline}K</span>
           </div>
-        </CardHeader>
-        <CardContent>
-          {/* Horizontal Pipeline Flow */}
-          <div className="relative">
-            {/* Bar Chart */}
-            <div className="h-20">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={pipelineStages}
-                  layout="vertical"
-                  barSize={40}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" hide />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                    {pipelineStages.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Stage Labels */}
-            <div className="flex justify-between mt-4">
-              {pipelineStages.map((stage, index) => (
-                <div key={stage.name} className="flex-1 flex items-center">
+          
+          {/* Stacked Horizontal Bar */}
+          <div className="h-10 flex rounded-lg overflow-hidden">
+            {pipelineStages.map((stage) => (
+              <Tooltip key={stage.name}>
+                <TooltipTrigger asChild>
                   <div 
-                    className="flex-1 cursor-pointer hover:bg-muted/30 rounded-lg p-3 transition-colors"
-                    onClick={() => {
-                      const deal = deals.find(d => d.stage === stage.name);
-                      if (deal) setSelectedDeal(deal);
+                    className="h-full transition-opacity hover:opacity-80 cursor-pointer first:rounded-l-lg last:rounded-r-lg"
+                    style={{ 
+                      width: `${(stage.value / totalPipeline) * 100}%`,
+                      backgroundColor: stage.color 
                     }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: stage.color }}
-                      />
-                      <span className="text-sm font-medium">{stage.name}</span>
-                      <Badge variant="outline" className="text-xs ml-auto">
-                        {stage.count}
-                      </Badge>
-                    </div>
-                    <p className="text-lg font-semibold mt-1">${stage.value}K</p>
-                    {/* Mini deal cards */}
-                    <div className="mt-2 space-y-1">
-                      {deals
-                        .filter((d) => d.stage === stage.name)
-                        .slice(0, 2)
-                        .map((deal) => (
-                          <div
-                            key={deal.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDeal(deal);
-                            }}
-                            className={`text-xs p-2 bg-card rounded border-l-2 cursor-pointer hover:bg-muted/50 transition-colors ${getPriorityIndicator(deal.priority)}`}
-                          >
-                            <p className="font-medium truncate">{deal.customer}</p>
-                            <p className="text-muted-foreground">{deal.arr}</p>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                  {index < pipelineStages.length - 1 && (
-                    <ChevronRight className="h-5 w-5 text-muted-foreground/30 mx-1 flex-shrink-0" />
-                  )}
-                </div>
-              ))}
-            </div>
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-medium">{stage.name}</p>
+                  <p className="text-sm text-muted-foreground">{stage.count} deals · ${stage.value}K</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+
+          {/* Stage Legend */}
+          <div className="flex justify-between mt-4">
+            {pipelineStages.map((stage) => (
+              <div key={stage.name} className="flex items-center gap-2">
+                <div 
+                  className="w-2.5 h-2.5 rounded-full" 
+                  style={{ backgroundColor: stage.color }}
+                />
+                <span className="text-sm text-muted-foreground">{stage.name}</span>
+                <span className="text-sm font-medium">{stage.count}</span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
