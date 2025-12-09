@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { useUser } from "@/contexts/UserContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ReactNode } from "react";
 
 interface ProtectedRouteProps {
@@ -7,10 +7,18 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user } = useUser();
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/auth" replace />;
   }
 
   return <>{children}</>;

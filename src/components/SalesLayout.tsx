@@ -1,12 +1,18 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { SalesSidebar } from "./SalesSidebar";
 import { SidebarProvider, SidebarTrigger } from "./ui/sidebar";
-import { useUser } from "@/contexts/UserContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "./ui/button";
 import { LogOut } from "lucide-react";
 
 export function SalesLayout() {
-  const { user, logout } = useUser();
+  const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   return (
     <SidebarProvider>
@@ -17,9 +23,9 @@ export function SalesLayout() {
             <SidebarTrigger />
             <div className="flex items-center gap-4">
               <div className="text-sm text-muted-foreground">
-                {user?.name} • {user?.email}
+                {profile?.full_name} • {profile?.email}
               </div>
-              <Button variant="ghost" size="sm" onClick={logout}>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
