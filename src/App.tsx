@@ -23,10 +23,12 @@ import LawSettings from "./pages/law/Settings";
 import LawResponseLibrary from "./pages/law/ResponseLibrary";
 
 // Sales Module Pages
+import SalesHome from "./pages/sales/Home";
 import SalesDeals from "./pages/sales/Deals";
 import CreateDeal from "./pages/sales/CreateDeal";
 import DealDetail from "./pages/sales/DealDetail";
 import SalesApprovals from "./pages/sales/Approvals";
+import SalesCustomers from "./pages/sales/Customers";
 import ResponseLibrary from "./pages/sales/ResponseLibrary";
 
 const queryClient = new QueryClient();
@@ -64,17 +66,13 @@ const App = () => (
 
             {/* Sales Module Routes */}
             <Route path="/sales" element={<ProtectedRoute><SalesLayout /></ProtectedRoute>}>
-              <Route index element={<Navigate to="/sales/deals" replace />} />
+              <Route index element={<SalesHome />} />
               <Route path="deals" element={<SalesDeals />} />
-              <Route path="deals/all" element={<SalesDeals />} />
               <Route path="deals/new" element={<CreateDeal />} />
               <Route path="deals/:id" element={<DealDetail />} />
-              <Route path="deals/closed" element={<SalesDeals />} />
+              <Route path="customers" element={<SalesCustomers />} />
               <Route path="approvals" element={<SalesApprovals />} />
-              <Route path="approvals/history" element={<SalesApprovals />} />
               <Route path="responses" element={<ResponseLibrary />} />
-              <Route path="pipeline" element={<div className="text-center py-16 text-muted-foreground">Pipeline Dashboard - Coming Soon</div>} />
-              <Route path="pipeline/forecast" element={<div className="text-center py-16 text-muted-foreground">Forecast - Coming Soon</div>} />
               <Route path="settings" element={<div className="text-center py-16 text-muted-foreground">Settings - Coming Soon</div>} />
             </Route>
 
