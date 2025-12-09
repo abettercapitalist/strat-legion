@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,13 +22,22 @@ import {
 import { 
   Plus, 
   ChevronDown, 
-  MoreVertical, 
   ArrowRight,
   Clock,
   TrendingUp,
-  Users
+  Users,
+  Target,
+  ChevronRight
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 interface Deal {
   id: string;
@@ -160,10 +168,10 @@ const approvalTasks: ApprovalTask[] = [
 ];
 
 const pipelineStages = [
-  { name: "Draft", count: 1, value: "$45K" },
-  { name: "Negotiation", count: 2, value: "$119K" },
-  { name: "Approval", count: 1, value: "$85K" },
-  { name: "Signature", count: 1, value: "$38K" },
+  { name: "Draft", count: 1, value: 45, color: "hsl(var(--muted-foreground))" },
+  { name: "Negotiation", count: 2, value: 119, color: "hsl(var(--status-warning))" },
+  { name: "Approval", count: 1, value: 85, color: "hsl(var(--primary))" },
+  { name: "Signature", count: 1, value: 38, color: "hsl(var(--status-success))" },
 ];
 
 const teamTarget = { current: 420000, goal: 500000 };
@@ -210,12 +218,14 @@ export default function MyDeals() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const navigate = useNavigate();
 
+  const totalPipeline = pipelineStages.reduce((acc, s) => acc + s.value, 0);
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-semibold">My Deals</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">My Deals</h1>
           <p className="text-lg text-muted-foreground mt-2">
             Track, negotiate, close
           </p>
@@ -239,104 +249,157 @@ export default function MyDeals() {
         </DropdownMenu>
       </div>
 
-      {/* Pipeline Visualization + Targets */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Kanban Pipeline - Takes 2/3 */}
-        <Card className="col-span-2 border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium">Deal Pipeline</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-3">
-              {pipelineStages.map((stage) => (
-                <div 
-                  key={stage.name} 
-                  className="bg-muted/30 rounded-lg p-4 min-h-[120px]"
+      {/* Pipeline Visualization - Full Width Bar Chart */}
+      <Card className="border-border overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              Deal Pipeline
+            </CardTitle>
+            <span className="text-2xl font-semibold">${totalPipeline}K <span className="text-sm font-normal text-muted-foreground">total value</span></span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Horizontal Pipeline Flow */}
+          <div className="relative">
+            {/* Bar Chart */}
+            <div className="h-20">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={pipelineStages}
+                  layout="vertical"
+                  barSize={40}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {stage.name}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {stage.count}
-                    </Badge>
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" hide />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                    {pipelineStages.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Stage Labels */}
+            <div className="flex justify-between mt-4">
+              {pipelineStages.map((stage, index) => (
+                <div key={stage.name} className="flex-1 flex items-center">
+                  <div 
+                    className="flex-1 cursor-pointer hover:bg-muted/30 rounded-lg p-3 transition-colors"
+                    onClick={() => {
+                      const deal = deals.find(d => d.stage === stage.name);
+                      if (deal) setSelectedDeal(deal);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: stage.color }}
+                      />
+                      <span className="text-sm font-medium">{stage.name}</span>
+                      <Badge variant="outline" className="text-xs ml-auto">
+                        {stage.count}
+                      </Badge>
+                    </div>
+                    <p className="text-lg font-semibold mt-1">${stage.value}K</p>
+                    {/* Mini deal cards */}
+                    <div className="mt-2 space-y-1">
+                      {deals
+                        .filter((d) => d.stage === stage.name)
+                        .slice(0, 2)
+                        .map((deal) => (
+                          <div
+                            key={deal.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDeal(deal);
+                            }}
+                            className={`text-xs p-2 bg-card rounded border-l-2 cursor-pointer hover:bg-muted/50 transition-colors ${getPriorityIndicator(deal.priority)}`}
+                          >
+                            <p className="font-medium truncate">{deal.customer}</p>
+                            <p className="text-muted-foreground">{deal.arr}</p>
+                          </div>
+                        ))}
+                    </div>
                   </div>
-                  <p className="text-2xl font-semibold">{stage.value}</p>
-                  <div className="mt-3 space-y-2">
-                    {deals
-                      .filter((d) => d.stage === stage.name)
-                      .slice(0, 2)
-                      .map((deal) => (
-                        <div
-                          key={deal.id}
-                          onClick={() => setSelectedDeal(deal)}
-                          className={`text-xs p-2 bg-card rounded border-l-2 cursor-pointer hover:bg-muted/50 transition-colors ${getPriorityIndicator(deal.priority)}`}
-                        >
-                          <p className="font-medium truncate">{deal.customer}</p>
-                          <p className="text-muted-foreground">{deal.arr}</p>
-                        </div>
-                      ))}
-                  </div>
+                  {index < pipelineStages.length - 1 && (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground/30 mx-1 flex-shrink-0" />
+                  )}
                 </div>
               ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Targets Row */}
+      <div className="grid grid-cols-2 gap-6">
+        {/* Team Target */}
+        <Card className="border-border">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-muted">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Team Target</p>
+                  <p className="text-xl font-semibold">
+                    ${(teamTarget.current / 1000).toFixed(0)}K 
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      of ${(teamTarget.goal / 1000).toFixed(0)}K
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="w-32">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary rounded-full"
+                    style={{ width: `${(teamTarget.current / teamTarget.goal) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-right mt-1">
+                  {Math.round((teamTarget.current / teamTarget.goal) * 100)}%
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Targets - Takes 1/3 */}
-        <div className="space-y-4">
-          <Card className="border-border">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Team Target
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-semibold">${(teamTarget.current / 1000).toFixed(0)}K</span>
-                  <span className="text-muted-foreground">of ${(teamTarget.goal / 1000).toFixed(0)}K</span>
+        {/* Personal Target */}
+        <Card className="border-border">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-primary/10">
+                  <Target className="h-5 w-5 text-primary" />
                 </div>
-                <Progress 
-                  value={(teamTarget.current / teamTarget.goal) * 100} 
-                  className="h-2"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {Math.round((teamTarget.current / teamTarget.goal) * 100)}% to goal
+                <div>
+                  <p className="text-sm text-muted-foreground">Your Target</p>
+                  <p className="text-xl font-semibold">
+                    ${(personalTarget.current / 1000).toFixed(0)}K 
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      of ${(personalTarget.goal / 1000).toFixed(0)}K
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="w-32">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-primary to-status-success rounded-full"
+                    style={{ width: `${(personalTarget.current / personalTarget.goal) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-right mt-1">
+                  {Math.round((personalTarget.current / personalTarget.goal) * 100)}%
                 </p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Your Target
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-semibold">${(personalTarget.current / 1000).toFixed(0)}K</span>
-                  <span className="text-muted-foreground">of ${(personalTarget.goal / 1000).toFixed(0)}K</span>
-                </div>
-                <Progress 
-                  value={(personalTarget.current / personalTarget.goal) * 100} 
-                  className="h-2"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {Math.round((personalTarget.current / personalTarget.goal) * 100)}% to goal
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Pending Approvals Preview */}
@@ -344,10 +407,12 @@ export default function MyDeals() {
         <Card className="border-border">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-status-warning" />
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-status-warning/10">
+                  <Clock className="h-4 w-4 text-status-warning" />
+                </div>
                 <CardTitle className="text-base font-medium">Pending Approvals</CardTitle>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="bg-status-warning/10 text-status-warning border-status-warning/20">
                   {approvalTasks.length}
                 </Badge>
               </div>
@@ -363,7 +428,7 @@ export default function MyDeals() {
             <div className="grid grid-cols-3 gap-3">
               {approvalTasks.slice(0, 3).map((task) => (
                 <Link key={task.id} to="/sales/approvals">
-                  <div className="p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors cursor-pointer">
+                  <div className="p-4 rounded-lg border border-border hover:border-primary/30 hover:bg-muted/30 transition-all cursor-pointer group">
                     <div className="flex items-center justify-between mb-2">
                       <Badge 
                         variant="outline" 
@@ -371,8 +436,9 @@ export default function MyDeals() {
                       >
                         {task.dueDate}
                       </Badge>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <p className="font-medium text-sm">{task.dealName}</p>
+                    <p className="font-medium text-sm group-hover:text-primary transition-colors">{task.dealName}</p>
                     <p className="text-xs text-muted-foreground">{task.type}</p>
                   </div>
                 </Link>
@@ -400,11 +466,11 @@ export default function MyDeals() {
             {deals.slice(0, 7).map((deal) => (
               <tr 
                 key={deal.id} 
-                className="hover:bg-muted/20 transition-colors cursor-pointer"
+                className="hover:bg-muted/20 transition-colors cursor-pointer group"
                 onClick={() => setSelectedDeal(deal)}
               >
                 <td className="px-6 py-4">
-                  <span className="font-medium text-foreground">
+                  <span className="font-medium text-foreground group-hover:text-primary transition-colors">
                     {deal.title}
                   </span>
                 </td>
@@ -476,14 +542,7 @@ export default function MyDeals() {
                   </Tooltip>
                 </td>
                 <td className="px-6 py-4">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                 </td>
               </tr>
             ))}
@@ -491,76 +550,86 @@ export default function MyDeals() {
         </table>
       </div>
 
-      {/* Deal Card Modal */}
+      {/* Deal Detail Modal */}
       <Dialog open={!!selectedDeal} onOpenChange={() => setSelectedDeal(null)}>
         <DialogContent className="max-w-2xl">
           {selectedDeal && (
             <>
               <DialogHeader>
-                <div className="flex items-center gap-3">
-                  <DialogTitle className="text-xl">{selectedDeal.title}</DialogTitle>
-                  <Badge variant="outline" className={getStageColor(selectedDeal.stage)}>
-                    {selectedDeal.stage}
-                  </Badge>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <Badge 
+                      variant="outline" 
+                      className={`mb-2 ${getStageColor(selectedDeal.stage)}`}
+                    >
+                      {selectedDeal.stage}
+                    </Badge>
+                    <DialogTitle className="text-xl">{selectedDeal.title}</DialogTitle>
+                    <p className="text-muted-foreground mt-1">
+                      {selectedDeal.customer}
+                      <Badge 
+                        variant="outline" 
+                        className="ml-2 text-xs"
+                      >
+                        {selectedDeal.customerType === "new" ? "New Customer" : "Renewal"}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-semibold">{selectedDeal.arr}</p>
+                    <p className="text-sm text-muted-foreground">Annual Value</p>
+                  </div>
                 </div>
-                <p className="text-muted-foreground">
-                  {selectedDeal.customer} · {selectedDeal.customerType === "new" ? "New Customer" : "Renewal"}
-                </p>
               </DialogHeader>
 
+              {/* Visual Summary */}
+              <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-border">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Close Date</p>
+                    <p className="font-semibold mt-1">{selectedDeal.expectedClose}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Days in Stage</p>
+                    <p className="font-semibold mt-1">{selectedDeal.daysInStage}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Priority</p>
+                    <Badge 
+                      variant="outline" 
+                      className={`mt-1 ${
+                        selectedDeal.priority === "high" 
+                          ? "bg-status-error/10 text-status-error border-status-error/20"
+                          : selectedDeal.priority === "medium"
+                          ? "bg-status-warning/10 text-status-warning border-status-warning/20"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {selectedDeal.priority.charAt(0).toUpperCase() + selectedDeal.priority.slice(1)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-6 mt-4">
-                {/* Left Column - Key Info */}
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Annual Recurring Revenue</p>
-                    <p className="text-2xl font-semibold">{selectedDeal.arr}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Expected Close</p>
-                    <p className="font-medium">{selectedDeal.expectedClose}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Key Terms</p>
-                    <p className="text-sm">{selectedDeal.keyTerms}</p>
-                  </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Business Objective</h4>
+                  <p className="text-sm">{selectedDeal.businessObjective}</p>
                 </div>
-
-                {/* Right Column - Status & Context */}
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Business Objective</p>
-                    <p className="text-sm">{selectedDeal.businessObjective}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Current Status</p>
-                    <p className="text-sm">{selectedDeal.statusDetail}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Next Action</p>
-                    <p className="text-sm font-medium">{selectedDeal.nextAction}</p>
-                  </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Key Terms</h4>
+                  <p className="text-sm">{selectedDeal.keyTerms}</p>
                 </div>
               </div>
 
-              {/* Progress indicator */}
-              <div className="mt-6 pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-2">Deal Progress</p>
-                <div className="flex gap-1">
-                  {["Draft", "Negotiation", "Approval", "Signature"].map((stage, i) => {
-                    const stageIndex = ["Draft", "Negotiation", "Approval", "Signature"].indexOf(selectedDeal.stage);
-                    return (
-                      <div
-                        key={stage}
-                        className={`h-2 flex-1 rounded-full ${
-                          i <= stageIndex ? "bg-primary" : "bg-muted"
-                        }`}
-                      />
-                    );
-                  })}
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Next Action</h4>
+                <div className="p-3 rounded-lg border border-border bg-card">
+                  <p className="font-medium">{selectedDeal.nextAction}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{selectedDeal.statusDetail}</p>
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex justify-end gap-3 mt-6">
                 <Button variant="outline" onClick={() => setSelectedDeal(null)}>
                   Close
@@ -568,6 +637,7 @@ export default function MyDeals() {
                 <Link to={`/sales/deals/${selectedDeal.id}`}>
                   <Button>
                     View Full Deal
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
               </div>
