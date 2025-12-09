@@ -306,7 +306,7 @@ export default function MyDeals() {
                 </div>
                 {/* Vertical divider between columns */}
                 {index < pipelineStages.length - 1 && (
-                  <div className="w-px bg-border/60 self-stretch mx-1" />
+                  <div className="w-px bg-border self-stretch mx-1" />
                 )}
               </div>
             ))}
