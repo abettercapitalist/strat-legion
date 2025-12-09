@@ -273,35 +273,41 @@ export default function MyDeals() {
           </div>
 
           {/* Stage Columns with Deal Cards */}
-          <div className="grid grid-cols-4 gap-4 mt-6">
+          <div className="flex mt-6">
             {pipelineStages.map((stage, index) => (
-              <div key={stage.name} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: `hsl(var(--primary) / ${0.3 + (index * 0.2)})` }}
-                    />
-                    <span className="text-sm font-medium">{stage.name}</span>
+              <div key={stage.name} className="flex flex-1">
+                <div className="flex-1 space-y-3 px-3 first:pl-0 last:pr-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: `hsl(var(--primary) / ${0.3 + (index * 0.2)})` }}
+                      />
+                      <span className="text-sm font-medium">{stage.name}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">${stage.value}K</span>
                   </div>
-                  <span className="text-sm text-muted-foreground">${stage.value}K</span>
+                  {/* Deal Cards */}
+                  <div className="space-y-2">
+                    {deals
+                      .filter((d) => d.stage === stage.name)
+                      .slice(0, 2)
+                      .map((deal) => (
+                        <div
+                          key={deal.id}
+                          onClick={() => setSelectedDeal(deal)}
+                          className={`p-3 bg-muted/30 rounded-md border-l-2 cursor-pointer hover:bg-muted/50 transition-colors ${getPriorityIndicator(deal.priority)}`}
+                        >
+                          <p className="text-sm font-medium truncate">{deal.customer}</p>
+                          <p className="text-xs text-muted-foreground">{deal.arr}</p>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-                {/* Deal Cards */}
-                <div className="space-y-2">
-                  {deals
-                    .filter((d) => d.stage === stage.name)
-                    .slice(0, 2)
-                    .map((deal) => (
-                      <div
-                        key={deal.id}
-                        onClick={() => setSelectedDeal(deal)}
-                        className={`p-3 bg-muted/30 rounded-md border-l-2 cursor-pointer hover:bg-muted/50 transition-colors ${getPriorityIndicator(deal.priority)}`}
-                      >
-                        <p className="text-sm font-medium truncate">{deal.customer}</p>
-                        <p className="text-xs text-muted-foreground">{deal.arr}</p>
-                      </div>
-                    ))}
-                </div>
+                {/* Vertical divider between columns */}
+                {index < pipelineStages.length - 1 && (
+                  <div className="w-px bg-border/60 self-stretch mx-1" />
+                )}
               </div>
             ))}
           </div>
