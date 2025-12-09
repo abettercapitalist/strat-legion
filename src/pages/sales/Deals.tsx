@@ -160,10 +160,10 @@ const approvalTasks: ApprovalTask[] = [
 ];
 
 const pipelineStages = [
-  { name: "Draft", count: 1, value: 45, color: "hsl(var(--muted-foreground))" },
-  { name: "Negotiation", count: 2, value: 119, color: "hsl(var(--status-warning))" },
-  { name: "Approval", count: 1, value: 85, color: "hsl(var(--primary))" },
-  { name: "Signature", count: 1, value: 38, color: "hsl(var(--status-success))" },
+  { name: "Draft", count: 1, value: 45 },
+  { name: "Negotiation", count: 2, value: 119 },
+  { name: "Approval", count: 1, value: 85 },
+  { name: "Signature", count: 1, value: 38 },
 ];
 
 const teamTarget = { current: 420000, goal: 500000 };
@@ -241,7 +241,7 @@ export default function MyDeals() {
         </DropdownMenu>
       </div>
 
-      {/* Pipeline Visualization - Clean Stacked Bar */}
+      {/* Pipeline Visualization - Monochrome with Deal Cards */}
       <Card className="border-border">
         <CardContent className="pt-6 pb-6">
           <div className="flex items-center justify-between mb-4">
@@ -251,16 +251,16 @@ export default function MyDeals() {
             <span className="text-2xl font-semibold">${totalPipeline}K</span>
           </div>
           
-          {/* Stacked Horizontal Bar */}
-          <div className="h-10 flex rounded-lg overflow-hidden">
-            {pipelineStages.map((stage) => (
+          {/* Simple Monochrome Stacked Bar */}
+          <div className="h-8 flex rounded-md overflow-hidden bg-border/50">
+            {pipelineStages.map((stage, index) => (
               <Tooltip key={stage.name}>
                 <TooltipTrigger asChild>
                   <div 
-                    className="h-full transition-opacity hover:opacity-80 cursor-pointer first:rounded-l-lg last:rounded-r-lg"
+                    className="h-full transition-all hover:brightness-110 cursor-pointer"
                     style={{ 
                       width: `${(stage.value / totalPipeline) * 100}%`,
-                      backgroundColor: stage.color 
+                      backgroundColor: `hsl(var(--primary) / ${0.3 + (index * 0.2)})`,
                     }}
                   />
                 </TooltipTrigger>
@@ -272,16 +272,36 @@ export default function MyDeals() {
             ))}
           </div>
 
-          {/* Stage Legend */}
-          <div className="flex justify-between mt-4">
-            {pipelineStages.map((stage) => (
-              <div key={stage.name} className="flex items-center gap-2">
-                <div 
-                  className="w-2.5 h-2.5 rounded-full" 
-                  style={{ backgroundColor: stage.color }}
-                />
-                <span className="text-sm text-muted-foreground">{stage.name}</span>
-                <span className="text-sm font-medium">{stage.count}</span>
+          {/* Stage Columns with Deal Cards */}
+          <div className="grid grid-cols-4 gap-4 mt-6">
+            {pipelineStages.map((stage, index) => (
+              <div key={stage.name} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: `hsl(var(--primary) / ${0.3 + (index * 0.2)})` }}
+                    />
+                    <span className="text-sm font-medium">{stage.name}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">${stage.value}K</span>
+                </div>
+                {/* Deal Cards */}
+                <div className="space-y-2">
+                  {deals
+                    .filter((d) => d.stage === stage.name)
+                    .slice(0, 2)
+                    .map((deal) => (
+                      <div
+                        key={deal.id}
+                        onClick={() => setSelectedDeal(deal)}
+                        className={`p-3 bg-muted/30 rounded-md border-l-2 cursor-pointer hover:bg-muted/50 transition-colors ${getPriorityIndicator(deal.priority)}`}
+                      >
+                        <p className="text-sm font-medium truncate">{deal.customer}</p>
+                        <p className="text-xs text-muted-foreground">{deal.arr}</p>
+                      </div>
+                    ))}
+                </div>
               </div>
             ))}
           </div>
@@ -309,7 +329,7 @@ export default function MyDeals() {
                 </div>
               </div>
               <div className="w-32">
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-primary rounded-full"
                     style={{ width: `${(teamTarget.current / teamTarget.goal) * 100}%` }}
@@ -342,9 +362,9 @@ export default function MyDeals() {
                 </div>
               </div>
               <div className="w-32">
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 bg-border rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-primary to-status-success rounded-full"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${(personalTarget.current / personalTarget.goal) * 100}%` }}
                   />
                 </div>

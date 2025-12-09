@@ -29,6 +29,7 @@ import CreateDeal from "./pages/sales/CreateDeal";
 import DealDetail from "./pages/sales/DealDetail";
 import SalesApprovals from "./pages/sales/Approvals";
 import SalesCustomers from "./pages/sales/Customers";
+import SalesTargets from "./pages/sales/Targets";
 import ResponseLibrary from "./pages/sales/ResponseLibrary";
 
 const queryClient = new QueryClient();
@@ -71,6 +72,7 @@ const App = () => (
               <Route path="deals/new" element={<CreateDeal />} />
               <Route path="deals/:id" element={<DealDetail />} />
               <Route path="customers" element={<SalesCustomers />} />
+              <Route path="targets" element={<SalesTargets />} />
               <Route path="approvals" element={<SalesApprovals />} />
               <Route path="responses" element={<ResponseLibrary />} />
               <Route path="settings" element={<div className="text-center py-16 text-muted-foreground">Settings - Coming Soon</div>} />
