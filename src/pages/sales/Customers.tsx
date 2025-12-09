@@ -16,9 +16,21 @@ import {
   Phone,
   Building2,
   ArrowRight,
-  FileText
+  Briefcase,
+  UserPlus
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
 
 interface Customer {
   id: string;
@@ -26,6 +38,7 @@ interface Customer {
   type: "new" | "existing";
   industry: string;
   totalArr: string;
+  arrValue: number;
   activeDeals: number;
   closedDeals: number;
   lastActivity: string;
@@ -46,6 +59,7 @@ const customers: Customer[] = [
     type: "new",
     industry: "Technology",
     totalArr: "$85K",
+    arrValue: 85,
     activeDeals: 1,
     closedDeals: 0,
     lastActivity: "2 days ago",
@@ -62,6 +76,7 @@ const customers: Customer[] = [
     type: "new",
     industry: "Data & Analytics",
     totalArr: "$62K",
+    arrValue: 62,
     activeDeals: 1,
     closedDeals: 0,
     lastActivity: "Yesterday",
@@ -78,6 +93,7 @@ const customers: Customer[] = [
     type: "existing",
     industry: "Retail",
     totalArr: "$45K",
+    arrValue: 45,
     activeDeals: 1,
     closedDeals: 2,
     lastActivity: "3 days ago",
@@ -96,6 +112,7 @@ const customers: Customer[] = [
     type: "new",
     industry: "Manufacturing",
     totalArr: "$38K",
+    arrValue: 38,
     activeDeals: 1,
     closedDeals: 0,
     lastActivity: "1 day ago",
@@ -112,6 +129,7 @@ const customers: Customer[] = [
     type: "existing",
     industry: "Healthcare",
     totalArr: "$57K",
+    arrValue: 57,
     activeDeals: 1,
     closedDeals: 1,
     lastActivity: "Today",
@@ -126,6 +144,21 @@ const customers: Customer[] = [
   },
 ];
 
+// Data for customer type distribution
+const customerTypeData = [
+  { name: "Prospects", value: 3, color: "hsl(var(--primary))" },
+  { name: "Customers", value: 2, color: "hsl(var(--status-success))" },
+];
+
+// Data for ARR by customer
+const arrByCustomer = customers
+  .sort((a, b) => b.arrValue - a.arrValue)
+  .map(c => ({
+    name: c.name.split(' ')[0], // First word only for chart
+    arr: c.arrValue,
+    type: c.type,
+  }));
+
 const customerStats = {
   total: 5,
   newCustomers: 3,
@@ -133,68 +166,168 @@ const customerStats = {
   totalPipelineValue: "$287K",
 };
 
+// Custom tooltip for bar chart
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+        <p className="text-sm font-medium">{payload[0].payload.name}</p>
+        <p className="text-xs text-muted-foreground">
+          ${payload[0].value}K ARR
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Customers() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
+  const totalArr = customers.reduce((acc, c) => acc + c.arrValue, 0);
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-semibold">My Customers</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">My Customers</h1>
         <p className="text-lg text-muted-foreground mt-2">
           Relationships and account history
         </p>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="bg-card border-border">
-          <CardContent className="pt-6">
+      {/* Hero Visualization */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* ARR Distribution Bar Chart - Main Visual */}
+        <Card className="col-span-7 border-border overflow-hidden">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Accounts</p>
-                <p className="text-3xl font-semibold mt-1">{customerStats.total}</p>
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                ARR by Customer
+              </CardTitle>
+              <span className="text-lg font-semibold">${totalArr}K <span className="text-sm font-normal text-muted-foreground">total</span></span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={arrByCustomer} layout="vertical" barSize={24}>
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
+                    width={80}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="arr" radius={[0, 6, 6, 0]}>
+                    {arrByCustomer.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.type === "new" 
+                          ? "hsl(var(--primary))" 
+                          : "hsl(var(--status-success))"
+                        } 
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend */}
+            <div className="flex items-center gap-6 mt-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-primary" />
+                <span className="text-sm text-muted-foreground">Prospects</span>
               </div>
-              <Building2 className="h-8 w-8 text-muted-foreground/50" />
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-status-success" />
+                <span className="text-sm text-muted-foreground">Existing Customers</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">New Prospects</p>
-                <p className="text-3xl font-semibold mt-1">{customerStats.newCustomers}</p>
+        {/* Customer Type Donut + Stats */}
+        <div className="col-span-5 space-y-4">
+          <Card className="border-border">
+            <CardContent className="pt-5">
+              <div className="flex items-center gap-6">
+                {/* Donut */}
+                <div className="relative w-28 h-28">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={customerTypeData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={32}
+                        outerRadius={50}
+                        paddingAngle={4}
+                        dataKey="value"
+                        strokeWidth={0}
+                      >
+                        {customerTypeData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center text */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-semibold">{customerStats.total}</span>
+                    <span className="text-[10px] text-muted-foreground">Total</span>
+                  </div>
+                </div>
+                {/* Breakdown */}
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <UserPlus className="h-4 w-4 text-primary" />
+                      <span className="text-sm">Prospects</span>
+                    </div>
+                    <span className="font-semibold">{customerStats.newCustomers}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-status-success" />
+                      <span className="text-sm">Customers</span>
+                    </div>
+                    <span className="font-semibold">{customerStats.existingCustomers}</span>
+                  </div>
+                </div>
               </div>
-              <Users className="h-8 w-8 text-primary/50" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card border-border">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Existing Customers</p>
-                <p className="text-3xl font-semibold mt-1">{customerStats.existingCustomers}</p>
+          {/* Upcoming Renewals */}
+          <Card className="border-border">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-status-warning" />
+                <CardTitle className="text-sm font-medium">Upcoming Renewals</CardTitle>
               </div>
-              <TrendingUp className="h-8 w-8 text-status-success/50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Pipeline Value</p>
-                <p className="text-3xl font-semibold mt-1">{customerStats.totalPipelineValue}</p>
-              </div>
-              <FileText className="h-8 w-8 text-muted-foreground/50" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {customers
+                .filter(c => c.renewalDate)
+                .map(customer => (
+                  <div 
+                    key={customer.id}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <span className="text-sm font-medium">{customer.name}</span>
+                    <Badge variant="outline" className="text-xs bg-status-warning/10 text-status-warning border-status-warning/20">
+                      {customer.renewalDate}
+                    </Badge>
+                  </div>
+                ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Customer List */}
@@ -214,12 +347,12 @@ export default function Customers() {
             {customers.map((customer) => (
               <tr 
                 key={customer.id} 
-                className="hover:bg-muted/20 transition-colors cursor-pointer"
+                className="hover:bg-muted/20 transition-colors cursor-pointer group"
                 onClick={() => setSelectedCustomer(customer)}
               >
                 <td className="px-6 py-4">
                   <div>
-                    <span className="font-medium text-foreground">{customer.name}</span>
+                    <span className="font-medium text-foreground group-hover:text-primary transition-colors">{customer.name}</span>
                     <Badge 
                       variant="outline" 
                       className={`ml-2 text-xs ${
@@ -237,7 +370,7 @@ export default function Customers() {
                 <td className="px-6 py-4 text-sm">{customer.activeDeals}</td>
                 <td className="px-6 py-4 text-sm text-muted-foreground">{customer.lastActivity}</td>
                 <td className="px-6 py-4">
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                 </td>
               </tr>
             ))}
@@ -253,19 +386,30 @@ export default function Customers() {
               <DialogHeader>
                 <div className="flex items-center justify-between">
                   <div>
+                    <Badge 
+                      variant="outline" 
+                      className={`mb-2 ${
+                        selectedCustomer.type === "new" 
+                          ? "bg-primary/10 text-primary border-primary/20" 
+                          : "bg-status-success/10 text-status-success border-status-success/20"
+                      }`}
+                    >
+                      {selectedCustomer.type === "new" ? "Prospect" : "Customer"}
+                    </Badge>
                     <DialogTitle className="text-xl">{selectedCustomer.name}</DialogTitle>
                     <p className="text-muted-foreground mt-1">
                       {selectedCustomer.industry}
                     </p>
                   </div>
-                  <div className="text-right text-sm">
-                    <p className="text-muted-foreground">{selectedCustomer.primaryContact.name}</p>
-                    <p className="text-muted-foreground">{selectedCustomer.primaryContact.title}</p>
-                    <div className="flex items-center gap-2 mt-1 text-xs">
+                  {/* Contact Card */}
+                  <div className="text-right text-sm bg-muted/30 rounded-lg p-3">
+                    <p className="font-medium">{selectedCustomer.primaryContact.name}</p>
+                    <p className="text-xs text-muted-foreground">{selectedCustomer.primaryContact.title}</p>
+                    <div className="flex items-center justify-end gap-2 mt-2 text-xs text-muted-foreground">
                       <Mail className="h-3 w-3" />
                       <span>{selectedCustomer.primaryContact.email}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
                       <Phone className="h-3 w-3" />
                       <span>{selectedCustomer.primaryContact.phone}</span>
                     </div>
@@ -273,86 +417,85 @@ export default function Customers() {
                 </div>
               </DialogHeader>
 
-              <div className="grid grid-cols-2 gap-6 mt-6">
-                {/* Left Column - Metrics */}
-                <div className="space-y-4">
-                  <Card className="border-border">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Account Overview
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Total ARR</span>
-                        <span className="font-semibold">{selectedCustomer.totalArr}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Active Deals</span>
-                        <span>{selectedCustomer.activeDeals}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Closed Deals</span>
-                        <span>{selectedCustomer.closedDeals}</span>
-                      </div>
-                      {selectedCustomer.relationshipStart && (
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Customer Since</span>
-                          <span>{selectedCustomer.relationshipStart}</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {selectedCustomer.renewalDate && (
-                    <Card className="border-border border-status-warning/30 bg-status-warning/5">
-                      <CardContent className="pt-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-status-warning" />
-                          <span className="text-sm font-medium">Renewal Due</span>
-                        </div>
-                        <p className="text-lg font-semibold mt-1">{selectedCustomer.renewalDate}</p>
-                      </CardContent>
-                    </Card>
+              {/* Visual Summary */}
+              <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-border">
+                <div className="grid grid-cols-4 gap-4 text-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total ARR</p>
+                    <p className="text-xl font-semibold mt-1">{selectedCustomer.totalArr}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active Deals</p>
+                    <p className="text-xl font-semibold mt-1">{selectedCustomer.activeDeals}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Closed Deals</p>
+                    <p className="text-xl font-semibold mt-1">{selectedCustomer.closedDeals}</p>
+                  </div>
+                  {selectedCustomer.relationshipStart && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Customer Since</p>
+                      <p className="text-xl font-semibold mt-1">{selectedCustomer.relationshipStart}</p>
+                    </div>
                   )}
                 </div>
+              </div>
 
-                {/* Right Column - Recent Activity */}
-                <div>
-                  <Card className="border-border h-full">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Deal History
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {selectedCustomer.closedDeals > 0 ? (
-                        <div className="space-y-3">
-                          {selectedCustomer.closedDeals > 0 && (
-                            <div className="p-3 bg-muted/30 rounded-lg">
-                              <p className="text-sm font-medium">Previous Contracts</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {selectedCustomer.closedDeals} closed deal{selectedCustomer.closedDeals > 1 ? "s" : ""}
-                              </p>
-                            </div>
-                          )}
-                          <div className="p-3 bg-muted/30 rounded-lg">
-                            <p className="text-sm font-medium">Active Opportunities</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {selectedCustomer.activeDeals} deal{selectedCustomer.activeDeals > 1 ? "s" : ""} in progress
-                            </p>
-                          </div>
+              {selectedCustomer.renewalDate && (
+                <Card className="mt-4 border-status-warning/30 bg-status-warning/5">
+                  <CardContent className="pt-4 pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-status-warning/10">
+                          <Calendar className="h-4 w-4 text-status-warning" />
                         </div>
-                      ) : (
-                        <div className="text-center py-6">
-                          <Users className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                          <p className="text-sm text-muted-foreground">New prospect</p>
-                          <p className="text-xs text-muted-foreground">No previous deals</p>
+                        <div>
+                          <p className="text-sm font-medium">Renewal Due</p>
+                          <p className="text-lg font-semibold">{selectedCustomer.renewalDate}</p>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
+                      </div>
+                      <Button size="sm" variant="outline">
+                        Schedule Call
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">Deal History</h4>
+                {selectedCustomer.closedDeals > 0 ? (
+                  <div className="space-y-2">
+                    <div className="p-3 bg-muted/30 rounded-lg flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Previous Contracts</p>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedCustomer.closedDeals} closed deal{selectedCustomer.closedDeals > 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="bg-status-success/10 text-status-success border-status-success/20">
+                        Completed
+                      </Badge>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Active Opportunities</p>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedCustomer.activeDeals} deal{selectedCustomer.activeDeals > 1 ? "s" : ""} in progress
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                        In Progress
+                      </Badge>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-muted/30 rounded-lg">
+                    <UserPlus className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">New prospect</p>
+                    <p className="text-xs text-muted-foreground">No previous deals on record</p>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -363,6 +506,7 @@ export default function Customers() {
                 <Link to={`/sales/deals?customer=${selectedCustomer.id}`}>
                   <Button>
                     View Deals
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
               </div>
