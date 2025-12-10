@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronRight, FileUp, X } from 'lucide-react';
-import { parseDocument, readFileAsText, ParsedDocument, ParsedClause } from '@/lib/api/documentParser';
+import { parseDocument, readFileAsBase64, ParsedDocument } from '@/lib/api/documentParser';
 import { saveDraft } from '@/lib/mockFileSystem';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -59,19 +59,15 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
     setProgress(20);
 
     try {
-      // Read file content
-      const content = await readFileAsText(file);
+      // Read file content as base64
+      const content = await readFileAsBase64(file);
       setProgress(40);
-      
-      if (!content.trim()) {
-        throw new Error('File appears to be empty or unreadable.');
-      }
 
       setState('parsing');
       setProgress(60);
 
       // Parse with AI
-      const result = await parseDocument(content, file.name);
+      const result = await parseDocument(content, file.name, file.type);
       setProgress(90);
 
       if (!result.success || !result.data) {
