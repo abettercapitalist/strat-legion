@@ -14,6 +14,91 @@ export type Database = {
   }
   public: {
     Tables: {
+      clause_alternatives: {
+        Row: {
+          alternative_text: string
+          business_impact: string | null
+          clause_id: string
+          created_at: string
+          id: string
+          use_case: string | null
+        }
+        Insert: {
+          alternative_text: string
+          business_impact?: string | null
+          clause_id: string
+          created_at?: string
+          id?: string
+          use_case?: string | null
+        }
+        Update: {
+          alternative_text?: string
+          business_impact?: string | null
+          clause_id?: string
+          created_at?: string
+          id?: string
+          use_case?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clause_alternatives_clause_id_fkey"
+            columns: ["clause_id"]
+            isOneToOne: false
+            referencedRelation: "clauses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clauses: {
+        Row: {
+          business_context: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_standard: boolean | null
+          number: string
+          risk_level: string | null
+          text: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          business_context?: string | null
+          category: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_standard?: boolean | null
+          number: string
+          risk_level?: string | null
+          text: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          business_context?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_standard?: boolean | null
+          number?: string
+          risk_level?: string | null
+          text?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clauses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -40,6 +125,98 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      template_clauses: {
+        Row: {
+          alternatives_allowed: boolean | null
+          approval_required_from: string | null
+          clause_id: string
+          created_at: string
+          id: string
+          is_locked: boolean | null
+          position: number
+          template_id: string
+        }
+        Insert: {
+          alternatives_allowed?: boolean | null
+          approval_required_from?: string | null
+          clause_id: string
+          created_at?: string
+          id?: string
+          is_locked?: boolean | null
+          position: number
+          template_id: string
+        }
+        Update: {
+          alternatives_allowed?: boolean | null
+          approval_required_from?: string | null
+          clause_id?: string
+          created_at?: string
+          id?: string
+          is_locked?: boolean | null
+          position?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_clauses_clause_id_fkey"
+            columns: ["clause_id"]
+            isOneToOne: false
+            referencedRelation: "clauses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_clauses_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      templates: {
+        Row: {
+          category: string
+          content: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          status: string | null
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          category: string
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          status?: string | null
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          category?: string
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          status?: string | null
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
