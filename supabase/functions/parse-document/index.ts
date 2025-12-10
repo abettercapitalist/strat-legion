@@ -1,9 +1,41 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Extract text from DOCX using JSZip
+async function extractTextFromDocx(base64Content: string): Promise<string> {
+  const binaryString = atob(base64Content);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  
+  const zip = await JSZip.loadAsync(bytes);
+  const documentXml = await zip.file("word/document.xml")?.async("text");
+  
+  if (!documentXml) {
+    throw new Error("Could not find document.xml in DOCX file");
+  }
+  
+  // Strip XML tags and extract text content
+  const text = documentXml
+    .replace(/<w:p[^>]*>/g, '\n') // Paragraphs
+    .replace(/<w:tab[^>]*\/>/g, '\t') // Tabs
+    .replace(/<[^>]+>/g, '') // Remove all XML tags
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/\n{3,}/g, '\n\n') // Reduce multiple newlines
+    .trim();
+  
+  return text;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,11 +43,11 @@ serve(async (req) => {
   }
 
   try {
-    const { documentContent, fileName } = await req.json();
+    const { fileContent, fileName, fileType } = await req.json();
 
-    if (!documentContent) {
+    if (!fileContent) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Document content is required' }),
+        JSON.stringify({ success: false, error: 'File content is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -29,7 +61,52 @@ serve(async (req) => {
       );
     }
 
-    console.log("Parsing document:", fileName);
+    console.log("Parsing document:", fileName, "Type:", fileType);
+
+    let documentText = "";
+
+    // Handle different file types
+    if (fileType === 'text/plain' || fileType === 'text/rtf') {
+      // Plain text - decode from base64
+      const binaryString = atob(fileContent);
+      documentText = binaryString;
+    } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+               fileName.endsWith('.docx')) {
+      // DOCX - extract text using JSZip
+      try {
+        documentText = await extractTextFromDocx(fileContent);
+      } catch (extractError) {
+        console.error("DOCX extraction error:", extractError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to parse Word document. Please ensure the file is not corrupted.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Legacy .doc format not supported. Please save as .docx and try again.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (fileType === 'application/pdf') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'PDF parsing coming soon. Please convert to DOCX or TXT for now.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ success: false, error: `Unsupported file type: ${fileType}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!documentText || documentText.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Could not extract text from document' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log("Extracted text length:", documentText.length);
 
     const systemPrompt = `You are a legal document parser that extracts structured information from contracts and legal documents.
 
@@ -81,7 +158,7 @@ Be thorough in extracting ALL clauses from the document. Preserve the original t
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Parse the following document and extract structured clause information:\n\n${documentContent}` }
+          { role: "user", content: `Parse the following document and extract structured clause information:\n\n${documentText}` }
         ],
         response_format: { type: "json_object" }
       }),

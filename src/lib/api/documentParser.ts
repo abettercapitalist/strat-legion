@@ -33,9 +33,9 @@ export interface ParseDocumentResponse {
   error?: string;
 }
 
-export async function parseDocument(documentContent: string, fileName: string): Promise<ParseDocumentResponse> {
+export async function parseDocument(fileContent: string, fileName: string, fileType: string): Promise<ParseDocumentResponse> {
   const { data, error } = await supabase.functions.invoke('parse-document', {
-    body: { documentContent, fileName },
+    body: { fileContent, fileName, fileType },
   });
 
   if (error) {
@@ -46,15 +46,22 @@ export async function parseDocument(documentContent: string, fileName: string): 
   return data;
 }
 
-export async function readFileAsText(file: File): Promise<string> {
+export async function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
-      resolve(event.target?.result as string || '');
+      const result = event.target?.result as ArrayBuffer;
+      // Convert ArrayBuffer to base64
+      const bytes = new Uint8Array(result);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      resolve(btoa(binary));
     };
     reader.onerror = (error) => {
       reject(error);
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   });
 }
