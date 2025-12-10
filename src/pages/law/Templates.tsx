@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown } from "lucide-react";
+import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAllTemplates, getActiveTemplates, getDraftTemplates, deleteTemplate, saveDraft, MockTemplate } from "@/lib/mockFileSystem";
 import { useToast } from "@/hooks/use-toast";
+import { DocumentUploadModal } from "@/components/templates/DocumentUploadModal";
 
 const categories = ["All", "Sales", "Procurement", "Employment", "Services", "Partnership"];
 
@@ -21,6 +22,7 @@ export default function Templates() {
   const [drafts, setDrafts] = useState<MockTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -211,13 +213,23 @@ export default function Templates() {
             </DropdownMenuTrigger>
           </div>
           <DropdownMenuContent align="end" className="bg-popover">
+            <DropdownMenuItem onClick={() => setShowUploadModal(true)}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Import with AI Parsing
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleImportTemplate}>
               <Upload className="h-4 w-4 mr-2" />
-              Import New Template
+              Import Raw File
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <DocumentUploadModal
+        open={showUploadModal}
+        onOpenChange={setShowUploadModal}
+        onSuccess={refreshTemplates}
+      />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
