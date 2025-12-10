@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, ChevronRight, FileUp, X } from 'lucide-react';
+import { Upload, Loader2, CheckCircle2, AlertCircle, ChevronRight, FileUp } from 'lucide-react';
 import { parseDocument, readFileAsBase64, ParsedDocument } from '@/lib/api/documentParser';
-import { saveDraft } from '@/lib/mockFileSystem';
+import { useTemplates } from '@/hooks/useTemplates';
+import { useClauses } from '@/hooks/useClauses';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -25,9 +26,12 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
   const [parsedDoc, setParsedDoc] = useState<ParsedDocument | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { createTemplate } = useTemplates();
+  const { createClausesBatch } = useClauses();
 
   const resetState = useCallback(() => {
     setState('idle');
@@ -102,33 +106,62 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
     setIsDragging(false);
   }, []);
 
-  const handleCreateTemplate = () => {
-    if (!parsedDoc) return;
+  const handleCreateTemplate = async () => {
+    if (!parsedDoc || isSaving) return;
 
-    // Generate template content from parsed clauses
-    const clauseContent = parsedDoc.clauses.map(clause => 
-      `<h2>${clause.number}. ${clause.title}</h2>\n<p>${clause.text}</p>`
-    ).join('\n\n');
+    setIsSaving(true);
 
-    const fullContent = `<h1>${parsedDoc.suggestedName}</h1>\n\n${clauseContent}`;
+    try {
+      // First, create clauses in the database
+      const clausesData = parsedDoc.clauses.map(clause => ({
+        number: clause.number,
+        title: clause.title,
+        category: clause.category,
+        text: clause.text,
+        risk_level: clause.riskLevel,
+        is_standard: clause.isStandard,
+        business_context: clause.businessContext,
+      }));
 
-    // Save as draft
-    const draft = saveDraft(
-      parsedDoc.suggestedName,
-      fullContent,
-      parsedDoc.suggestedCategory
-    );
+      await createClausesBatch(clausesData);
 
-    toast({
-      title: 'Template created',
-      description: `"${parsedDoc.suggestedName}" has been saved as a draft with ${parsedDoc.clauses.length} clauses.`,
-    });
+      // Generate template content from parsed clauses
+      const clauseContent = parsedDoc.clauses.map(clause => 
+        `<h2>${clause.number}. ${clause.title}</h2>\n<p>${clause.text}</p>`
+      ).join('\n\n');
 
-    handleClose();
-    onSuccess?.();
-    
-    // Navigate to edit the new template
-    navigate(`/law/templates/${draft.id}/edit`);
+      const fullContent = `<h1>${parsedDoc.suggestedName}</h1>\n\n${clauseContent}`;
+
+      // Save template to database
+      const template = await createTemplate(
+        parsedDoc.suggestedName,
+        fullContent,
+        parsedDoc.suggestedCategory,
+        'Draft'
+      );
+
+      toast({
+        title: 'Template created',
+        description: `"${parsedDoc.suggestedName}" has been saved as a draft with ${parsedDoc.clauses.length} clauses.`,
+      });
+
+      handleClose();
+      onSuccess?.();
+      
+      // Navigate to edit the new template
+      if (template) {
+        navigate(`/law/templates/${template.id}/edit`);
+      }
+    } catch (err) {
+      console.error('Error creating template:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to save template. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getRiskBadgeVariant = (risk: string) => {
@@ -251,12 +284,21 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
 
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={handleClose}>
+                <Button variant="outline" onClick={handleClose} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateTemplate}>
-                  Create Template
-                  <ChevronRight className="h-4 w-4 ml-2" />
+                <Button onClick={handleCreateTemplate} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Create Template
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

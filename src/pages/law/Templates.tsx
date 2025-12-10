@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown, Sparkles } from "lucide-react";
+import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown, Sparkles, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -11,15 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAllTemplates, getActiveTemplates, getDraftTemplates, deleteTemplate, saveDraft, MockTemplate } from "@/lib/mockFileSystem";
+import { useTemplates, Template } from "@/hooks/useTemplates";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentUploadModal } from "@/components/templates/DocumentUploadModal";
 
 const categories = ["All", "Sales", "Procurement", "Employment", "Services", "Partnership"];
 
 export default function Templates() {
-  const [templates, setTemplates] = useState<MockTemplate[]>([]);
-  const [drafts, setDrafts] = useState<MockTemplate[]>([]);
+  const { templates, drafts, loading, refresh, deleteTemplate: deleteTemplateFn, createTemplate } = useTemplates();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -31,23 +30,30 @@ export default function Templates() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const content = event.target?.result as string || "";
         // Extract name without extension
         const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
         
-        // Save as draft
-        saveDraft(nameWithoutExt, content, "Sales");
-        refreshTemplates();
-        
-        toast({
-          title: "Template imported",
-          description: `"${nameWithoutExt}" has been imported as a draft.`,
-        });
+        try {
+          // Save as draft to database
+          await createTemplate(nameWithoutExt, content, "Sales", "Draft");
+          
+          toast({
+            title: "Template imported",
+            description: `"${nameWithoutExt}" has been imported as a draft.`,
+          });
+        } catch (err) {
+          toast({
+            title: "Import failed",
+            description: "Could not import the template. Please try again.",
+            variant: "destructive",
+          });
+        }
       };
       reader.readAsText(file);
       // Reset input so same file can be selected again
@@ -55,27 +61,23 @@ export default function Templates() {
     }
   };
 
-  useEffect(() => {
-    // Load templates from mock file system
-    setTemplates(getActiveTemplates());
-    setDrafts(getDraftTemplates());
-  }, []);
-
-  const refreshTemplates = () => {
-    setTemplates(getActiveTemplates());
-    setDrafts(getDraftTemplates());
+  const handleDelete = async (id: string, name: string) => {
+    try {
+      await deleteTemplateFn(id);
+      toast({
+        title: "Template deleted",
+        description: `"${name}" has been removed.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description: "Could not delete the template. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDelete = (id: string, name: string) => {
-    deleteTemplate(id);
-    refreshTemplates();
-    toast({
-      title: "Template deleted",
-      description: `"${name}" has been removed.`,
-    });
-  };
-
-  const filterTemplates = (items: MockTemplate[]) => {
+  const filterTemplates = (items: Template[]) => {
     return items.filter(t => {
       const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
@@ -83,7 +85,16 @@ export default function Templates() {
     });
   };
 
-  const TemplateTable = ({ items, showDraftActions = false }: { items: MockTemplate[], showDraftActions?: boolean }) => (
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const TemplateTable = ({ items, showDraftActions = false }: { items: Template[], showDraftActions?: boolean }) => (
     <div className="border border-border rounded-lg overflow-hidden">
       <table className="w-full">
         <thead className="bg-muted/30">
@@ -138,7 +149,7 @@ export default function Templates() {
                   </Badge>
                 </td>
                 <td className="px-6 py-4 text-sm text-muted-foreground">
-                  {template.lastModified}
+                  {formatDate(template.updated_at)}
                 </td>
                 <td className="px-6 py-4">
                   <DropdownMenu>
@@ -228,45 +239,54 @@ export default function Templates() {
       <DocumentUploadModal
         open={showUploadModal}
         onOpenChange={setShowUploadModal}
-        onSuccess={refreshTemplates}
+        onSuccess={refresh}
       />
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search templates..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-        <div className="flex gap-2">
-          {categories.map((cat) => (
-            <Button
-              key={cat}
-              variant={cat === selectedCategory ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(cat)}
-            >
-              {cat}
-            </Button>
-          ))}
-        </div>
-      </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search templates..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              {categories.map((cat) => (
+                <Button
+                  key={cat}
+                  variant={cat === selectedCategory ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {cat}
+                </Button>
+              ))}
+            </div>
+          </div>
 
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList>
-          <TabsTrigger value="all">All Templates ({templates.length})</TabsTrigger>
-          <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
-        </TabsList>
-        <TabsContent value="all" className="mt-6">
-          <TemplateTable items={filterTemplates(templates)} />
-        </TabsContent>
-        <TabsContent value="drafts" className="mt-6">
-          <TemplateTable items={filterTemplates(drafts)} showDraftActions />
-        </TabsContent>
-      </Tabs>
+          <Tabs defaultValue="all" className="w-full">
+            <TabsList>
+              <TabsTrigger value="all">All Templates ({templates.length})</TabsTrigger>
+              <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="all" className="mt-6">
+              <TemplateTable items={filterTemplates(templates)} />
+            </TabsContent>
+            <TabsContent value="drafts" className="mt-6">
+              <TemplateTable items={filterTemplates(drafts)} showDraftActions />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
+
     </div>
   );
 }
