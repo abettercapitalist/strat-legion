@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_templates: {
+        Row: {
+          approval_sequence: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          trigger_conditions: Json | null
+          updated_at: string
+        }
+        Insert: {
+          approval_sequence?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          trigger_conditions?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          approval_sequence?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          trigger_conditions?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clause_alternatives: {
         Row: {
           alternative_text: string
@@ -95,6 +128,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      counterparties: {
+        Row: {
+          address: string | null
+          counterparty_type: string | null
+          created_at: string
+          entity_type: string | null
+          id: string
+          name: string
+          notes: string | null
+          primary_contact_email: string | null
+          primary_contact_name: string | null
+          primary_contact_phone: string | null
+          relationship_status: string | null
+          state_of_formation: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          counterparty_type?: string | null
+          created_at?: string
+          entity_type?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          primary_contact_email?: string | null
+          primary_contact_name?: string | null
+          primary_contact_phone?: string | null
+          relationship_status?: string | null
+          state_of_formation?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          counterparty_type?: string | null
+          created_at?: string
+          entity_type?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          primary_contact_email?: string | null
+          primary_contact_name?: string | null
+          primary_contact_phone?: string | null
+          relationship_status?: string | null
+          state_of_formation?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -182,6 +263,7 @@ export type Database = {
           status: string | null
           updated_at: string
           version: string | null
+          workstream_type_id: string | null
         }
         Insert: {
           category: string
@@ -193,6 +275,7 @@ export type Database = {
           status?: string | null
           updated_at?: string
           version?: string | null
+          workstream_type_id?: string | null
         }
         Update: {
           category?: string
@@ -204,6 +287,7 @@ export type Database = {
           status?: string | null
           updated_at?: string
           version?: string | null
+          workstream_type_id?: string | null
         }
         Relationships: [
           {
@@ -211,6 +295,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "templates_workstream_type_id_fkey"
+            columns: ["workstream_type_id"]
+            isOneToOne: false
+            referencedRelation: "workstream_types"
             referencedColumns: ["id"]
           },
         ]
@@ -235,6 +326,112 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      workstream_types: {
+        Row: {
+          created_at: string
+          default_workflow: string | null
+          description: string | null
+          id: string
+          name: string
+          required_documents: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_workflow?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          required_documents?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_workflow?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          required_documents?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workstreams: {
+        Row: {
+          actual_close_date: string | null
+          annual_value: number | null
+          business_objective: string | null
+          counterparty_id: string | null
+          created_at: string
+          expected_close_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          owner_id: string | null
+          stage: string | null
+          template_id: string | null
+          tier: string | null
+          updated_at: string
+          workstream_type_id: string | null
+        }
+        Insert: {
+          actual_close_date?: string | null
+          annual_value?: number | null
+          business_objective?: string | null
+          counterparty_id?: string | null
+          created_at?: string
+          expected_close_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          stage?: string | null
+          template_id?: string | null
+          tier?: string | null
+          updated_at?: string
+          workstream_type_id?: string | null
+        }
+        Update: {
+          actual_close_date?: string | null
+          annual_value?: number | null
+          business_objective?: string | null
+          counterparty_id?: string | null
+          created_at?: string
+          expected_close_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          stage?: string | null
+          template_id?: string | null
+          tier?: string | null
+          updated_at?: string
+          workstream_type_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workstreams_counterparty_id_fkey"
+            columns: ["counterparty_id"]
+            isOneToOne: false
+            referencedRelation: "counterparties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstreams_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstreams_workstream_type_id_fkey"
+            columns: ["workstream_type_id"]
+            isOneToOne: false
+            referencedRelation: "workstream_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
