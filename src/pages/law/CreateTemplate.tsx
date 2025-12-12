@@ -1,10 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, ChevronDown, History, Check } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Save, ChevronDown, History, Check, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ContractEditor } from "@/components/editor";
 import { SaveTemplateDialog, DialogMode } from "@/components/editor/SaveTemplateDialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,11 +35,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { useTemplates } from "@/hooks/useTemplates";
+import { useClauses, Clause } from "@/hooks/useClauses";
+import { ClauseLibrarySidebar } from "@/components/templates/ClauseLibrarySidebar";
+import { ClauseMatchingModal } from "@/components/templates/ClauseMatchingModal";
+import { extractClauseBlocks, findClauseMatches, ClauseBlock } from "@/lib/clauseMatching";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CreateTemplate() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = Boolean(id);
+
+  const { getTemplateById, updateTemplate, createTemplate } = useTemplates();
+  const { clauses, createClause } = useClauses();
+
   const [templateName, setTemplateName] = useState("");
   const [category, setCategory] = useState("");
   const [content, setContent] = useState("");
@@ -48,6 +61,14 @@ export default function CreateTemplate() {
   const [dialogMode, setDialogMode] = useState<DialogMode>("choice");
   const [draftSavedDialogOpen, setDraftSavedDialogOpen] = useState(false);
   const [savedDraftName, setSavedDraftName] = useState("");
+  const [loading, setLoading] = useState(isEditMode);
+  const [saving, setSaving] = useState(false);
+
+  // Clause matching state
+  const [pendingBlocks, setPendingBlocks] = useState<ClauseBlock[]>([]);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+  const [matchingModalOpen, setMatchingModalOpen] = useState(false);
+  const [isMatching, setIsMatching] = useState(false);
 
   const {
     lastSaved,
@@ -60,15 +81,56 @@ export default function CreateTemplate() {
     templateName,
   });
 
+  // Load template data in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      setLoading(true);
+      getTemplateById(id)
+        .then((template) => {
+          if (template) {
+            setTemplateName(template.name);
+            setCategory(template.category);
+            setContent(template.content || "");
+          } else {
+            toast.error("Template not found");
+            navigate("/law/templates");
+          }
+        })
+        .catch((err) => {
+          console.error("Error loading template:", err);
+          toast.error("Failed to load template");
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [id, isEditMode, getTemplateById, navigate]);
+
   const handleOpenDialog = (mode: DialogMode) => {
     setDialogMode(mode);
     setSaveDialogOpen(true);
   };
 
-  const handleSaveAsDraft = () => {
+  const handleSaveAsDraft = async () => {
     const name = templateName || getDraftName(new Date());
-    setSavedDraftName(name);
-    setDraftSavedDialogOpen(true);
+    setSaving(true);
+
+    try {
+      if (isEditMode && id) {
+        await updateTemplate(id, {
+          name,
+          content,
+          category: category || "General",
+          status: "Draft",
+        });
+      } else {
+        await createTemplate(name, content, category || "General", "Draft");
+      }
+      setSavedDraftName(name);
+      setDraftSavedDialogOpen(true);
+    } catch (err) {
+      toast.error("Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDiscard = () => {
@@ -83,6 +145,175 @@ export default function CreateTemplate() {
     }
   };
 
+  // Insert clause into editor
+  const handleInsertClause = useCallback((clause: Clause) => {
+    const clauseHtml = `<p><strong>${clause.title}</strong></p><p>${clause.text}</p>`;
+    setContent((prev) => prev + clauseHtml);
+    toast.success(`Inserted "${clause.title}"`);
+  }, []);
+
+  // Run clause matching on content
+  const runClauseMatching = useCallback(async () => {
+    if (!content || clauses.length === 0) return;
+
+    setIsMatching(true);
+    try {
+      // Extract clause blocks from content
+      const blocks = extractClauseBlocks(content);
+      
+      if (blocks.length === 0) {
+        toast.info("No clause sections detected in template");
+        setIsMatching(false);
+        return;
+      }
+
+      // Find matches for each block
+      const blocksWithMatches: ClauseBlock[] = blocks.map((block) => {
+        const matches = findClauseMatches(block.text, clauses, 75);
+        return { ...block, matches };
+      });
+
+      // Filter to only blocks that need attention (not exact matches)
+      const needsReview = blocksWithMatches.filter(
+        (b) => !b.matches?.some((m) => m.matchType === "exact")
+      );
+
+      if (needsReview.length === 0) {
+        toast.success("All clauses matched to library");
+      } else {
+        setPendingBlocks(needsReview);
+        setCurrentBlockIndex(0);
+        setMatchingModalOpen(true);
+      }
+    } catch (err) {
+      console.error("Error matching clauses:", err);
+      toast.error("Failed to analyze clauses");
+    } finally {
+      setIsMatching(false);
+    }
+  }, [content, clauses]);
+
+  // Handle clause matching confirmations
+  const handleConfirmMatch = async (blockIndex: number, clauseId: string) => {
+    // Link clause to template via template_clauses table
+    if (id) {
+      try {
+        await supabase.from("template_clauses").insert({
+          template_id: id,
+          clause_id: clauseId,
+          position: blockIndex,
+        });
+        toast.success("Clause linked to template");
+      } catch (err) {
+        console.error("Error linking clause:", err);
+      }
+    }
+    moveToNextBlock();
+  };
+
+  const handleAddAsAlternative = async (
+    blockIndex: number,
+    clauseId: string,
+    alternativeText: string
+  ) => {
+    try {
+      await supabase.from("clause_alternatives").insert({
+        clause_id: clauseId,
+        alternative_text: alternativeText,
+        use_case: "Imported from template",
+      });
+      toast.success("Alternative added to clause library");
+      
+      // Also link to template
+      if (id) {
+        await supabase.from("template_clauses").insert({
+          template_id: id,
+          clause_id: clauseId,
+          position: blockIndex,
+        });
+      }
+    } catch (err) {
+      console.error("Error adding alternative:", err);
+      toast.error("Failed to add alternative");
+    }
+    moveToNextBlock();
+  };
+
+  const handleAddAsNew = async (
+    blockIndex: number,
+    clause: { title: string; category: string; text: string }
+  ) => {
+    try {
+      const newClause = await createClause({
+        title: clause.title,
+        category: clause.category,
+        text: clause.text,
+        risk_level: "low",
+        is_standard: true,
+        business_context: null,
+      });
+
+      if (newClause && id) {
+        await supabase.from("template_clauses").insert({
+          template_id: id,
+          clause_id: newClause.id,
+          position: blockIndex,
+        });
+      }
+      toast.success("New clause added to library");
+    } catch (err) {
+      console.error("Error creating clause:", err);
+      toast.error("Failed to create clause");
+    }
+    moveToNextBlock();
+  };
+
+  const handleSkipBlock = (blockIndex: number) => {
+    moveToNextBlock();
+  };
+
+  const moveToNextBlock = () => {
+    if (currentBlockIndex < pendingBlocks.length - 1) {
+      setCurrentBlockIndex((i) => i + 1);
+      setMatchingModalOpen(true);
+    } else {
+      setMatchingModalOpen(false);
+      setPendingBlocks([]);
+      setCurrentBlockIndex(0);
+      toast.success("Clause review complete");
+    }
+  };
+
+  // Get unique categories for clause creation
+  const clauseCategories = [...new Set(clauses.map((c) => c.category))];
+
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-7rem)] flex flex-col">
+        <div className="flex items-center justify-between pb-4 border-b border-border">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10" />
+            <div>
+              <Skeleton className="h-7 w-48 mb-2" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Skeleton className="h-10 w-24" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </div>
+        <div className="flex-1 flex gap-6 pt-6">
+          <div className="flex-1">
+            <Skeleton className="h-10 w-full mb-4" />
+            <Skeleton className="h-[600px] w-full" />
+          </div>
+          <Skeleton className="w-80 h-full" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-7rem)] flex flex-col">
       {/* Header */}
@@ -96,9 +327,13 @@ export default function CreateTemplate() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold">Create New Template</h1>
+            <h1 className="text-2xl font-semibold">
+              {isEditMode ? "Edit Template" : "Create New Template"}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Design your contract template with the editor below
+              {isEditMode
+                ? "Modify your contract template"
+                : "Design your contract template with the editor below"}
             </p>
           </div>
         </div>
@@ -109,6 +344,23 @@ export default function CreateTemplate() {
               Last saved {format(lastSaved, "h:mm a")}
             </span>
           )}
+
+          {/* Analyze Clauses Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runClauseMatching}
+            disabled={isMatching || !content}
+          >
+            {isMatching ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              "Match Clauses"
+            )}
+          </Button>
 
           {/* Version History */}
           {versions.length > 0 && (
@@ -153,9 +405,14 @@ export default function CreateTemplate() {
             <Button
               className="rounded-r-none"
               onClick={() => handleOpenDialog("choice")}
+              disabled={saving}
             >
-              <Save className="h-4 w-4 mr-2" />
-              Save Template
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {isEditMode ? "Save Changes" : "Save Template"}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -163,6 +420,7 @@ export default function CreateTemplate() {
                   className={cn(
                     "rounded-l-none border-l border-primary-foreground/20 px-2"
                   )}
+                  disabled={saving}
                 >
                   <ChevronDown className="h-4 w-4" />
                 </Button>
@@ -208,13 +466,15 @@ export default function CreateTemplate() {
               <Label htmlFor="category" className="sr-only">
                 Category
               </Label>
-              <Select value={category} onValueChange={(value) => {
-                if (value === 'new') {
-                  // TODO: Open new category dialog
-                  return;
-                }
-                setCategory(value);
-              }}>
+              <Select
+                value={category}
+                onValueChange={(value) => {
+                  if (value === "new") {
+                    return;
+                  }
+                  setCategory(value);
+                }}
+              >
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -224,6 +484,10 @@ export default function CreateTemplate() {
                   <SelectItem value="employment">Employment</SelectItem>
                   <SelectItem value="services">Services</SelectItem>
                   <SelectItem value="partnership">Partnership</SelectItem>
+                  <SelectItem value="NDA">NDA</SelectItem>
+                  <SelectItem value="Consulting">Consulting</SelectItem>
+                  <SelectItem value="Commercial">Commercial</SelectItem>
+                  <SelectItem value="Template">Template</SelectItem>
                   <SelectItem value="new" className="text-primary font-medium">
                     New category...
                   </SelectItem>
@@ -240,24 +504,31 @@ export default function CreateTemplate() {
           )}
 
           {/* WYSIWYG Editor */}
-          <div className="flex-1 min-h-0">
+          <div
+            className="flex-1 min-h-0"
+            onDrop={(e) => {
+              e.preventDefault();
+              try {
+                const data = e.dataTransfer.getData("application/json");
+                if (data) {
+                  const clause = JSON.parse(data) as Clause;
+                  handleInsertClause(clause);
+                }
+              } catch (err) {
+                console.error("Drop error:", err);
+              }
+            }}
+            onDragOver={(e) => e.preventDefault()}
+          >
             <ContractEditor content={content} onChange={setContent} />
           </div>
         </div>
 
-        {/* Clause Library Sidebar (placeholder) */}
-        <div className="w-80 flex-shrink-0">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Clause Library</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Available clauses will appear here. Drag and drop to add to your template.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Clause Library Sidebar */}
+        <ClauseLibrarySidebar
+          className="w-80 flex-shrink-0"
+          onInsertClause={handleInsertClause}
+        />
       </div>
 
       <SaveTemplateDialog
@@ -286,12 +557,22 @@ export default function CreateTemplate() {
             </p>
           </div>
           <DialogFooter className="sm:justify-center">
-            <Button onClick={() => setDraftSavedDialogOpen(false)}>
-              OK
-            </Button>
+            <Button onClick={() => setDraftSavedDialogOpen(false)}>OK</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Clause Matching Modal */}
+      <ClauseMatchingModal
+        open={matchingModalOpen}
+        onOpenChange={setMatchingModalOpen}
+        block={pendingBlocks[currentBlockIndex] || null}
+        onConfirmMatch={handleConfirmMatch}
+        onAddAsAlternative={handleAddAsAlternative}
+        onAddAsNew={handleAddAsNew}
+        onSkip={handleSkipBlock}
+        categories={clauseCategories}
+      />
     </div>
   );
 }
