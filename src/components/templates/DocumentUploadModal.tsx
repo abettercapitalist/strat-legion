@@ -114,7 +114,6 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
     try {
       // First, create clauses in the database
       const clausesData = parsedDoc.clauses.map(clause => ({
-        number: clause.number,
         title: clause.title,
         category: clause.category,
         text: clause.text,
@@ -125,9 +124,9 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
 
       await createClausesBatch(clausesData);
 
-      // Generate template content from parsed clauses
-      const clauseContent = parsedDoc.clauses.map(clause => 
-        `<h2>${clause.number}. ${clause.title}</h2>\n<p>${clause.text}</p>`
+      // Generate template content from parsed clauses (using index for section numbers)
+      const clauseContent = parsedDoc.clauses.map((clause, index) => 
+        `<h2>${index + 1}. ${clause.title}</h2>\n<p>${clause.text}</p>`
       ).join('\n\n');
 
       const fullContent = `<h1>${parsedDoc.suggestedName}</h1>\n\n${clauseContent}`;
@@ -260,12 +259,12 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
                 <h4 className="text-sm font-medium mb-2">Extracted Clauses</h4>
                 <ScrollArea className="h-[250px] border rounded-lg">
                   <div className="divide-y">
-                    {parsedDoc.clauses.map((clause) => (
+                    {parsedDoc.clauses.map((clause, index) => (
                       <div key={clause.id} className="p-3 hover:bg-muted/20">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-sm text-muted-foreground">
-                              {clause.number}.
+                              {index + 1}.
                             </span>
                             <span className="font-medium">{clause.title}</span>
                           </div>

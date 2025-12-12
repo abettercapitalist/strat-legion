@@ -128,7 +128,6 @@ Return a JSON object with this exact structure:
   "clauses": [
     {
       "id": "clause-1",
-      "number": "1",
       "title": "string - clause title",
       "category": "string - clause category",
       "text": "string - full clause text",

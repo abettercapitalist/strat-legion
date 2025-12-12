@@ -57,7 +57,6 @@ export type Database = {
           created_by: string | null
           id: string
           is_standard: boolean | null
-          number: string
           risk_level: string | null
           text: string
           title: string
@@ -70,7 +69,6 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_standard?: boolean | null
-          number: string
           risk_level?: string | null
           text: string
           title: string
@@ -83,7 +81,6 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_standard?: boolean | null
-          number?: string
           risk_level?: string | null
           text?: string
           title?: string

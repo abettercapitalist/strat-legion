@@ -149,14 +149,11 @@ export default function Clauses() {
               >
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-mono text-muted-foreground">
-                      {clause.number}
-                    </span>
+                    <h3 className="font-medium">{clause.title}</h3>
                     <Badge variant="outline" className={getRiskColor(clause.risk_level)}>
                       {capitalizeFirst(clause.risk_level)}
                     </Badge>
                   </div>
-                  <h3 className="font-medium">{clause.title}</h3>
                   <Badge variant="outline" className="bg-muted text-xs">
                     {clause.category}
                   </Badge>
@@ -181,12 +178,7 @@ export default function Clauses() {
               <CardContent className="p-6 space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl font-mono text-muted-foreground">
-                        {selectedClause.number}
-                      </span>
-                      <h2 className="text-2xl font-semibold">{selectedClause.title}</h2>
-                    </div>
+                    <h2 className="text-2xl font-semibold">{selectedClause.title}</h2>
                     <Link to={`/law/clauses/${selectedClause.id}/edit`}>
                       <Button variant="outline">Edit Clause</Button>
                     </Link>

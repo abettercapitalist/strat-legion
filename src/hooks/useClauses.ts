@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface Clause {
   id: string;
-  number: string;
   title: string;
   category: string;
   text: string;
@@ -39,7 +38,7 @@ export function useClauses() {
       const { data, error: fetchError } = await supabase
         .from('clauses')
         .select('*')
-        .order('number', { ascending: true });
+        .order('title', { ascending: true });
 
       if (fetchError) throw fetchError;
 
@@ -105,7 +104,7 @@ export function useClauses() {
 
   const updateClause = async (
     id: string,
-    updates: Partial<Pick<Clause, 'number' | 'title' | 'category' | 'text' | 'risk_level' | 'is_standard' | 'business_context'>>
+    updates: Partial<Pick<Clause, 'title' | 'category' | 'text' | 'risk_level' | 'is_standard' | 'business_context'>>
   ): Promise<Clause | null> => {
     try {
       const { data, error: updateError } = await supabase
