@@ -83,26 +83,45 @@ export default function CreateTemplate() {
 
   // Load template data in edit mode
   useEffect(() => {
-    if (isEditMode && id) {
-      setLoading(true);
-      getTemplateById(id)
-        .then((template) => {
-          if (template) {
-            setTemplateName(template.name);
-            setCategory(template.category);
-            setContent(template.content || "");
-          } else {
-            toast.error("Template not found");
-            navigate("/law/templates");
-          }
-        })
-        .catch((err) => {
+    if (!isEditMode || !id) return;
+    
+    let cancelled = false;
+    setLoading(true);
+    
+    const loadTemplate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('templates')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        
+        if (cancelled) return;
+        
+        if (error) throw error;
+        
+        if (data) {
+          setTemplateName(data.name);
+          setCategory(data.category);
+          setContent(data.content || "");
+        } else {
+          toast.error("Template not found");
+          navigate("/law/templates");
+        }
+      } catch (err) {
+        if (!cancelled) {
           console.error("Error loading template:", err);
           toast.error("Failed to load template");
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [id, isEditMode, getTemplateById, navigate]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    
+    loadTemplate();
+    
+    return () => { cancelled = true; };
+  }, [id, isEditMode, navigate]);
 
   const handleOpenDialog = (mode: DialogMode) => {
     setDialogMode(mode);
