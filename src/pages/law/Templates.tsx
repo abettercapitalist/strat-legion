@@ -1,8 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -11,20 +11,62 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplates, Template } from "@/hooks/useTemplates";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentUploadModal } from "@/components/templates/DocumentUploadModal";
 
-const categories = ["All", "Sales", "Procurement", "Employment", "Services", "Partnership"];
-
 export default function Templates() {
-  const { templates, drafts, loading, refresh, deleteTemplate: deleteTemplateFn, createTemplate } = useTemplates();
+  const { templates, drafts, loading, error, refresh, deleteTemplate: deleteTemplateFn, createTemplate } = useTemplates();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedWorkstreamType, setSelectedWorkstreamType] = useState("All");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Derive unique categories from actual template data
+  const categories = useMemo(() => {
+    const allTemplates = [...templates, ...drafts];
+    const uniqueCategories = [...new Set(allTemplates.map(t => t.category))];
+    return ["All", ...uniqueCategories.sort()];
+  }, [templates, drafts]);
+
+  // Derive unique workstream types from actual template data
+  const workstreamTypes = useMemo(() => {
+    const allTemplates = [...templates, ...drafts];
+    const uniqueTypes = [...new Set(allTemplates.map(t => t.workstream_type_name).filter(Boolean))];
+    return ["All", ...uniqueTypes.sort()];
+  }, [templates, drafts]);
+
+  // Group templates by workstream type
+  const groupedTemplates = useMemo(() => {
+    const groups: Record<string, Template[]> = {};
+    
+    templates.forEach(t => {
+      const groupName = t.workstream_type_name || "General Templates";
+      if (!groups[groupName]) {
+        groups[groupName] = [];
+      }
+      groups[groupName].push(t);
+    });
+
+    // Sort groups: named workstream types first, then "General Templates"
+    const sortedGroups = Object.entries(groups).sort(([a], [b]) => {
+      if (a === "General Templates") return 1;
+      if (b === "General Templates") return -1;
+      return a.localeCompare(b);
+    });
+
+    return sortedGroups;
+  }, [templates]);
 
   const handleImportTemplate = () => {
     fileInputRef.current?.click();
@@ -36,11 +78,9 @@ export default function Templates() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         const content = event.target?.result as string || "";
-        // Extract name without extension
         const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
         
         try {
-          // Save as draft to database
           await createTemplate(nameWithoutExt, content, "Sales", "Draft");
           
           toast({
@@ -56,7 +96,6 @@ export default function Templates() {
         }
       };
       reader.readAsText(file);
-      // Reset input so same file can be selected again
       e.target.value = "";
     }
   };
@@ -81,11 +120,12 @@ export default function Templates() {
     return items.filter(t => {
       const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const matchesWorkstreamType = selectedWorkstreamType === "All" || 
+        (t.workstream_type_name || "General Templates") === selectedWorkstreamType;
+      return matchesSearch && matchesCategory && matchesWorkstreamType;
     });
   };
 
-  // Format date for display
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -193,6 +233,53 @@ export default function Templates() {
     </div>
   );
 
+  const LoadingSkeleton = () => (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-10 w-64" />
+        <div className="flex gap-2">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-8 w-20" />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="border border-border rounded-lg p-4">
+            <Skeleton className="h-6 w-48 mb-4" />
+            <div className="space-y-3">
+              {[1, 2].map(j => (
+                <Skeleton key={j} className="h-12 w-full" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const ErrorState = () => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="rounded-full bg-destructive/10 p-3 mb-4">
+        <FolderOpen className="h-8 w-8 text-destructive" />
+      </div>
+      <h3 className="text-lg font-medium mb-2">Failed to load templates</h3>
+      <p className="text-muted-foreground mb-4">{error}</p>
+      <Button onClick={refresh} variant="outline">
+        <RefreshCw className="h-4 w-4 mr-2" />
+        Try Again
+      </Button>
+    </div>
+  );
+
+  // Filter grouped templates based on search and category
+  const filteredGroupedTemplates = useMemo(() => {
+    return groupedTemplates.map(([groupName, items]) => {
+      const filtered = filterTemplates(items);
+      return [groupName, filtered] as [string, Template[]];
+    }).filter(([_, items]) => items.length > 0);
+  }, [groupedTemplates, searchQuery, selectedCategory, selectedWorkstreamType]);
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -243,22 +330,25 @@ export default function Templates() {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <LoadingSkeleton />
+      ) : error ? (
+        <ErrorState />
       ) : (
         <>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search templates..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search templates..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm text-muted-foreground self-center mr-2">Category:</span>
               {categories.map((cat) => (
                 <Button
                   key={cat}
@@ -270,23 +360,65 @@ export default function Templates() {
                 </Button>
               ))}
             </div>
+            {workstreamTypes.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                <span className="text-sm text-muted-foreground self-center mr-2">Workstream:</span>
+                {workstreamTypes.map((type) => (
+                  <Button
+                    key={type || "general"}
+                    variant={type === selectedWorkstreamType ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedWorkstreamType(type || "All")}
+                  >
+                    {type || "General"}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs defaultValue="grouped" className="w-full">
             <TabsList>
+              <TabsTrigger value="grouped">By Workstream</TabsTrigger>
               <TabsTrigger value="all">All Templates ({templates.length})</TabsTrigger>
               <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
             </TabsList>
+            
+            <TabsContent value="grouped" className="mt-6">
+              {filteredGroupedTemplates.length === 0 ? (
+                <div className="border border-border rounded-lg px-6 py-12 text-center text-muted-foreground">
+                  <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No templates found</p>
+                </div>
+              ) : (
+                <Accordion type="multiple" defaultValue={filteredGroupedTemplates.map(([name]) => name)} className="space-y-4">
+                  {filteredGroupedTemplates.map(([groupName, items]) => (
+                    <AccordionItem key={groupName} value={groupName} className="border border-border rounded-lg overflow-hidden">
+                      <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/20">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium">{groupName}</span>
+                          <Badge variant="secondary">{items.length}</Badge>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-0">
+                        <TemplateTable items={items} />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+            </TabsContent>
+            
             <TabsContent value="all" className="mt-6">
               <TemplateTable items={filterTemplates(templates)} />
             </TabsContent>
+            
             <TabsContent value="drafts" className="mt-6">
               <TemplateTable items={filterTemplates(drafts)} showDraftActions />
             </TabsContent>
           </Tabs>
         </>
       )}
-
     </div>
   );
 }
