@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -31,12 +31,19 @@ export function ClauseLibrarySidebar({ onInsertClause, className }: ClauseLibrar
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-
+  
   // Get unique categories
   const categories = useMemo(() => {
     const cats = new Set(clauses.map(c => c.category));
     return Array.from(cats).sort();
   }, [clauses]);
+
+  // Expand all categories when clauses load
+  useEffect(() => {
+    if (categories.length > 0 && expandedCategories.size === 0) {
+      setExpandedCategories(new Set(categories));
+    }
+  }, [categories]);
 
   // Filter clauses
   const filteredClauses = useMemo(() => {
