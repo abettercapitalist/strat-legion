@@ -102,6 +102,34 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
       attributes: {
         class: 'prose max-w-none focus:outline-none min-h-[600px] p-6',
       },
+      handleDrop: (view, event) => {
+        const data = event.dataTransfer?.getData('application/json');
+        if (data) {
+          event.preventDefault();
+          try {
+            const clause = JSON.parse(data);
+            const clauseHtml = `<p><strong>${clause.title}</strong></p><p>${clause.text}</p>`;
+            const { state } = view;
+            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            if (pos) {
+              const tr = state.tr.insertText(''); // Create transaction
+              view.dispatch(tr);
+              // Use editor commands after dispatch
+              setTimeout(() => {
+                const editorInstance = (view as any).editor;
+                if (editorInstance) {
+                  editorInstance.chain().focus().insertContent(clauseHtml).run();
+                  toast.success(`Inserted "${clause.title}"`);
+                }
+              }, 0);
+            }
+            return true;
+          } catch (err) {
+            console.error('Failed to parse dropped clause:', err);
+          }
+        }
+        return false;
+      },
     },
   });
 
@@ -125,39 +153,12 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
     }
   }, [content, editor]);
 
-  // Handle drop events for clause insertion
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    const data = e.dataTransfer.getData('application/json');
-    if (data && editor) {
-      e.preventDefault();
-      e.stopPropagation();
-      try {
-        const clause = JSON.parse(data);
-        const clauseHtml = `<p><strong>${clause.title}</strong></p><p>${clause.text}</p>`;
-        editor.chain().focus().insertContent(clauseHtml).run();
-        toast.success(`Inserted "${clause.title}"`);
-      } catch (err) {
-        console.error('Failed to parse dropped clause:', err);
-      }
-    }
-  }, [editor]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = 'copy';
-  }, []);
-
   if (!editor) {
     return null;
   }
 
   return (
-    <div 
-      className="flex flex-col h-full border border-border rounded-lg bg-card overflow-hidden"
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-    >
+    <div className="flex flex-col h-full border border-border rounded-lg bg-card overflow-hidden">
       <EditorToolbar editor={editor} />
       <div className="flex-1 overflow-auto">
         <EditorContent editor={editor} className="h-full" />
