@@ -1,4 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
+import { useEffect, useRef, useCallback } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
@@ -17,6 +18,7 @@ import { SectionNumbering } from './extensions/SectionNumbering';
 import { EnumeratedList } from './extensions/EnumeratedList';
 import { CrossReference } from './extensions/CrossReference';
 import { LineHeight } from './extensions/LineHeight';
+import { toast } from 'sonner';
 
 interface ContractEditorProps {
   content?: string;
@@ -53,6 +55,9 @@ const initialContent = `<h1 style="text-align: center">Agreement</h1>
 </table>`;
 
 export function ContractEditor({ content, onChange }: ContractEditorProps) {
+  const isInitialMount = useRef(true);
+  const lastExternalContent = useRef(content);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -100,12 +105,57 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
     },
   });
 
+  // Sync content from prop when it changes externally
+  useEffect(() => {
+    if (!editor) return;
+    
+    // Skip initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    // Only update if content changed externally (not from editor typing)
+    if (content !== undefined && content !== lastExternalContent.current) {
+      lastExternalContent.current = content;
+      const currentContent = editor.getHTML();
+      if (content !== currentContent) {
+        editor.commands.setContent(content, { emitUpdate: false });
+      }
+    }
+  }, [content, editor]);
+
+  // Handle drop events for clause insertion
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const data = e.dataTransfer.getData('application/json');
+    if (data && editor) {
+      try {
+        const clause = JSON.parse(data);
+        const clauseHtml = `<p><strong>${clause.title}</strong></p><p>${clause.text}</p>`;
+        editor.chain().focus().insertContent(clauseHtml).run();
+        toast.success(`Inserted "${clause.title}"`);
+      } catch (err) {
+        console.error('Failed to parse dropped clause:', err);
+      }
+    }
+  }, [editor]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
   if (!editor) {
     return null;
   }
 
   return (
-    <div className="flex flex-col h-full border border-border rounded-lg bg-card overflow-hidden">
+    <div 
+      className="flex flex-col h-full border border-border rounded-lg bg-card overflow-hidden"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+    >
       <EditorToolbar editor={editor} />
       <div className="flex-1 overflow-auto">
         <EditorContent editor={editor} className="h-full" />
