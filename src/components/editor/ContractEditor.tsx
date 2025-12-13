@@ -127,9 +127,10 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
 
   // Handle drop events for clause insertion
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
     const data = e.dataTransfer.getData('application/json');
     if (data && editor) {
+      e.preventDefault();
+      e.stopPropagation();
       try {
         const clause = JSON.parse(data);
         const clauseHtml = `<p><strong>${clause.title}</strong></p><p>${clause.text}</p>`;
@@ -143,6 +144,7 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
   }, []);
 
