@@ -1,9 +1,10 @@
-import { FileText, Library, Inbox, BarChart3, Settings, Home, MessageSquareText, Network } from "lucide-react";
+import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText, Network } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./ui/sidebar";
+import { PlaybookIcon } from "./icons/PlaybookIcon";
 const lawDeptNavigation = [{
   name: "Home",
   href: "/law/home",
@@ -32,7 +33,7 @@ const librariesNavigation = [{
 }, {
   name: "Clause Library",
   href: "/law/clauses",
-  icon: Library
+  icon: PlaybookIcon
 }, {
   name: "Response Library",
   href: "/law/responses",
