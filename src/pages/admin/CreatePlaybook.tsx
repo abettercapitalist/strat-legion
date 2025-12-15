@@ -83,38 +83,37 @@ export default function CreatePlaybook() {
   const displayNameValue = watch("display_name") || "";
   const teamCategory = watch("team_category");
 
+  const [activationErrors, setActivationErrors] = useState<{
+    steps?: string;
+    approvalTemplate?: string;
+  }>({});
+
   const validateForActivation = (): boolean => {
+    const newErrors: typeof activationErrors = {};
+    
     // Check for at least one immediate step
     const hasImmediateStep = workflowSteps.some(
       (step) => step.requirement_type === "required_immediate"
     );
-    if (!hasImmediateStep && workflowSteps.length > 0) {
-      toast({
-        title: "Validation Error",
-        description:
-          "At least one step must be set as 'Required (immediate)' to activate.",
-        variant: "destructive",
-      });
-      return false;
+    if (!hasImmediateStep) {
+      newErrors.steps = "At least one step must be set as 'Required (immediate)' to activate.";
     }
     
     // Check for approval template
     if (!selectedApprovalTemplateId) {
-      toast({
-        title: "Validation Error",
-        description: "An approval template is required to activate.",
-        variant: "destructive",
-      });
-      return false;
+      newErrors.approvalTemplate = "An approval template is required to activate.";
     }
     
-    return true;
+    setActivationErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const onSubmit = async (
     data: PlaybookFormData,
     status: "Draft" | "Active"
   ) => {
+    setActivationErrors({});
+    
     if (status === "Active" && !validateForActivation()) {
       return;
     }
@@ -126,9 +125,9 @@ export default function CreatePlaybook() {
         description: data.description || null,
         team_category: data.team_category,
         status,
+        approval_template_id: selectedApprovalTemplateId,
         default_workflow: JSON.stringify({
           steps: workflowSteps,
-          approval_template_id: selectedApprovalTemplateId,
           required_documents: requiredDocuments,
         }),
       };
@@ -142,10 +141,7 @@ export default function CreatePlaybook() {
       } else {
         await createWorkstreamType.mutateAsync(payload);
         toast({
-          title: "Play created",
-          description: `${data.name} has been ${
-            status === "Draft" ? "saved as draft" : "activated"
-          }.`,
+          title: status === "Active" ? "New play activated successfully" : "Play saved as draft",
         });
       }
       navigate("/admin/workstream-types");
@@ -304,16 +300,26 @@ export default function CreatePlaybook() {
         </div>
 
         {/* Section 2: Workflow Steps */}
-        <WorkflowStepsSection
-          steps={workflowSteps}
-          onStepsChange={setWorkflowSteps}
-        />
+        <div className="space-y-2">
+          <WorkflowStepsSection
+            steps={workflowSteps}
+            onStepsChange={setWorkflowSteps}
+          />
+          {activationErrors.steps && (
+            <p className="text-xs text-destructive">{activationErrors.steps}</p>
+          )}
+        </div>
 
         {/* Section 3: Approval Workflow */}
-        <ApprovalWorkflowSection
-          selectedTemplateId={selectedApprovalTemplateId}
-          onTemplateChange={setSelectedApprovalTemplateId}
-        />
+        <div className="space-y-2">
+          <ApprovalWorkflowSection
+            selectedTemplateId={selectedApprovalTemplateId}
+            onTemplateChange={setSelectedApprovalTemplateId}
+          />
+          {activationErrors.approvalTemplate && (
+            <p className="text-xs text-destructive">{activationErrors.approvalTemplate}</p>
+          )}
+        </div>
 
         {/* Section 4: Required Documents */}
         <RequiredDocumentsSection
