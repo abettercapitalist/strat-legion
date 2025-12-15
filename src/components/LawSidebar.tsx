@@ -1,10 +1,11 @@
-import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText, Network } from "lucide-react";
+import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./ui/sidebar";
 import { PlaybookIcon } from "./icons/PlaybookIcon";
+import { ClauseIcon } from "./icons/ClauseIcon";
 const lawDeptNavigation = [{
   name: "Home",
   href: "/law/home",
@@ -33,7 +34,7 @@ const librariesNavigation = [{
 }, {
   name: "Clause Library",
   href: "/law/clauses",
-  icon: PlaybookIcon
+  icon: ClauseIcon
 }, {
   name: "Response Library",
   href: "/law/responses",
@@ -42,7 +43,7 @@ const librariesNavigation = [{
 const teamworkNavigation = [{
   name: "Workstreams",
   href: "/law/workstream-types",
-  icon: Network
+  icon: PlaybookIcon
 }
 // Future: Approval Templates, User Roles, Company Settings
 ];
