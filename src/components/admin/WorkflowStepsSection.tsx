@@ -246,6 +246,14 @@ export function WorkflowStepsSection({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Tip - shown when steps exist */}
+      {steps.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Lightbulb className="h-4 w-4" />
+          <span>Steps execute in order listed. Drag to reorder.</span>
+        </div>
+      )}
+
       {/* Steps List */}
       <div className="space-y-4">
         {steps.map((step, index) => {
@@ -461,14 +469,6 @@ export function WorkflowStepsSection({
           );
         })}
       </div>
-
-      {/* Tip */}
-      {steps.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Lightbulb className="h-4 w-4" />
-          <span>Steps execute in order listed. Drag to reorder.</span>
-        </div>
-      )}
 
       {/* Empty State */}
       {steps.length === 0 && (
