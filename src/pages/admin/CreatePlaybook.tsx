@@ -11,6 +11,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkstreamTypes } from "@/hooks/useWorkstreamTypes";
+import {
+  WorkflowStepsSection,
+  WorkflowStep,
+} from "@/components/admin/WorkflowStepsSection";
 
 const playbookSchema = z.object({
   name: z
@@ -30,13 +34,13 @@ const playbookSchema = z.object({
     .max(500, "Description must be 500 characters or less")
     .optional(),
   team_category: z.enum(["Sales", "Law", "Finance", "Pro Services", "Other"], {
-    required_error: "Module category is required",
+    required_error: "Assigned team is required",
   }),
 });
 
 type PlaybookFormData = z.infer<typeof playbookSchema>;
 
-const MODULE_OPTIONS = [
+const TEAM_OPTIONS = [
   { value: "Sales", label: "Sales" },
   { value: "Law", label: "Law" },
   { value: "Finance", label: "Finance" },
@@ -50,6 +54,8 @@ export default function CreatePlaybook() {
   const { toast } = useToast();
   const { createWorkstreamType, updateWorkstreamType } = useWorkstreamTypes();
   const isEditing = Boolean(id);
+
+  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
 
   const {
     register,
@@ -71,7 +77,30 @@ export default function CreatePlaybook() {
   const displayNameValue = watch("display_name") || "";
   const teamCategory = watch("team_category");
 
-  const onSubmit = async (data: PlaybookFormData, status: "Draft" | "Active") => {
+  const validateForActivation = (): boolean => {
+    const hasImmediateStep = workflowSteps.some(
+      (step) => step.requirement_type === "required_immediate"
+    );
+    if (!hasImmediateStep && workflowSteps.length > 0) {
+      toast({
+        title: "Validation Error",
+        description:
+          "At least one step must be set as 'Required (immediate)' to activate.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const onSubmit = async (
+    data: PlaybookFormData,
+    status: "Draft" | "Active"
+  ) => {
+    if (status === "Active" && !validateForActivation()) {
+      return;
+    }
+
     try {
       const payload = {
         name: data.name,
@@ -79,6 +108,7 @@ export default function CreatePlaybook() {
         description: data.description || null,
         team_category: data.team_category,
         status,
+        default_workflow: JSON.stringify(workflowSteps),
       };
 
       if (isEditing && id) {
@@ -91,7 +121,9 @@ export default function CreatePlaybook() {
         await createWorkstreamType.mutateAsync(payload);
         toast({
           title: "Playbook created",
-          description: `${data.name} has been ${status === "Draft" ? "saved as draft" : "activated"}.`,
+          description: `${data.name} has been ${
+            status === "Draft" ? "saved as draft" : "activated"
+          }.`,
         });
       }
       navigate("/admin/workstream-types");
@@ -209,19 +241,22 @@ export default function CreatePlaybook() {
             )}
           </div>
 
-          {/* Module Category Field */}
+          {/* Assigned Team Field */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold">
-              Module Category <span className="text-destructive">*</span>
+              Assigned Team <span className="text-destructive">*</span>
             </Label>
             <RadioGroup
               value={teamCategory}
               onValueChange={(value) =>
-                setValue("team_category", value as PlaybookFormData["team_category"])
+                setValue(
+                  "team_category",
+                  value as PlaybookFormData["team_category"]
+                )
               }
               className="flex flex-wrap gap-4"
             >
-              {MODULE_OPTIONS.map((option) => (
+              {TEAM_OPTIONS.map((option) => (
                 <div key={option.value} className="flex items-center space-x-2">
                   <RadioGroupItem value={option.value} id={option.value} />
                   <Label
@@ -234,7 +269,7 @@ export default function CreatePlaybook() {
               ))}
             </RadioGroup>
             <p className="text-xs text-muted-foreground">
-              Primary module where this playbook will be used
+              Primary team where this playbook will be used
             </p>
             {errors.team_category && (
               <p className="text-xs text-destructive">
@@ -243,6 +278,12 @@ export default function CreatePlaybook() {
             )}
           </div>
         </div>
+
+        {/* Section 2: Workflow Steps */}
+        <WorkflowStepsSection
+          steps={workflowSteps}
+          onStepsChange={setWorkflowSteps}
+        />
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 pt-6 border-t">

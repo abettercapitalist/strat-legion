@@ -117,7 +117,7 @@ export default function WorkstreamTypes() {
         team_category: value
       }))}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Team Category" />
+            <SelectValue placeholder="Team" />
           </SelectTrigger>
           <SelectContent>
             {TEAM_CATEGORY_OPTIONS.map(category => <SelectItem key={category} value={category}>
