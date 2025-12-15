@@ -329,7 +329,9 @@ export type Database = {
       }
       workstream_types: {
         Row: {
+          approval_template_id: string | null
           created_at: string
+          created_by: string | null
           default_workflow: string | null
           description: string | null
           display_name: string | null
@@ -341,7 +343,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_template_id?: string | null
           created_at?: string
+          created_by?: string | null
           default_workflow?: string | null
           description?: string | null
           display_name?: string | null
@@ -353,7 +357,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_template_id?: string | null
           created_at?: string
+          created_by?: string | null
           default_workflow?: string | null
           description?: string | null
           display_name?: string | null
@@ -364,7 +370,15 @@ export type Database = {
           team_category?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workstream_types_approval_template_id_fkey"
+            columns: ["approval_template_id"]
+            isOneToOne: false
+            referencedRelation: "approval_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workstreams: {
         Row: {

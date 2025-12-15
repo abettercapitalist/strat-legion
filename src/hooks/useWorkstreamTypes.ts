@@ -62,7 +62,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
   });
 
   const createWorkstreamType = useMutation({
-    mutationFn: async (data: Partial<WorkstreamType>) => {
+    mutationFn: async (data: Partial<WorkstreamType> & { approval_template_id?: string | null }) => {
       const { data: result, error } = await supabase
         .from("workstream_types")
         .insert({
@@ -73,6 +73,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
           team_category: data.team_category,
           required_documents: data.required_documents || [],
           default_workflow: data.default_workflow,
+          approval_template_id: data.approval_template_id || null,
         })
         .select()
         .single();
@@ -80,9 +81,8 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
       if (error) throw error;
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["workstream-types"] });
-      toast({ title: "Workstream type created successfully" });
     },
     onError: (error) => {
       toast({ title: "Failed to create workstream type", description: error.message, variant: "destructive" });
