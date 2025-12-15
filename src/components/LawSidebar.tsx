@@ -6,47 +6,30 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./ui/sidebar";
 import { PlaybookIcon } from "./icons/PlaybookIcon";
 import { ClauseIcon } from "./icons/ClauseIcon";
-const lawDeptNavigation = [{
-  name: "Home",
-  href: "/law/home",
-  icon: Home,
-  badge: undefined
-}, {
-  name: "Change Requests",
-  href: "/law/requests",
-  icon: Inbox,
-  badge: 3
-}, {
-  name: "Learning Center",
-  href: "/law/dashboard",
-  icon: BarChart3,
-  badge: undefined
-}];
-const adminNavigation = [{
-  name: "Settings",
-  href: "/law/settings",
-  icon: Settings
-}];
-const librariesNavigation = [{
-  name: "Template Library",
-  href: "/law/templates",
-  icon: FileText
-}, {
-  name: "Clause Library",
-  href: "/law/clauses",
-  icon: ClauseIcon
-}, {
-  name: "Response Library",
-  href: "/law/responses",
-  icon: MessageSquareText
-}];
-const teamworkNavigation = [{
-  name: "Workstreams",
-  href: "/law/workstream-types",
-  icon: PlaybookIcon
-}
-// Future: Approval Templates, User Roles, Company Settings
+
+const lawDeptNavigation = [
+  { name: "Home", href: "/law/home", icon: Home, badge: undefined },
+  { name: "Change Requests", href: "/law/requests", icon: Inbox, badge: 3 },
+  { name: "Learning Center", href: "/law/dashboard", icon: BarChart3, badge: undefined },
 ];
+
+const adminNavigation = [
+  { name: "Settings", href: "/law/settings", icon: Settings },
+];
+
+// Libraries in bottom-up order (building blocks → compositions)
+const librariesNavigation = [
+  { name: "Clause Library", href: "/law/clauses", icon: ClauseIcon },
+  { name: "Response Library", href: "/law/responses", icon: MessageSquareText },
+  { name: "Template Library", href: "/law/templates", icon: FileText },
+];
+
+// Admin-only library item
+const playbooksLibrary = {
+  name: "Playbooks Library",
+  href: "/admin/workstream-types",
+  icon: PlaybookIcon,
+};
 export function LawSidebar() {
   const {
     state
@@ -90,47 +73,56 @@ export function LawSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Libraries section */}
+        {/* Libraries section - consolidated with bottom-up ordering */}
         <SidebarGroup>
-          {!isCollapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
               Libraries
-            </SidebarGroupLabel>}
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2 py-2">
-              {librariesNavigation.map(item => {
-              const isActive = location.pathname.startsWith(item.href);
-              return <SidebarMenuItem key={item.name}>
+              {librariesNavigation.map((item) => {
+                const isActive = location.pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild>
-                      <NavLink to={item.href} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+                      <NavLink
+                        to={item.href}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                          isActive
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        }`}
+                      >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && <span className="flex-1 text-sm">{item.name}</span>}
                       </NavLink>
                     </SidebarMenuButton>
-                  </SidebarMenuItem>;
-            })}
+                  </SidebarMenuItem>
+                );
+              })}
+              {/* Playbooks Library - admin only, at bottom of Libraries */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={playbooksLibrary.href}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                        location.pathname.startsWith(playbooksLibrary.href)
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      }`}
+                    >
+                      <playbooksLibrary.icon className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && <span className="flex-1 text-sm">{playbooksLibrary.name}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* Admin-only Teamwork section */}
-        {isAdmin && <SidebarGroup>
-            {!isCollapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">PLAYBOOKS</SidebarGroupLabel>}
-            <SidebarGroupContent>
-              <SidebarMenu className="space-y-1 px-2 py-2">
-                {teamworkNavigation.map(item => {
-              const isActive = location.pathname.startsWith(item.href);
-              return <SidebarMenuItem key={item.name}>
-                      <SidebarMenuButton asChild>
-                        <NavLink to={item.href} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          {!isCollapsed && <span className="flex-1 text-sm">{item.name}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>;
-            })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>}
 
         {/* Admin section at bottom */}
         <SidebarGroup className="mt-auto">
