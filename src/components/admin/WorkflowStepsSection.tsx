@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
+import { StepDocumentsSection, StepDocument } from "./StepDocumentsSection";
 
 export type StepType =
   | "generate_document"
@@ -74,6 +75,7 @@ export interface WorkflowStep {
   trigger_step_id: string | null;
   config: Record<string, unknown>;
   icon: string;
+  documents: StepDocument[];
 }
 
 interface WorkflowStepsSectionProps {
@@ -163,8 +165,11 @@ export function WorkflowStepsSection({
       trigger_step_id: null,
       config: {},
       icon: stepInfo.emoji,
+      documents: [],
     };
     onStepsChange([...steps, newStep]);
+    // Auto-expand newly added step
+    setExpandedSteps((prev) => new Set([...prev, newStep.step_id]));
   };
 
   const removeStep = (stepId: string) => {
@@ -463,6 +468,16 @@ export function WorkflowStepsSection({
                       )}
                     </div>
                   )}
+
+                  {/* Documents for this step */}
+                  <div className="pt-4 border-t">
+                    <StepDocumentsSection
+                      documents={step.documents || []}
+                      onDocumentsChange={(docs) =>
+                        updateStep(step.step_id, { documents: docs })
+                      }
+                    />
+                  </div>
                 </div>
               )}
             </Card>

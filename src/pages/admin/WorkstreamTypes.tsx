@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, ChevronDown, MoreHorizontal, Pencil, Copy, Archive, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkstreamTypes, type WorkstreamTypeFilters } from "@/hooks/useWorkstreamTypes";
+
 const STATUS_OPTIONS = ["All", "Active", "Draft", "Archived"];
 const TEAM_CATEGORY_OPTIONS = ["All", "Sales", "Law", "Finance", "Pro Services"];
+
 export default function WorkstreamTypes() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<WorkstreamTypeFilters>({
     status: "All",
     team_category: "All"
@@ -21,6 +25,7 @@ export default function WorkstreamTypes() {
     duplicateWorkstreamType,
     archiveWorkstreamType
   } = useWorkstreamTypes(filters);
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "Active":
@@ -33,13 +38,15 @@ export default function WorkstreamTypes() {
         return "secondary";
     }
   };
+
   const handleEdit = (id: string) => {
-    // TODO: Navigate to edit page
-    console.log("Edit:", id);
+    navigate(`/admin/workstream-types/${id}/edit`);
   };
+
   const handleDuplicate = (id: string) => {
     duplicateWorkstreamType.mutate(id);
   };
+
   const handleArchive = (id: string) => {
     archiveWorkstreamType.mutate(id);
   };
@@ -84,7 +91,7 @@ export default function WorkstreamTypes() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => window.location.href = '/admin/workstream-types/new'}>
+            <DropdownMenuItem onClick={() => navigate('/admin/workstream-types/new')}>
               <Plus className="h-4 w-4 mr-2" />
               Create from scratch
             </DropdownMenuItem>
@@ -133,7 +140,7 @@ export default function WorkstreamTypes() {
           <p className="text-muted-foreground mb-6">
             Create your first play to get started
           </p>
-          <Button onClick={() => window.location.href = '/admin/workstream-types/new'}>
+          <Button onClick={() => navigate('/admin/workstream-types/new')}>
             <Plus className="h-4 w-4 mr-2" />
             Create New Play
           </Button>
