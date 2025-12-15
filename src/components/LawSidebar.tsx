@@ -15,7 +15,7 @@ import {
   useSidebar,
 } from "./ui/sidebar";
 
-const navigation = [
+const lawDeptNavigation = [
   { 
     name: "Home", 
     href: "/law/home", 
@@ -27,24 +27,6 @@ const navigation = [
     href: "/law/requests", 
     icon: Inbox,
     badge: 3,
-  },
-  { 
-    name: "Template Library", 
-    href: "/law/templates", 
-    icon: FileText,
-    badge: undefined,
-  },
-  { 
-    name: "Clause Library", 
-    href: "/law/clauses", 
-    icon: Library,
-    badge: undefined,
-  },
-  { 
-    name: "Response Library", 
-    href: "/law/responses", 
-    icon: MessageSquareText,
-    badge: undefined,
   },
   { 
     name: "Learning Center", 
@@ -60,9 +42,27 @@ const navigation = [
   },
 ];
 
-const workstreamsNavigation = [
+const librariesNavigation = [
   { 
-    name: "Workstream Types", 
+    name: "Template Library", 
+    href: "/law/templates", 
+    icon: FileText,
+  },
+  { 
+    name: "Clause Library", 
+    href: "/law/clauses", 
+    icon: Library,
+  },
+  { 
+    name: "Response Library", 
+    href: "/law/responses", 
+    icon: MessageSquareText,
+  },
+];
+
+const teamworkNavigation = [
+  { 
+    name: "Workstreams", 
     href: "/law/workstream-types", 
     icon: Network,
   },
@@ -97,12 +97,12 @@ export function LawSidebar() {
         <SidebarGroup>
           {!isCollapsed && (
             <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
-              Law Module
+              Law Dept.
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2 py-2">
-              {navigation.map((item) => {
+              {lawDeptNavigation.map((item) => {
                 const isActive = location.pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.name}>
@@ -133,17 +133,52 @@ export function LawSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Admin-only Workstreams section */}
+        {/* Libraries section */}
+        <SidebarGroup>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
+              Libraries
+            </SidebarGroupLabel>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1 px-2 py-2">
+              {librariesNavigation.map((item) => {
+                const isActive = location.pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.href}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                          isActive
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        {!isCollapsed && (
+                          <span className="flex-1 text-sm">{item.name}</span>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Admin-only Teamwork section */}
         {isAdmin && (
           <SidebarGroup>
             {!isCollapsed && (
               <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
-                Workstreams
+                Teamwork
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1 px-2 py-2">
-                {workstreamsNavigation.map((item) => {
+                {teamworkNavigation.map((item) => {
                   const isActive = location.pathname.startsWith(item.href);
                   return (
                     <SidebarMenuItem key={item.name}>
