@@ -24,12 +24,12 @@ export function PlayFormStepper({ currentStep, onStepClick, completedSteps }: Pl
 
   return (
     <div className="mb-8">
-      {/* Progress bar */}
-      <div className="flex gap-1 mb-3">
+      <div className="flex gap-1">
         {STEPS.map((step, index) => {
           const isCompleted = completedSteps.has(step.id);
           const isCurrent = step.id === currentStep;
           const isPast = index < currentIndex;
+          const isActive = isCurrent || isCompleted || isPast;
 
           return (
             <button
@@ -37,33 +37,11 @@ export function PlayFormStepper({ currentStep, onStepClick, completedSteps }: Pl
               type="button"
               onClick={() => onStepClick?.(step.id)}
               className={cn(
-                "h-1.5 flex-1 rounded-full transition-colors",
-                (isCurrent || isCompleted || isPast) 
-                  ? "bg-primary" 
-                  : "bg-muted",
-                onStepClick && "cursor-pointer hover:opacity-80"
-              )}
-            />
-          );
-        })}
-      </div>
-
-      {/* Step labels */}
-      <div className="flex justify-between">
-        {STEPS.map((step, index) => {
-          const isCurrent = step.id === currentStep;
-
-          return (
-            <button
-              key={step.id}
-              type="button"
-              onClick={() => onStepClick?.(step.id)}
-              className={cn(
-                "text-sm transition-colors",
-                isCurrent 
-                  ? "text-foreground font-medium" 
-                  : "text-muted-foreground",
-                onStepClick && "cursor-pointer hover:text-foreground"
+                "flex-1 h-8 rounded-md px-3 flex items-center text-sm transition-colors",
+                isActive ? "bg-primary" : "bg-muted",
+                isActive ? "text-primary-foreground" : "text-muted-foreground",
+                isCurrent && "font-medium",
+                onStepClick && "cursor-pointer hover:opacity-90"
               )}
             >
               {index + 1}. {step.name}
