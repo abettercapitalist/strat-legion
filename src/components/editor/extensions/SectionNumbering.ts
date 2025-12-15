@@ -137,4 +137,40 @@ export const SectionNumbering = Extension.create({
   },
 });
 
+// Utility to count existing sections and generate the next section number
+export function getNextSectionNumber(
+  htmlContent: string,
+  style: SectionNumberingStyle = 'decimal',
+  level: number = 0
+): string {
+  if (style === 'none') {
+    return '';
+  }
+
+  const format = NUMBERING_FORMATS[style];
+  if (!format) {
+    return '';
+  }
+
+  // Count existing top-level sections by looking for patterns like "1.", "2.", "Section 1", etc.
+  const patterns: Record<string, RegExp> = {
+    'mscd-alpha': /^(\d+)\.\s/gm,
+    'mscd-digital': /^Section\s+(\d+)(?:\.|$)/gm,
+    'article': /^Article\s+[IVXLCDM]+/gm,
+    'decimal': /^(\d+)\.0?\s/gm,
+  };
+
+  const pattern = patterns[style] || /^(\d+)\.\s/gm;
+  const matches = htmlContent.match(pattern) || [];
+  const nextNumber = matches.length + 1;
+
+  // Generate the formatted section number
+  const formatter = format.levels[level];
+  if (!formatter) {
+    return `${nextNumber}.`;
+  }
+
+  return formatter(nextNumber, []);
+}
+
 export { NUMBERING_FORMATS };
