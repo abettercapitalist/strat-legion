@@ -14,7 +14,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { FontWeight } from './extensions/FontWeight';
 import { FontSize } from './extensions/FontSize';
 import { Columns } from './extensions/Columns';
-import { SectionNumbering } from './extensions/SectionNumbering';
+import { SectionNumbering, getNextSectionNumber } from './extensions/SectionNumbering';
 import { EnumeratedList } from './extensions/EnumeratedList';
 import { CrossReference } from './extensions/CrossReference';
 import { LineHeight } from './extensions/LineHeight';
@@ -108,18 +108,27 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
           event.preventDefault();
           try {
             const clause = JSON.parse(data);
-            const clauseHtml = `<p><strong>${clause.title}</strong></p><p>${clause.text}</p>`;
+            const editorInstance = (view as any).editor;
+            
+            // Get current content and active numbering style
+            const currentHtml = editorInstance?.getHTML() || '';
+            const activeStyle = editorInstance?.storage?.sectionNumbering?.style || 'decimal';
+            
+            // Generate next section number using MSCD format
+            const sectionNumber = getNextSectionNumber(currentHtml, activeStyle, 0);
+            const prefix = sectionNumber ? `${sectionNumber} ` : '';
+            
+            const clauseHtml = `<p><strong>${prefix}${clause.title}</strong></p><p>${clause.text}</p>`;
+            
             const { state } = view;
             const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
             if (pos) {
-              const tr = state.tr.insertText(''); // Create transaction
+              const tr = state.tr.insertText('');
               view.dispatch(tr);
-              // Use editor commands after dispatch
               setTimeout(() => {
-                const editorInstance = (view as any).editor;
                 if (editorInstance) {
                   editorInstance.chain().focus().insertContent(clauseHtml).run();
-                  toast.success(`Inserted "${clause.title}"`);
+                  toast.success(`Inserted "${clause.title}" as section ${sectionNumber || 'unnumbered'}`);
                 }
               }, 0);
             }
