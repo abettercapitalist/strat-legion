@@ -16,6 +16,10 @@ import {
   WorkflowStep,
 } from "@/components/admin/WorkflowStepsSection";
 import { ApprovalWorkflowSection } from "@/components/admin/ApprovalWorkflowSection";
+import {
+  RequiredDocumentsSection,
+  RequiredDocument,
+} from "@/components/admin/RequiredDocumentsSection";
 
 const playbookSchema = z.object({
   name: z
@@ -57,6 +61,7 @@ export default function CreatePlaybook() {
   const isEditing = Boolean(id);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
   const [selectedApprovalTemplateId, setSelectedApprovalTemplateId] = useState<string | null>(null);
+  const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocument[]>([]);
 
   const {
     register,
@@ -124,6 +129,7 @@ export default function CreatePlaybook() {
         default_workflow: JSON.stringify({
           steps: workflowSteps,
           approval_template_id: selectedApprovalTemplateId,
+          required_documents: requiredDocuments,
         }),
       };
 
@@ -307,6 +313,12 @@ export default function CreatePlaybook() {
         <ApprovalWorkflowSection
           selectedTemplateId={selectedApprovalTemplateId}
           onTemplateChange={setSelectedApprovalTemplateId}
+        />
+
+        {/* Section 4: Required Documents */}
+        <RequiredDocumentsSection
+          documents={requiredDocuments}
+          onDocumentsChange={setRequiredDocuments}
         />
 
         {/* Footer */}
