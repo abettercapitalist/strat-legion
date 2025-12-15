@@ -1,7 +1,8 @@
-import { FileText, Library, Inbox, BarChart3, Settings, Home, MessageSquareText } from "lucide-react";
+import { FileText, Library, Inbox, BarChart3, Settings, Home, MessageSquareText, Network } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -59,10 +60,23 @@ const navigation = [
   },
 ];
 
+const workstreamsNavigation = [
+  { 
+    name: "Workstream Types", 
+    href: "/law/workstream-types", 
+    icon: Network,
+  },
+  // Future: Approval Templates, User Roles, Company Settings
+];
+
 export function LawSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
+  const { role } = useAuth();
   const isCollapsed = state === "collapsed";
+  
+  // Admin roles that can see the Workstreams section
+  const isAdmin = role === "general_counsel" || role === "legal_ops";
 
   return (
     <Sidebar 
@@ -118,6 +132,43 @@ export function LawSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin-only Workstreams section */}
+        {isAdmin && (
+          <SidebarGroup>
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
+                Workstreams
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1 px-2 py-2">
+                {workstreamsNavigation.map((item) => {
+                  const isActive = location.pathname.startsWith(item.href);
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.href}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                            isActive
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent"
+                          }`}
+                        >
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          {!isCollapsed && (
+                            <span className="flex-1 text-sm">{item.name}</span>
+                          )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

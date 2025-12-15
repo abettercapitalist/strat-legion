@@ -21,6 +21,7 @@ import LawDashboard from "./pages/law/LearningDashboard";
 import LawHome from "./pages/law/Home";
 import LawSettings from "./pages/law/Settings";
 import LawResponseLibrary from "./pages/law/ResponseLibrary";
+import WorkstreamTypes from "./pages/law/WorkstreamTypes";
 
 // Sales Module Pages
 import SalesHome from "./pages/sales/Home";
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="requests/rejected" element={<LawChangeRequests />} />
               <Route path="dashboard" element={<LawDashboard />} />
               <Route path="settings" element={<LawSettings />} />
+              <Route path="workstream-types" element={<WorkstreamTypes />} />
             </Route>
 
             {/* Sales Module Routes */}
