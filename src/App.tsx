@@ -8,6 +8,7 @@ import { RBACProvider } from "./contexts/RBACContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LawLayout } from "./components/LawLayout";
 import { SalesLayout } from "./components/SalesLayout";
+import { AdminLayout } from "./components/AdminLayout";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -21,7 +22,9 @@ import LawDashboard from "./pages/law/LearningDashboard";
 import LawHome from "./pages/law/Home";
 import LawSettings from "./pages/law/Settings";
 import LawResponseLibrary from "./pages/law/ResponseLibrary";
-import WorkstreamTypes from "./pages/law/WorkstreamTypes";
+
+// Admin Module Pages
+import WorkstreamTypes from "./pages/admin/WorkstreamTypes";
 
 // Sales Module Pages
 import SalesHome from "./pages/sales/Home";
@@ -65,6 +68,10 @@ const App = () => (
               <Route path="requests/rejected" element={<LawChangeRequests />} />
               <Route path="dashboard" element={<LawDashboard />} />
               <Route path="settings" element={<LawSettings />} />
+            </Route>
+
+            {/* Admin Module Routes */}
+            <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
               <Route path="workstream-types" element={<WorkstreamTypes />} />
             </Route>
 

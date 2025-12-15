@@ -332,27 +332,36 @@ export type Database = {
           created_at: string
           default_workflow: string | null
           description: string | null
+          display_name: string | null
           id: string
           name: string
           required_documents: string[] | null
+          status: string | null
+          team_category: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           default_workflow?: string | null
           description?: string | null
+          display_name?: string | null
           id?: string
           name: string
           required_documents?: string[] | null
+          status?: string | null
+          team_category?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           default_workflow?: string | null
           description?: string | null
+          display_name?: string | null
           id?: string
           name?: string
           required_documents?: string[] | null
+          status?: string | null
+          team_category?: string | null
           updated_at?: string
         }
         Relationships: []
