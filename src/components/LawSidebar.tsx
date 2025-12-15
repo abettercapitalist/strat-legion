@@ -114,7 +114,7 @@ export function LawSidebar() {
 
         {/* Admin-only Teamwork section */}
         {isAdmin && <SidebarGroup>
-            {!isCollapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">PLAYBOOK</SidebarGroupLabel>}
+            {!isCollapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">PLAYBOOKS</SidebarGroupLabel>}
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1 px-2 py-2">
                 {teamworkNavigation.map(item => {
