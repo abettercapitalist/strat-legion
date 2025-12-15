@@ -85,25 +85,22 @@ export const SectionNumbering = Extension.create({
         types: this.options.types,
         attributes: {
           sectionStyle: {
-            default: 'none',
-            parseHTML: (element) => element.getAttribute('data-section-style') || 'none',
+            default: null,
+            parseHTML: (element) => element.getAttribute('data-section-style') || null,
             renderHTML: (attributes) => {
               if (!attributes.sectionStyle || attributes.sectionStyle === 'none') {
                 return {};
               }
               return {
                 'data-section-style': attributes.sectionStyle,
+                'data-section-level': attributes.sectionLevel || 1,
               };
             },
           },
           sectionLevel: {
             default: 1,
             parseHTML: (element) => parseInt(element.getAttribute('data-section-level') || '1', 10),
-            renderHTML: (attributes) => {
-              return {
-                'data-section-level': attributes.sectionLevel,
-              };
-            },
+            renderHTML: () => ({}), // Handled by sectionStyle renderHTML
           },
         },
       },
