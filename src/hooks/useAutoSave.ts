@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { format } from "date-fns";
-import { saveDraft as saveDraftToFileSystem } from "@/lib/mockFileSystem";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface DraftVersion {
   id: string;
@@ -12,26 +12,25 @@ export interface DraftVersion {
 interface AutoSaveOptions {
   content: string;
   templateName: string;
+  templateId?: string;
   autoSaveInterval?: number; // in ms, default 30 seconds
   versionInterval?: number; // in ms, default 3 minutes
-  category?: "Sales" | "Procurement" | "Employment" | "Services" | "Partnership";
-  userEmail?: string;
+  category?: string;
 }
 
 export function useAutoSave({
   content,
   templateName,
-  autoSaveInterval = 30000, // 30 seconds (Google Docs standard)
+  templateId,
+  autoSaveInterval = 30000, // 30 seconds
   versionInterval = 180000, // 3 minutes for version history
-  category = "Sales",
-  userEmail,
+  category = "General",
 }: AutoSaveOptions) {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [versions, setVersions] = useState<DraftVersion[]>([]);
-  const [currentDraftId, setCurrentDraftId] = useState<string>(() => 
-    `draft-${Date.now()}`
-  );
+  const [isSaving, setIsSaving] = useState(false);
   const lastVersionContent = useRef<string>("");
+  const lastSavedContent = useRef<string>("");
   const isFirstRender = useRef(true);
 
   const getDraftName = useCallback((date: Date) => {
@@ -41,26 +40,41 @@ export function useAutoSave({
     return `Untitled Draft - ${format(date, "yyyy MMM dd")}`;
   }, [templateName]);
 
-  // Auto-save current draft
+  // Auto-save to database when editing existing template
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      lastSavedContent.current = content;
       return;
     }
 
-    if (!content.trim()) return;
+    // Only auto-save if we have a template ID and content has changed
+    if (!templateId || !content.trim() || content === lastSavedContent.current) return;
 
-    const timer = setTimeout(() => {
-      const now = new Date();
-      const draftName = getDraftName(now);
-      
-      // Save to mock file system (persists in localStorage)
-      saveDraftToFileSystem(draftName, content, category, userEmail);
-      setLastSaved(now);
+    const timer = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        const { error } = await supabase
+          .from('templates')
+          .update({
+            content,
+            name: templateName || getDraftName(new Date()),
+          })
+          .eq('id', templateId);
+
+        if (!error) {
+          setLastSaved(new Date());
+          lastSavedContent.current = content;
+        }
+      } catch (err) {
+        console.error('Auto-save error:', err);
+      } finally {
+        setIsSaving(false);
+      }
     }, autoSaveInterval);
 
     return () => clearTimeout(timer);
-  }, [content, getDraftName, autoSaveInterval, category, userEmail]);
+  }, [content, templateId, templateName, getDraftName, autoSaveInterval]);
 
   // Create version snapshots every versionInterval
   useEffect(() => {
@@ -84,30 +98,47 @@ export function useAutoSave({
     return () => clearInterval(timer);
   }, [content, getDraftName, versionInterval]);
 
-  // Manual save - now saves to mock file system
-  const saveDraft = useCallback(() => {
-    const now = new Date();
-    const draftName = getDraftName(now);
-    
-    // Save to mock file system (persists in localStorage)
-    const savedTemplate = saveDraftToFileSystem(draftName, content, category, userEmail);
-    setLastSaved(now);
-    
-    return {
-      id: savedTemplate.id,
-      name: savedTemplate.name,
-      content,
-      savedAt: now.toISOString(),
-      templateName,
-    };
-  }, [content, getDraftName, templateName, category, userEmail]);
+  // Manual save to database
+  const saveDraft = useCallback(async () => {
+    if (!templateId) return null;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('templates')
+        .update({
+          content,
+          name: templateName || getDraftName(new Date()),
+          category,
+          status: 'Draft',
+        })
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      const now = new Date();
+      setLastSaved(now);
+      lastSavedContent.current = content;
+
+      return {
+        id: templateId,
+        name: templateName || getDraftName(now),
+        content,
+        savedAt: now.toISOString(),
+      };
+    } catch (err) {
+      console.error('Save error:', err);
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [content, templateId, templateName, getDraftName, category]);
 
   // Discard draft
   const discardDraft = useCallback(() => {
-    localStorage.removeItem(`playbook-draft-${currentDraftId}`);
     setLastSaved(null);
     setVersions([]);
-  }, [currentDraftId]);
+  }, []);
 
   // Restore to a specific version
   const restoreVersion = useCallback((versionId: string) => {
@@ -118,7 +149,7 @@ export function useAutoSave({
   return {
     lastSaved,
     versions,
-    currentDraftId,
+    isSaving,
     getDraftName,
     saveDraft,
     discardDraft,

@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   AlertTriangle,
   Check,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export type DialogMode = "choice" | "system" | "download" | "discard" | "draft-saved";
 
@@ -41,9 +44,12 @@ interface SaveTemplateDialogProps {
   templateName: string;
   templateContent: string;
   category: string;
+  templateId?: string;
+  isEditMode?: boolean;
   initialMode?: DialogMode;
   onDiscard?: () => void;
   draftName?: string;
+  onSaveComplete?: () => void;
 }
 
 interface FolderItem {
@@ -200,9 +206,12 @@ export function SaveTemplateDialog({
   templateName,
   templateContent,
   category,
+  templateId,
+  isEditMode = false,
   initialMode = "choice",
   onDiscard,
   draftName,
+  onSaveComplete,
 }: SaveTemplateDialogProps) {
   const [mode, setMode] = useState<DialogMode>(initialMode);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(
@@ -210,7 +219,9 @@ export function SaveTemplateDialog({
   );
   const [selectedFileType, setSelectedFileType] = useState("docx");
   const [savedDraftName, setSavedDraftName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Reset mode when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
@@ -222,23 +233,100 @@ export function SaveTemplateDialog({
     onOpenChange(newOpen);
   };
 
-  const handleSaveToSystem = () => {
-    const folderName = systemFolders
-      .flatMap((f) => [f, ...(f.children || [])])
-      .find((f) => f.id === selectedFolder)?.name || "Unknown";
-    
-    toast({
-      title: "Template saved",
-      description: `"${templateName || "Untitled"}" saved to ${folderName}.`,
-    });
-    
-    handleOpenChange(false);
+  const handleSaveToSystem = async () => {
+    setIsSaving(true);
+    try {
+      const name = templateName || draftName || "Untitled Template";
+      
+      if (isEditMode && templateId) {
+        // Update existing template
+        const { error } = await supabase
+          .from('templates')
+          .update({
+            name,
+            content: templateContent,
+            category: category || "General",
+            status: "Active",
+          })
+          .eq('id', templateId);
+
+        if (error) throw error;
+      } else {
+        // Create new template
+        const { error } = await supabase
+          .from('templates')
+          .insert({
+            name,
+            content: templateContent,
+            category: category || "General",
+            status: "Active",
+          });
+
+        if (error) throw error;
+      }
+      
+      toast({
+        title: "Template saved",
+        description: `"${name}" has been saved successfully.`,
+      });
+      
+      onSaveComplete?.();
+      handleOpenChange(false);
+      navigate("/law/templates");
+    } catch (err) {
+      console.error('Save error:', err);
+      toast({
+        title: "Save failed",
+        description: "Could not save the template. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSaveDraft = () => {
-    const name = templateName || draftName || "Untitled Draft";
-    setSavedDraftName(name);
-    setMode("draft-saved");
+  const handleSaveDraft = async () => {
+    setIsSaving(true);
+    try {
+      const name = templateName || draftName || "Untitled Draft";
+      
+      if (isEditMode && templateId) {
+        const { error } = await supabase
+          .from('templates')
+          .update({
+            name,
+            content: templateContent,
+            category: category || "General",
+            status: "Draft",
+          })
+          .eq('id', templateId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('templates')
+          .insert({
+            name,
+            content: templateContent,
+            category: category || "General",
+            status: "Draft",
+          });
+
+        if (error) throw error;
+      }
+      
+      setSavedDraftName(name);
+      setMode("draft-saved");
+    } catch (err) {
+      console.error('Save draft error:', err);
+      toast({
+        title: "Save failed",
+        description: "Could not save the draft. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getFileExtension = () => {
@@ -484,11 +572,18 @@ export function SaveTemplateDialog({
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setMode("choice")}>
+              <Button variant="outline" onClick={() => setMode("choice")} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveToSystem}>
-                Save
+              <Button onClick={handleSaveToSystem} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
               </Button>
             </DialogFooter>
           </>

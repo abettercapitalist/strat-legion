@@ -73,12 +73,15 @@ export default function CreateTemplate() {
   const {
     lastSaved,
     versions,
+    isSaving: autoSaving,
     getDraftName,
     discardDraft,
     restoreVersion,
   } = useAutoSave({
     content,
     templateName,
+    templateId: id,
+    category,
   });
 
   // Load template data in edit mode
@@ -358,11 +361,16 @@ export default function CreateTemplate() {
         </div>
         <div className="flex items-center gap-3">
           {/* Auto-save indicator */}
-          {lastSaved && (
+          {autoSaving ? (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Saving...
+            </span>
+          ) : lastSaved ? (
             <span className="text-xs text-muted-foreground">
               Last saved {format(lastSaved, "h:mm a")}
             </span>
-          )}
+          ) : null}
 
           {/* Analyze Clauses Button */}
           <Button
@@ -556,9 +564,12 @@ export default function CreateTemplate() {
         templateName={templateName}
         templateContent={content}
         category={category}
+        templateId={id}
+        isEditMode={isEditMode}
         initialMode={dialogMode}
         onDiscard={handleDiscard}
         draftName={getDraftName(new Date())}
+        onSaveComplete={() => navigate("/law/templates")}
       />
 
       {/* Draft Saved Confirmation Dialog */}
