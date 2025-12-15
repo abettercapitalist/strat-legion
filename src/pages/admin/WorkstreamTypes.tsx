@@ -79,18 +79,18 @@ export default function WorkstreamTypes() {
           <DropdownMenuTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Create New Workstream
+              Create New Playbook
               <ChevronDown className="h-4 w-4 ml-2" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.href = '/admin/workstream-types/new'}>
               <Plus className="h-4 w-4 mr-2" />
               Create from scratch
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Download className="h-4 w-4 mr-2" />
-              Import Public Workstreams
+              Import Public Playbooks
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -129,13 +129,13 @@ export default function WorkstreamTypes() {
 
       {/* Table or Empty State */}
       {workstreamTypes.length === 0 ? <div className="border border-dashed rounded-lg p-12 text-center">
-          <h3 className="text-lg font-medium text-foreground mb-2">No workstream types yet</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">No playbooks yet</h3>
           <p className="text-muted-foreground mb-6">
-            Create your first business process to get started
+            Create your first playbook to get started
           </p>
-          <Button>
+          <Button onClick={() => window.location.href = '/admin/workstream-types/new'}>
             <Plus className="h-4 w-4 mr-2" />
-            Create New Workstream
+            Create New Playbook
           </Button>
         </div> : <div className="border rounded-lg overflow-hidden">
           <Table>
@@ -143,7 +143,7 @@ export default function WorkstreamTypes() {
               <TableRow className="bg-muted/50">
                 <TableHead className="font-medium">Name</TableHead>
                 <TableHead className="font-medium">Display Name</TableHead>
-                <TableHead className="font-medium text-center">Active Workstreams</TableHead>
+                <TableHead className="font-medium text-center">Active Instances</TableHead>
                 <TableHead className="font-medium">Last Modified</TableHead>
                 <TableHead className="font-medium">Status</TableHead>
                 <TableHead className="font-medium w-[60px]">Actions</TableHead>
