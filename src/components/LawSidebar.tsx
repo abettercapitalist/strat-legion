@@ -26,7 +26,7 @@ const librariesNavigation = [
 
 // Admin-only library item
 const playbooksLibrary = {
-  name: "Playbooks Library",
+  name: "Playbook Library",
   href: "/admin/workstream-types",
   icon: PlaybookIcon,
 };
