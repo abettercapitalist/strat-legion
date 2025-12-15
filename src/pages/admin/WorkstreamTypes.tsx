@@ -158,7 +158,12 @@ export default function WorkstreamTypes() {
             </TableHeader>
             <TableBody>
               {workstreamTypes.map((type, index) => <TableRow key={type.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
-                  <TableCell className="font-medium">{type.name}</TableCell>
+                  <TableCell 
+                    className="font-medium cursor-pointer hover:text-primary hover:underline"
+                    onClick={() => handleEdit(type.id)}
+                  >
+                    {type.name}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {type.display_name || "—"}
                   </TableCell>
