@@ -25,11 +25,10 @@ export function PlayFormStepper({ currentStep, onStepClick, completedSteps }: Pl
   return (
     <div className="mb-8">
       <div className="flex gap-1">
-        {STEPS.map((step, index) => {
+      {STEPS.map((step, index) => {
           const isCompleted = completedSteps.has(step.id);
           const isCurrent = step.id === currentStep;
-          const isPast = index < currentIndex;
-          const isActive = isCurrent || isCompleted || isPast;
+          const isActive = isCurrent || isCompleted;
 
           return (
             <button
