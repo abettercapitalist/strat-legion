@@ -18,6 +18,8 @@ import {
   AlignVerticalJustifyEnd,
   Highlighter,
   Hash,
+  IndentIncrease,
+  IndentDecrease,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -495,6 +497,27 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         title="Bullet List"
       >
         <List className="h-4 w-4" />
+      </Button>
+
+      {/* Indent/Outdent */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => editor.chain().focus().outdent().run()}
+        title="Decrease Indent (Shift+Tab)"
+      >
+        <IndentDecrease className="h-4 w-4" />
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => editor.chain().focus().indent().run()}
+        title="Increase Indent (Tab)"
+      >
+        <IndentIncrease className="h-4 w-4" />
       </Button>
 
       {/* Cross-References */}

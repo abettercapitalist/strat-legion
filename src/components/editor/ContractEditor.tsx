@@ -1,5 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
@@ -18,6 +18,7 @@ import { SectionNumbering, getNextSectionNumber } from './extensions/SectionNumb
 import { EnumeratedList } from './extensions/EnumeratedList';
 import { CrossReference } from './extensions/CrossReference';
 import { LineHeight } from './extensions/LineHeight';
+import { Indent } from './extensions/Indent';
 import { toast } from 'sonner';
 
 interface ContractEditorProps {
@@ -28,11 +29,11 @@ interface ContractEditorProps {
 const initialContent = `<h1 style="text-align: center">Agreement</h1>
 <p>This agreement is between TestCo, Inc., a Utah corporation, and NewCo, Ltd., an English limited company.</p>
 <p>The parties agree as follows:</p>
-<p><strong>1. Terms and conditions</strong></p>
+<h2>1. Terms and conditions</h2>
 <p>The terms and conditions of this Agreement are as follows:</p>
-<p><strong>2. Definitions</strong></p>
+<h2>2. Definitions</h2>
 <p>"Effective Date" means the date this Agreement is executed by both parties.</p>
-<p><strong>3. Effectiveness; date.</strong></p>
+<h2>3. Effectiveness; date.</h2>
 <p>This agreement will become effective when both parties have signed it. The date of this agreement is the date it is signed by the last party to sign it.</p>
 <p>Each party is signing this agreement on the date associated with that party's signature.</p>
 <table style="width: 100%; border: none;">
@@ -93,6 +94,7 @@ export function ContractEditor({ content, onChange }: ContractEditorProps) {
       SectionNumbering,
       EnumeratedList,
       CrossReference,
+      Indent,
     ],
     content: content || initialContent,
     onUpdate: ({ editor }) => {

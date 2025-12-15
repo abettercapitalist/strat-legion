@@ -182,18 +182,25 @@
     font-weight: 600;
     margin-top: 1.5em;
     margin-bottom: 0.5em;
+    color: hsl(var(--foreground));
   }
 
-  /* Title style: 1.5x body size, centered, capitalized font */
+  /* Title style: 1.5x body size, centered */
   .ProseMirror h1 {
     font-size: 1.5rem;
     text-align: center;
     letter-spacing: 0.05em;
   }
 
-  /* Section headings: same size as body text, not capitalized */
-  .ProseMirror h2,
-  .ProseMirror h3,
+  /* Section headings */
+  .ProseMirror h2 {
+    font-size: 1.25rem;
+  }
+
+  .ProseMirror h3 {
+    font-size: 1.125rem;
+  }
+
   .ProseMirror h4 {
     font-size: 1rem;
   }
