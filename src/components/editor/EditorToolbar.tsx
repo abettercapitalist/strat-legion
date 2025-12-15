@@ -7,7 +7,7 @@ import {
   AlignRight,
   AlignJustify,
   List,
-  ListOrdered,
+  ListTree,
   Table,
   Columns2,
   Type,
@@ -17,7 +17,6 @@ import {
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
   Highlighter,
-  Hash,
   IndentIncrease,
   IndentDecrease,
 } from 'lucide-react';
@@ -110,16 +109,20 @@ const FORMATTING_STYLES = [
 const SECTION_NUMBERING_STYLES = [
   { name: 'Simple (1. 2. 3.)', value: 'decimal', description: 'Standard decimal numbering' },
   { name: 'MSCD Sections', value: 'mscd-alpha', description: '1, (a), (i), (A) hierarchy' },
-  { name: 'MSCD Articles', value: 'mscd-digital', description: '1.1, 1.1.1 hierarchy' },
+  { name: 'MSCD Articles', value: 'mscd-digital', description: 'Section 1.1, 1.1.1 hierarchy' },
   { name: 'Legal Articles', value: 'article', description: 'Article I, Section 1' },
   { name: 'None', value: 'none', description: 'Remove section numbering' },
 ];
 
-const ENUMERATED_LIST_STYLES = [
-  { name: 'Integrated (a), (b), (c)', value: 'integrated-alpha' },
-  { name: 'Integrated (1), (2), (3)', value: 'integrated-numeric' },
-  { name: 'Tabulated (a)', value: 'tabulated-alpha' },
-  { name: 'Tabulated (1)', value: 'tabulated-numeric' },
+// Enumerated list styles - integrated (inline) and tabulated (separate lines)
+const ENUMERATED_INTEGRATED_STYLES = [
+  { name: '(a), (b), (c)', value: 'integrated-alpha', description: 'Alphabetic' },
+  { name: '(1), (2), (3)', value: 'integrated-numeric', description: 'Numeric' },
+];
+
+const ENUMERATED_TABULATED_STYLES = [
+  { name: '(a)', value: 'tabulated-alpha', description: 'Alphabetic' },
+  { name: '(1)', value: 'tabulated-numeric', description: 'Numeric' },
 ];
 
 // Custom Line Spacing Icon - lines with vertical bidirectional arrow
@@ -302,31 +305,6 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Section Numbering Dropdown - dedicated button for MSCD and other numbering styles */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" title="Section Numbering">
-            <Hash className="h-4 w-4" />
-            <ChevronDown className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {SECTION_NUMBERING_STYLES.map((style) => (
-            <DropdownMenuItem
-              key={style.value}
-              onClick={() => applySectionNumbering(style.value)}
-            >
-              <div className="flex flex-col">
-                <span>{style.name}</span>
-                {style.description && (
-                  <span className="text-xs text-muted-foreground">{style.description}</span>
-                )}
-              </div>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
       <div className="w-px h-6 bg-border mx-1" />
 
       {/* Bold */}
@@ -469,26 +447,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
 
       <div className="w-px h-6 bg-border mx-1" />
 
-      {/* Enumerated Lists */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="Enumerated List">
-            <ListOrdered className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {ENUMERATED_LIST_STYLES.map((style) => (
-            <DropdownMenuItem
-              key={style.value}
-              onClick={() => editor.chain().focus().setEnumeratedList(style.value).run()}
-            >
-              {style.name}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Bullets - moved next to Enumerated Lists */}
+      {/* Bullets */}
       <Button
         variant="ghost"
         size="icon"
@@ -498,6 +457,70 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       >
         <List className="h-4 w-4" />
       </Button>
+
+      {/* Unified Section Numbering Dropdown - includes both section numbering and enumerated lists */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" title="Section Numbering">
+            <ListTree className="h-4 w-4" />
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-72">
+          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Section Numbering
+          </DropdownMenuLabel>
+          {SECTION_NUMBERING_STYLES.map((style) => (
+            <DropdownMenuItem
+              key={style.value}
+              onClick={() => applySectionNumbering(style.value)}
+            >
+              <div className="flex flex-col">
+                <span>{style.name}</span>
+                <span className="text-xs text-muted-foreground">{style.description}</span>
+              </div>
+            </DropdownMenuItem>
+          ))}
+          
+          <DropdownMenuSeparator />
+          
+          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Enumerated Lists
+          </DropdownMenuLabel>
+          
+          <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
+            Integrated (inline within paragraph)
+          </DropdownMenuLabel>
+          {ENUMERATED_INTEGRATED_STYLES.map((style) => (
+            <DropdownMenuItem
+              key={style.value}
+              onClick={() => editor.chain().focus().setEnumeratedList(style.value).run()}
+              className="pl-4"
+            >
+              <div className="flex items-center gap-2">
+                <span>{style.name}</span>
+                <span className="text-xs text-muted-foreground">— {style.description}</span>
+              </div>
+            </DropdownMenuItem>
+          ))}
+          
+          <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
+            Tabulated (each item on separate line)
+          </DropdownMenuLabel>
+          {ENUMERATED_TABULATED_STYLES.map((style) => (
+            <DropdownMenuItem
+              key={style.value}
+              onClick={() => editor.chain().focus().setEnumeratedList(style.value).run()}
+              className="pl-4"
+            >
+              <div className="flex items-center gap-2">
+                <span>{style.name}</span>
+                <span className="text-xs text-muted-foreground">— {style.description}</span>
+              </div>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Indent/Outdent */}
       <Button
