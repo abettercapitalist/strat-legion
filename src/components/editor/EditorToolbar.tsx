@@ -17,6 +17,7 @@ import {
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
   Highlighter,
+  Hash,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -94,19 +95,27 @@ const LINE_SPACING = [
   { label: 'Double', value: '2' },
 ];
 
-// Formatting styles for the Formatting dropdown
+// Formatting styles for the Formatting dropdown - standard word processor options
 const FORMATTING_STYLES = [
-  { name: 'Title', value: 'title', description: '1.5x size, capitalized' },
-  { name: 'Body text', value: 'body', description: 'Standard paragraph' },
-  { name: 'MSCD Sections', value: 'mscd-alpha', description: '1, (a), (i), (A)' },
-  { name: 'MSCD Articles', value: 'mscd-digital', description: '1, 1.1, 1.1.a' },
-  { name: 'Articles', value: 'article', description: 'Article I, Section 1' },
-  { name: 'Section text', value: 'section-text', description: 'Indented body text' },
+  { name: 'Heading 1', value: 'heading1', description: 'Document/article titles' },
+  { name: 'Heading 2', value: 'heading2', description: 'Section titles' },
+  { name: 'Heading 3', value: 'heading3', description: 'Subsection titles' },
+  { name: 'Body Text', value: 'body', description: 'Standard paragraph' },
+  { name: 'Indented Text', value: 'indented', description: 'Quoted or nested content' },
+];
+
+// Section numbering styles - includes MSCD-compliant options
+const SECTION_NUMBERING_STYLES = [
+  { name: 'Simple (1. 2. 3.)', value: 'decimal', description: 'Standard decimal numbering' },
+  { name: 'MSCD Sections', value: 'mscd-alpha', description: '1, (a), (i), (A) hierarchy' },
+  { name: 'MSCD Articles', value: 'mscd-digital', description: '1.1, 1.1.1 hierarchy' },
+  { name: 'Legal Articles', value: 'article', description: 'Article I, Section 1' },
+  { name: 'None', value: 'none', description: 'Remove section numbering' },
 ];
 
 const ENUMERATED_LIST_STYLES = [
-  { name: 'Inline (a), (b), (c)', value: 'inline-alpha' },
-  { name: 'Inline (1), (2), (3)', value: 'inline-numeric' },
+  { name: 'Integrated (a), (b), (c)', value: 'integrated-alpha' },
+  { name: 'Integrated (1), (2), (3)', value: 'integrated-numeric' },
   { name: 'Tabulated (a)', value: 'tabulated-alpha' },
   { name: 'Tabulated (1)', value: 'tabulated-numeric' },
 ];
@@ -145,42 +154,50 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
   // Get current font size from editor
   const currentFontSize = editor.getAttributes('textStyle').fontSize || '16px';
 
-  // Apply formatting style
+  // Apply formatting style (standard word processor options)
   const applyFormattingStyle = (style: string) => {
     setLastFormattingStyle(style);
     
     switch (style) {
-      case 'title':
-        // Title: 1.5x size (24px if base is 16px), Concourse Caps (uppercase)
+      case 'heading1':
         editor.chain().focus()
-          .setFontFamily('"Inter", -apple-system, sans-serif')
+          .toggleHeading({ level: 1 })
           .setFontSize('24px')
           .run();
-        // Apply title formatting via section numbering extension
-        editor.chain().focus().setSectionNumbering('none').run();
+        break;
+      case 'heading2':
+        editor.chain().focus()
+          .toggleHeading({ level: 2 })
+          .setFontSize('20px')
+          .run();
+        break;
+      case 'heading3':
+        editor.chain().focus()
+          .toggleHeading({ level: 3 })
+          .setFontSize('18px')
+          .run();
         break;
       case 'body':
-        // Body text: standard paragraph
         editor.chain().focus()
+          .setParagraph()
           .setFontSize('16px')
-          .setSectionNumbering('none')
           .run();
         break;
-      case 'section-text':
-        // Section text: indented body text
+      case 'indented':
         editor.chain().focus()
+          .setParagraph()
           .setFontSize('16px')
-          .setSectionNumbering('none')
           .run();
-        break;
-      case 'mscd-alpha':
-      case 'mscd-digital':
-      case 'article':
-        editor.chain().focus().setSectionNumbering(style).run();
+        // Note: Indentation is handled via CSS or additional attributes
         break;
       default:
         break;
     }
+  };
+
+  // Apply section numbering style
+  const applySectionNumbering = (style: string) => {
+    editor.chain().focus().setSectionNumbering(style).run();
   };
 
   // Smart defaults: Listen for Enter key after heading styles
@@ -188,11 +205,11 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Enter' && !event.shiftKey) {
         // Check if current style is a heading style
-        const headingStyles = ['mscd-alpha', 'mscd-digital', 'article'];
+        const headingStyles = ['heading1', 'heading2', 'heading3'];
         if (headingStyles.includes(lastFormattingStyle)) {
-          // After a slight delay, switch to section-text
+          // After a slight delay, switch to body text
           setTimeout(() => {
-            setLastFormattingStyle('section-text');
+            setLastFormattingStyle('body');
           }, 50);
         }
       }
@@ -271,6 +288,31 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
               key={style.value}
               onClick={() => applyFormattingStyle(style.value)}
               className={cn(lastFormattingStyle === style.value && 'bg-accent')}
+            >
+              <div className="flex flex-col">
+                <span>{style.name}</span>
+                {style.description && (
+                  <span className="text-xs text-muted-foreground">{style.description}</span>
+                )}
+              </div>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Section Numbering Dropdown - dedicated button for MSCD and other numbering styles */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" title="Section Numbering">
+            <Hash className="h-4 w-4" />
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {SECTION_NUMBERING_STYLES.map((style) => (
+            <DropdownMenuItem
+              key={style.value}
+              onClick={() => applySectionNumbering(style.value)}
             >
               <div className="flex flex-col">
                 <span>{style.name}</span>
