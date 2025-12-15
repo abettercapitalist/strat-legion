@@ -15,6 +15,7 @@ import {
   WorkflowStepsSection,
   WorkflowStep,
 } from "@/components/admin/WorkflowStepsSection";
+import { ApprovalWorkflowSection } from "@/components/admin/ApprovalWorkflowSection";
 
 const playbookSchema = z.object({
   name: z
@@ -54,8 +55,8 @@ export default function CreatePlaybook() {
   const { toast } = useToast();
   const { createWorkstreamType, updateWorkstreamType } = useWorkstreamTypes();
   const isEditing = Boolean(id);
-
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
+  const [selectedApprovalTemplateId, setSelectedApprovalTemplateId] = useState<string | null>(null);
 
   const {
     register,
@@ -78,6 +79,7 @@ export default function CreatePlaybook() {
   const teamCategory = watch("team_category");
 
   const validateForActivation = (): boolean => {
+    // Check for at least one immediate step
     const hasImmediateStep = workflowSteps.some(
       (step) => step.requirement_type === "required_immediate"
     );
@@ -90,6 +92,17 @@ export default function CreatePlaybook() {
       });
       return false;
     }
+    
+    // Check for approval template
+    if (!selectedApprovalTemplateId) {
+      toast({
+        title: "Validation Error",
+        description: "An approval template is required to activate.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
     return true;
   };
 
@@ -108,7 +121,10 @@ export default function CreatePlaybook() {
         description: data.description || null,
         team_category: data.team_category,
         status,
-        default_workflow: JSON.stringify(workflowSteps),
+        default_workflow: JSON.stringify({
+          steps: workflowSteps,
+          approval_template_id: selectedApprovalTemplateId,
+        }),
       };
 
       if (isEditing && id) {
@@ -285,6 +301,12 @@ export default function CreatePlaybook() {
         <WorkflowStepsSection
           steps={workflowSteps}
           onStepsChange={setWorkflowSteps}
+        />
+
+        {/* Section 3: Approval Workflow */}
+        <ApprovalWorkflowSection
+          selectedTemplateId={selectedApprovalTemplateId}
+          onTemplateChange={setSelectedApprovalTemplateId}
         />
 
         {/* Footer */}
