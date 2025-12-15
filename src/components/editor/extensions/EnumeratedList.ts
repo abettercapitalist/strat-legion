@@ -1,6 +1,6 @@
 import { Extension } from '@tiptap/core';
 
-export type EnumeratedListStyle = 'inline-alpha' | 'inline-numeric' | 'tabulated-alpha' | 'tabulated-numeric';
+export type EnumeratedListStyle = 'integrated-alpha' | 'integrated-numeric' | 'tabulated-alpha' | 'tabulated-numeric';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -39,8 +39,8 @@ export const EnumeratedList = Extension.create({
               }
               
               const styleMap: Record<string, string> = {
-                'inline-alpha': 'list-style-type: lower-alpha; display: inline;',
-                'inline-numeric': 'list-style-type: decimal; display: inline;',
+                'integrated-alpha': 'list-style-type: lower-alpha; display: inline;',
+                'integrated-numeric': 'list-style-type: decimal; display: inline;',
                 'tabulated-alpha': 'list-style-type: lower-alpha;',
                 'tabulated-numeric': 'list-style-type: decimal;',
               };
@@ -48,7 +48,7 @@ export const EnumeratedList = Extension.create({
               return {
                 'data-enum-style': attributes.enumStyle,
                 style: styleMap[attributes.enumStyle] || '',
-                class: attributes.enumStyle.startsWith('inline') ? 'enum-inline' : 'enum-tabulated',
+                class: attributes.enumStyle.startsWith('integrated') ? 'enum-integrated' : 'enum-tabulated',
               };
             },
           },

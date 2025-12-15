@@ -28,7 +28,7 @@ const navigation = [
     badge: 3,
   },
   { 
-    name: "Templates", 
+    name: "Template Library", 
     href: "/law/templates", 
     icon: FileText,
     badge: undefined,
