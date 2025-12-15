@@ -21,12 +21,12 @@ export const ClauseIcon: React.FC<ClauseIconProps> = ({
     strokeLinejoin="round"
     className={className}
   >
-    {/* "1." numeral */}
+    {/* "1." numeral - bolder and full height */}
     <text
-      x="4"
-      y="11"
-      fontSize="8"
-      fontWeight="600"
+      x="3"
+      y="16"
+      fontSize="12"
+      fontWeight="700"
       fill="currentColor"
       stroke="none"
       fontFamily="system-ui, sans-serif"
@@ -34,8 +34,9 @@ export const ClauseIcon: React.FC<ClauseIconProps> = ({
       1.
     </text>
     
-    {/* Two horizontal lines representing text */}
-    <line x1="12" y1="8" x2="20" y2="8" />
-    <line x1="12" y1="13" x2="20" y2="13" />
+    {/* Three horizontal lines representing text, equally spaced */}
+    <line x1="13" y1="6" x2="21" y2="6" />
+    <line x1="13" y1="12" x2="21" y2="12" />
+    <line x1="13" y1="18" x2="21" y2="18" />
   </svg>
 );

@@ -21,11 +21,11 @@ const lawDeptNavigation = [{
   href: "/law/dashboard",
   icon: BarChart3,
   badge: undefined
-}, {
+}];
+const adminNavigation = [{
   name: "Settings",
   href: "/law/settings",
-  icon: Settings,
-  badge: undefined
+  icon: Settings
 }];
 const librariesNavigation = [{
   name: "Template Library",
@@ -133,6 +133,28 @@ export function LawSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>}
+
+        {/* Admin section at bottom */}
+        <SidebarGroup className="mt-auto">
+          {!isCollapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
+              Admin
+            </SidebarGroupLabel>}
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1 px-2 py-2">
+              {adminNavigation.map(item => {
+              const isActive = location.pathname.startsWith(item.href);
+              return <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.href} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        {!isCollapsed && <span className="flex-1 text-sm">{item.name}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>;
+            })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </Sidebar>;
 }
