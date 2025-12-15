@@ -3,41 +3,24 @@ import { Plus, ChevronDown, MoreHorizontal, Pencil, Copy, Archive, Download } fr
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkstreamTypes, type WorkstreamTypeFilters } from "@/hooks/useWorkstreamTypes";
-
 const STATUS_OPTIONS = ["All", "Active", "Draft", "Archived"];
 const TEAM_CATEGORY_OPTIONS = ["All", "Sales", "Law", "Finance", "Pro Services"];
-
 export default function WorkstreamTypes() {
   const [filters, setFilters] = useState<WorkstreamTypeFilters>({
     status: "All",
-    team_category: "All",
+    team_category: "All"
   });
-
-  const { workstreamTypes, isLoading, duplicateWorkstreamType, archiveWorkstreamType } = useWorkstreamTypes(filters);
-
+  const {
+    workstreamTypes,
+    isLoading,
+    duplicateWorkstreamType,
+    archiveWorkstreamType
+  } = useWorkstreamTypes(filters);
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "Active":
@@ -50,23 +33,18 @@ export default function WorkstreamTypes() {
         return "secondary";
     }
   };
-
   const handleEdit = (id: string) => {
     // TODO: Navigate to edit page
     console.log("Edit:", id);
   };
-
   const handleDuplicate = (id: string) => {
     duplicateWorkstreamType.mutate(id);
   };
-
   const handleArchive = (id: string) => {
     archiveWorkstreamType.mutate(id);
   };
-
   if (isLoading) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <Skeleton className="h-8 w-48 mb-2" />
@@ -79,30 +57,23 @@ export default function WorkstreamTypes() {
           <Skeleton className="h-10 w-32" />
         </div>
         <div className="border rounded-lg">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-center gap-4 p-4 border-b last:border-b-0">
+          {[...Array(5)].map((_, i) => <div key={i} className="flex items-center gap-4 p-4 border-b last:border-b-0">
               <Skeleton className="h-4 flex-1" />
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-4 w-16" />
               <Skeleton className="h-4 w-20" />
               <Skeleton className="h-6 w-16" />
               <Skeleton className="h-8 w-8" />
-            </div>
-          ))}
+            </div>)}
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Workstream Types</h1>
-          <p className="text-muted-foreground mt-1">
-            Build your workstreams and their default workflows
-          </p>
+          <h1 className="text-2xl font-semibold text-foreground">Your Playbook Library</h1>
+          <p className="text-muted-foreground mt-1">Build your playbooks and their default workflows</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -127,42 +98,37 @@ export default function WorkstreamTypes() {
 
       {/* Filters */}
       <div className="flex gap-4">
-        <Select
-          value={filters.status}
-          onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}
-        >
+        <Select value={filters.status} onValueChange={value => setFilters(prev => ({
+        ...prev,
+        status: value
+      }))}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            {STATUS_OPTIONS.map((status) => (
-              <SelectItem key={status} value={status}>
+            {STATUS_OPTIONS.map(status => <SelectItem key={status} value={status}>
                 {status}
-              </SelectItem>
-            ))}
+              </SelectItem>)}
           </SelectContent>
         </Select>
 
-        <Select
-          value={filters.team_category}
-          onValueChange={(value) => setFilters((prev) => ({ ...prev, team_category: value }))}
-        >
+        <Select value={filters.team_category} onValueChange={value => setFilters(prev => ({
+        ...prev,
+        team_category: value
+      }))}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Team Category" />
           </SelectTrigger>
           <SelectContent>
-            {TEAM_CATEGORY_OPTIONS.map((category) => (
-              <SelectItem key={category} value={category}>
+            {TEAM_CATEGORY_OPTIONS.map(category => <SelectItem key={category} value={category}>
                 {category}
-              </SelectItem>
-            ))}
+              </SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
       {/* Table or Empty State */}
-      {workstreamTypes.length === 0 ? (
-        <div className="border border-dashed rounded-lg p-12 text-center">
+      {workstreamTypes.length === 0 ? <div className="border border-dashed rounded-lg p-12 text-center">
           <h3 className="text-lg font-medium text-foreground mb-2">No workstream types yet</h3>
           <p className="text-muted-foreground mb-6">
             Create your first business process to get started
@@ -171,9 +137,7 @@ export default function WorkstreamTypes() {
             <Plus className="h-4 w-4 mr-2" />
             Create New Workstream
           </Button>
-        </div>
-      ) : (
-        <div className="border rounded-lg overflow-hidden">
+        </div> : <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
@@ -186,11 +150,7 @@ export default function WorkstreamTypes() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {workstreamTypes.map((type, index) => (
-                <TableRow 
-                  key={type.id}
-                  className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}
-                >
+              {workstreamTypes.map((type, index) => <TableRow key={type.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
                   <TableCell className="font-medium">{type.name}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {type.display_name || "—"}
@@ -222,22 +182,16 @@ export default function WorkstreamTypes() {
                           <Copy className="h-4 w-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleArchive(type.id)}
-                          disabled={type.status === "Archived"}
-                        >
+                        <DropdownMenuItem onClick={() => handleArchive(type.id)} disabled={type.status === "Archived"}>
                           <Archive className="h-4 w-4 mr-2" />
                           Archive
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
-                </TableRow>
-              ))}
+                </TableRow>)}
             </TableBody>
           </Table>
-        </div>
-      )}
-    </div>
-  );
+        </div>}
+    </div>;
 }
