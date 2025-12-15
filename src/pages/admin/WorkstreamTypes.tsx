@@ -72,14 +72,14 @@ export default function WorkstreamTypes() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Your Playbook Library</h1>
-          <p className="text-muted-foreground mt-1">Build your playbooks and their default workflows</p>
+          <h1 className="text-2xl font-semibold text-foreground">Your Play Library</h1>
+          <p className="text-muted-foreground mt-1">Build your plays and their default workflows</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Create New Playbook
+              Create New Play
               <ChevronDown className="h-4 w-4 ml-2" />
             </Button>
           </DropdownMenuTrigger>
@@ -90,7 +90,7 @@ export default function WorkstreamTypes() {
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Download className="h-4 w-4 mr-2" />
-              Import Public Playbooks
+              Import Public Plays
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -129,13 +129,13 @@ export default function WorkstreamTypes() {
 
       {/* Table or Empty State */}
       {workstreamTypes.length === 0 ? <div className="border border-dashed rounded-lg p-12 text-center">
-          <h3 className="text-lg font-medium text-foreground mb-2">No playbooks yet</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">No plays yet</h3>
           <p className="text-muted-foreground mb-6">
-            Create your first playbook to get started
+            Create your first play to get started
           </p>
           <Button onClick={() => window.location.href = '/admin/workstream-types/new'}>
             <Plus className="h-4 w-4 mr-2" />
-            Create New Playbook
+            Create New Play
           </Button>
         </div> : <div className="border rounded-lg overflow-hidden">
           <Table>

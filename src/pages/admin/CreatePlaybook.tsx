@@ -114,13 +114,13 @@ export default function CreatePlaybook() {
       if (isEditing && id) {
         await updateWorkstreamType.mutateAsync({ id, ...payload });
         toast({
-          title: "Playbook updated",
+          title: "Play updated",
           description: `${data.name} has been updated successfully.`,
         });
       } else {
         await createWorkstreamType.mutateAsync(payload);
         toast({
-          title: "Playbook created",
+          title: "Play created",
           description: `${data.name} has been ${
             status === "Draft" ? "saved as draft" : "activated"
           }.`,
@@ -130,7 +130,7 @@ export default function CreatePlaybook() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save playbook. Please try again.",
+        description: "Failed to save play. Please try again.",
         variant: "destructive",
       });
     }
@@ -150,10 +150,10 @@ export default function CreatePlaybook() {
           className="mb-4 -ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Playbook Library
+          Back to Play Library
         </Button>
         <h1 className="text-2xl font-semibold text-foreground">
-          {isEditing ? "Edit Playbook" : "Create New Playbook"}
+          {isEditing ? "Edit Play" : "Create New Play"}
         </h1>
         <p className="text-muted-foreground mt-1">
           Define a workflow template for your business processes
@@ -173,15 +173,15 @@ export default function CreatePlaybook() {
             <Label htmlFor="name" className="text-sm font-semibold">
               Name <span className="text-destructive">*</span>
             </Label>
+            <p className="text-xs text-muted-foreground italic">
+              Internal identifier used in configuration and reporting
+            </p>
             <Input
               id="name"
-              placeholder="e.g., Enterprise SaaS Playbook"
+              placeholder="e.g., Enterprise SaaS Play"
               {...register("name")}
               className={errors.name ? "border-destructive" : ""}
             />
-            <p className="text-xs text-muted-foreground">
-              Internal identifier used in configuration and reporting
-            </p>
             {errors.name && (
               <p className="text-xs text-destructive">{errors.name.message}</p>
             )}
@@ -192,15 +192,15 @@ export default function CreatePlaybook() {
             <Label htmlFor="display_name" className="text-sm font-semibold">
               Display Name <span className="text-destructive">*</span>
             </Label>
+            <p className="text-xs text-muted-foreground italic">
+              What users see in the interface
+            </p>
             <Input
               id="display_name"
               placeholder="e.g., Deal, Matter, Project"
               {...register("display_name")}
               className={errors.display_name ? "border-destructive" : ""}
             />
-            <p className="text-xs text-muted-foreground">
-              What users see in the interface
-            </p>
             {displayNameValue.length > 20 && (
               <p className="text-xs text-amber-600">
                 Display names longer than 20 characters may be truncated
@@ -216,11 +216,14 @@ export default function CreatePlaybook() {
           {/* Description Field */}
           <div className="space-y-2">
             <Label htmlFor="description" className="text-sm font-semibold">
-              Description
+              Description <span className="text-muted-foreground font-normal">(optional)</span>
             </Label>
+            <p className="text-xs text-muted-foreground italic">
+              Brief description of when to use this play
+            </p>
             <Textarea
               id="description"
-              placeholder="Brief description of when to use this playbook"
+              placeholder="Brief description of when to use this play"
               rows={3}
               {...register("description")}
               className={`resize-none ${
@@ -228,8 +231,7 @@ export default function CreatePlaybook() {
               }`}
               style={{ minHeight: "76px", maxHeight: "240px" }}
             />
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-muted-foreground">Optional</p>
+            <div className="flex justify-end">
               <p className="text-xs text-muted-foreground">
                 {descriptionValue.length}/500
               </p>
@@ -246,6 +248,9 @@ export default function CreatePlaybook() {
             <Label className="text-sm font-semibold">
               Assigned Team <span className="text-destructive">*</span>
             </Label>
+            <p className="text-xs text-muted-foreground italic">
+              Primary team where this play will be used
+            </p>
             <RadioGroup
               value={teamCategory}
               onValueChange={(value) =>
@@ -268,9 +273,6 @@ export default function CreatePlaybook() {
                 </div>
               ))}
             </RadioGroup>
-            <p className="text-xs text-muted-foreground">
-              Primary team where this playbook will be used
-            </p>
             {errors.team_category && (
               <p className="text-xs text-destructive">
                 {errors.team_category.message}
@@ -307,7 +309,7 @@ export default function CreatePlaybook() {
             onClick={handleActivate}
             disabled={isSubmitting}
           >
-            Activate This Playbook
+            Activate This Play
           </Button>
         </div>
       </form>

@@ -10,6 +10,7 @@ import {
   GripVertical,
   X,
   ChevronDown,
+  ChevronRight,
   Lightbulb,
   Plus,
 } from "lucide-react";
@@ -128,6 +129,7 @@ const TEAM_OPTIONS = [
   { value: "pro_services", label: "Pro Services" },
   { value: "general_counsel", label: "General Counsel" },
   { value: "sales_manager", label: "Sales Manager" },
+  { value: "counterparty", label: "Prospect/Customer" },
 ];
 
 export function WorkflowStepsSection({
@@ -135,6 +137,19 @@ export function WorkflowStepsSection({
   onStepsChange,
 }: WorkflowStepsSectionProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+
+  const toggleStepExpanded = (stepId: string) => {
+    setExpandedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepId)) {
+        next.delete(stepId);
+      } else {
+        next.add(stepId);
+      }
+      return next;
+    });
+  };
 
   const addStep = (type: StepType) => {
     const stepInfo = STEP_TYPES.find((s) => s.type === type)!;
@@ -196,8 +211,8 @@ export function WorkflowStepsSection({
         <h2 className="text-lg font-medium text-foreground border-b pb-2">
           Workflow Steps
         </h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Define the sequence of actions that happen in this playbook
+        <p className="text-xs text-muted-foreground italic mt-2">
+          Define the sequence of actions that happen in this play
         </p>
       </div>
 
@@ -233,201 +248,218 @@ export function WorkflowStepsSection({
 
       {/* Steps List */}
       <div className="space-y-4">
-        {steps.map((step, index) => (
-          <Card
-            key={step.step_id}
-            draggable
-            onDragStart={() => handleDragStart(index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDragEnd={handleDragEnd}
-            className={`p-4 ${
-              draggedIndex === index ? "opacity-50 border-primary" : ""
-            }`}
-          >
-            {/* Step Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className="cursor-grab text-muted-foreground hover:text-foreground"
-                title="Drag to reorder"
+        {steps.map((step, index) => {
+          const isExpanded = expandedSteps.has(step.step_id);
+          return (
+            <Card
+              key={step.step_id}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
+              className={`p-4 ${
+                draggedIndex === index ? "opacity-50 border-primary" : ""
+              }`}
+            >
+              {/* Step Header */}
+              <div 
+                className="flex items-center gap-3 cursor-pointer"
+                onClick={() => toggleStepExpanded(step.step_id)}
               >
-                <GripVertical className="h-5 w-5" />
-              </div>
-              <span className="text-lg">{step.icon}</span>
-              <span className="font-medium text-foreground">
-                Step {step.position}: {getStepLabel(step.step_type)}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="ml-auto text-muted-foreground hover:text-destructive"
-                onClick={() => removeStep(step.step_id)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Step Configuration */}
-            <div className="pl-8 space-y-4">
-              {/* Step-specific fields */}
-              <StepTypeFields
-                step={step}
-                allSteps={steps}
-                onUpdate={(updates) => updateStep(step.step_id, updates)}
-              />
-
-              {/* Universal Timing Field */}
-              <div className="space-y-3 pt-4 border-t">
-                <Label className="text-sm font-semibold">
-                  Timing <span className="text-destructive">*</span>
-                </Label>
-                <RadioGroup
-                  value={step.requirement_type}
-                  onValueChange={(value) =>
-                    updateStep(step.step_id, {
-                      requirement_type: value as RequirementType,
-                      required_before:
-                        value === "required_deferred" ? "completion" : null,
-                    })
-                  }
-                  className="space-y-3"
+                <div
+                  className="cursor-grab text-muted-foreground hover:text-foreground"
+                  title="Drag to reorder"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value="required_immediate"
-                        id={`${step.step_id}-immediate`}
-                      />
-                      <Label
-                        htmlFor={`${step.step_id}-immediate`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        Required (immediate at trigger)
-                      </Label>
-                    </div>
-                    <p className="text-xs text-muted-foreground ml-6">
-                      Executes automatically, cannot be skipped
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value="required_deferred"
-                        id={`${step.step_id}-deferred`}
-                      />
-                      <Label
-                        htmlFor={`${step.step_id}-deferred`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        Required (must complete before...)
-                      </Label>
-                    </div>
-                    {step.requirement_type === "required_deferred" && (
-                      <div className="ml-6">
-                        <Select
-                          value={step.required_before || "completion"}
-                          onValueChange={(value) =>
-                            updateStep(step.step_id, {
-                              required_before: value as RequiredBefore,
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-64">
-                            <SelectValue placeholder="Select milestone" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {REQUIRED_BEFORE_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground ml-6">
-                      User can complete anytime, but workflow cannot progress
-                      without it
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value="optional"
-                        id={`${step.step_id}-optional`}
-                      />
-                      <Label
-                        htmlFor={`${step.step_id}-optional`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        Optional (not required)
-                      </Label>
-                    </div>
-                    <p className="text-xs text-muted-foreground ml-6">
-                      User decides if/when to include this step
-                    </p>
-                  </div>
-                </RadioGroup>
+                  <GripVertical className="h-5 w-5" />
+                </div>
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-lg">{step.icon}</span>
+                <span className="font-medium text-foreground">
+                  Step {step.position}: {getStepLabel(step.step_type)}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeStep(step.step_id);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
-              {/* Universal When/Trigger Field */}
-              {step.requirement_type === "required_immediate" && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">
-                    When/Trigger <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={step.trigger_timing || "workflow_creation"}
-                    onValueChange={(value) =>
-                      updateStep(step.step_id, {
-                        trigger_timing: value as TriggerTiming,
-                        trigger_step_id:
-                          value === "after_specific_step"
-                            ? steps[0]?.step_id || null
-                            : null,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full max-w-sm">
-                      <SelectValue placeholder="Select trigger" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TRIGGER_TIMING_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* Step Configuration - Collapsible */}
+              {isExpanded && (
+                <div className="pl-8 space-y-4 mt-4">
+                  {/* Step-specific fields */}
+                  <StepTypeFields
+                    step={step}
+                    allSteps={steps}
+                    onUpdate={(updates) => updateStep(step.step_id, updates)}
+                  />
 
-                  {step.trigger_timing === "after_specific_step" && (
-                    <Select
-                      value={step.trigger_step_id || ""}
+                  {/* Universal Timing Field */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <Label className="text-sm font-semibold">
+                      Timing <span className="text-destructive">*</span>
+                    </Label>
+                    <RadioGroup
+                      value={step.requirement_type}
                       onValueChange={(value) =>
-                        updateStep(step.step_id, { trigger_step_id: value })
+                        updateStep(step.step_id, {
+                          requirement_type: value as RequirementType,
+                          required_before:
+                            value === "required_deferred" ? "completion" : null,
+                        })
                       }
+                      className="space-y-3"
                     >
-                      <SelectTrigger className="w-full max-w-sm mt-2">
-                        <SelectValue placeholder="Select step" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {steps
-                          .filter((s) => s.step_id !== step.step_id)
-                          .map((s) => (
-                            <SelectItem key={s.step_id} value={s.step_id}>
-                              Step {s.position}: {getStepLabel(s.step_type)}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem
+                            value="required_immediate"
+                            id={`${step.step_id}-immediate`}
+                          />
+                          <Label
+                            htmlFor={`${step.step_id}-immediate`}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            Required (immediate at trigger)
+                          </Label>
+                        </div>
+                        <p className="text-xs text-muted-foreground italic ml-6">
+                          Executes automatically, cannot be skipped
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem
+                            value="required_deferred"
+                            id={`${step.step_id}-deferred`}
+                          />
+                          <Label
+                            htmlFor={`${step.step_id}-deferred`}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            Required (must complete before...)
+                          </Label>
+                        </div>
+                        {step.requirement_type === "required_deferred" && (
+                          <div className="ml-6">
+                            <Select
+                              value={step.required_before || "completion"}
+                              onValueChange={(value) =>
+                                updateStep(step.step_id, {
+                                  required_before: value as RequiredBefore,
+                                })
+                              }
+                            >
+                              <SelectTrigger className="w-64">
+                                <SelectValue placeholder="Select milestone" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {REQUIRED_BEFORE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground italic ml-6">
+                          User can complete anytime, but workflow cannot progress
+                          without it
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem
+                            value="optional"
+                            id={`${step.step_id}-optional`}
+                          />
+                          <Label
+                            htmlFor={`${step.step_id}-optional`}
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            Optional (not required)
+                          </Label>
+                        </div>
+                        <p className="text-xs text-muted-foreground italic ml-6">
+                          User decides if/when to include this step
+                        </p>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Universal Trigger Field */}
+                  {step.requirement_type === "required_immediate" && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">
+                        Trigger <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={step.trigger_timing || "workflow_creation"}
+                        onValueChange={(value) =>
+                          updateStep(step.step_id, {
+                            trigger_timing: value as TriggerTiming,
+                            trigger_step_id:
+                              value === "after_specific_step"
+                                ? steps[0]?.step_id || null
+                                : null,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-full max-w-sm">
+                          <SelectValue placeholder="Select trigger" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TRIGGER_TIMING_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
+                        </SelectContent>
+                      </Select>
+
+                      {step.trigger_timing === "after_specific_step" && (
+                        <Select
+                          value={step.trigger_step_id || ""}
+                          onValueChange={(value) =>
+                            updateStep(step.step_id, { trigger_step_id: value })
+                          }
+                        >
+                          <SelectTrigger className="w-full max-w-sm mt-2">
+                            <SelectValue placeholder="Select step" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {steps
+                              .filter((s) => s.step_id !== step.step_id)
+                              .map((s) => (
+                                <SelectItem key={s.step_id} value={s.step_id}>
+                                  Step {s.position}: {getStepLabel(s.step_type)}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
       {/* Tip */}
@@ -614,9 +646,17 @@ function StepTypeFields({
             <Label className="text-sm font-semibold">
               Assign To <span className="text-destructive">*</span>
             </Label>
+            <p className="text-xs text-muted-foreground italic">
+              Team or role responsible for completing this task
+            </p>
             <Select
               value={(step.config.assign_to as string) || ""}
-              onValueChange={(value) => updateConfig("assign_to", value)}
+              onValueChange={(value) => {
+                updateConfig("assign_to", value);
+                if (value !== "counterparty") {
+                  updateConfig("internal_owner", "");
+                }
+              }}
             >
               <SelectTrigger className="w-full max-w-sm">
                 <SelectValue placeholder="Select team/role" />
@@ -630,6 +670,34 @@ function StepTypeFields({
               </SelectContent>
             </Select>
           </div>
+          
+          {/* Internal Owner - shown when counterparty is selected */}
+          {(step.config.assign_to as string) === "counterparty" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">
+                Internal Owner <span className="text-destructive">*</span>
+              </Label>
+              <p className="text-xs text-muted-foreground italic">
+                Internal team that can assist or complete on behalf of the counterparty
+              </p>
+              <Select
+                value={(step.config.internal_owner as string) || ""}
+                onValueChange={(value) => updateConfig("internal_owner", value)}
+              >
+                <SelectTrigger className="w-full max-w-sm">
+                  <SelectValue placeholder="Select internal team/role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEAM_OPTIONS.filter(opt => opt.value !== "counterparty").map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
               Task Description <span className="text-destructive">*</span>
@@ -643,7 +711,12 @@ function StepTypeFields({
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-sm font-semibold">Due Date</Label>
+            <Label className="text-sm font-semibold">
+              Due Date <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <p className="text-xs text-muted-foreground italic">
+              Number of days after step starts
+            </p>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -652,9 +725,7 @@ function StepTypeFields({
                 onChange={(e) => updateConfig("due_days", e.target.value)}
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">
-                days after step starts
-              </span>
+              <span className="text-sm text-muted-foreground">days</span>
             </div>
           </div>
         </div>
