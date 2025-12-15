@@ -7,7 +7,6 @@ import {
   AlignRight,
   AlignJustify,
   List,
-  ListTree,
   Table,
   Columns2,
   Type,
@@ -145,6 +144,33 @@ function LineSpacingIcon({ className }: { className?: string }) {
       <line x1="4" y1="5" x2="4" y2="19" />
       <polyline points="2,7 4,5 6,7" />
       <polyline points="2,17 4,19 6,17" />
+    </svg>
+  );
+}
+
+// Custom Section Numbering Icon - numbered hierarchical lines (1. 1.1 style)
+function SectionNumberingIcon({ className }: { className?: string }) {
+  return (
+    <svg 
+      className={className} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      {/* Level 1: "1." with line */}
+      <text x="2" y="7" fontSize="6" fill="currentColor" stroke="none" fontWeight="bold">1.</text>
+      <line x1="11" y1="5" x2="22" y2="5" />
+      
+      {/* Level 2: "a." indented with line */}
+      <text x="5" y="13" fontSize="5" fill="currentColor" stroke="none">(a)</text>
+      <line x1="14" y1="11" x2="22" y2="11" />
+      
+      {/* Level 1: "2." with line */}
+      <text x="2" y="19" fontSize="6" fill="currentColor" stroke="none" fontWeight="bold">2.</text>
+      <line x1="11" y1="17" x2="22" y2="17" />
     </svg>
   );
 }
@@ -462,7 +488,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" title="Section Numbering">
-            <ListTree className="h-4 w-4" />
+            <SectionNumberingIcon className="h-4 w-4" />
             <ChevronDown className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>

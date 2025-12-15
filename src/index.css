@@ -287,4 +287,89 @@
   .ProseMirror .enum-tabulated {
     padding-left: 2rem;
   }
+
+  /* ========================================
+   * Section Numbering - CSS Counter System
+   * ======================================== */
+  
+  /* Reset counters at document level */
+  .ProseMirror {
+    counter-reset: section-l1 section-l2 section-l3 section-l4;
+  }
+
+  /* Simple Decimal: 1. 2. 3. */
+  .ProseMirror [data-section-style="decimal"][data-section-level="1"]::before {
+    content: counter(section-l1) ". ";
+    counter-increment: section-l1;
+    font-weight: 600;
+    margin-right: 0.5em;
+  }
+
+  /* MSCD Alphanumeric: 1, (a), (i), (A) hierarchy */
+  .ProseMirror [data-section-style="mscd-alpha"][data-section-level="1"]::before {
+    content: counter(section-l1) ". ";
+    counter-increment: section-l1;
+    counter-reset: section-l2;
+    font-weight: 600;
+  }
+  .ProseMirror [data-section-style="mscd-alpha"][data-section-level="2"]::before {
+    content: "(" counter(section-l2, lower-alpha) ") ";
+    counter-increment: section-l2;
+    counter-reset: section-l3;
+    margin-left: 1.5rem;
+  }
+  .ProseMirror [data-section-style="mscd-alpha"][data-section-level="3"]::before {
+    content: "(" counter(section-l3, lower-roman) ") ";
+    counter-increment: section-l3;
+    counter-reset: section-l4;
+    margin-left: 3rem;
+  }
+  .ProseMirror [data-section-style="mscd-alpha"][data-section-level="4"]::before {
+    content: "(" counter(section-l4, upper-alpha) ") ";
+    counter-increment: section-l4;
+    margin-left: 4.5rem;
+  }
+
+  /* MSCD Digital: Section 1, Section 1.1, Section 1.1.a */
+  .ProseMirror [data-section-style="mscd-digital"][data-section-level="1"]::before {
+    content: "Section " counter(section-l1) ". ";
+    counter-increment: section-l1;
+    counter-reset: section-l2;
+    font-weight: 600;
+  }
+  .ProseMirror [data-section-style="mscd-digital"][data-section-level="2"]::before {
+    content: "Section " counter(section-l1) "." counter(section-l2) ". ";
+    counter-increment: section-l2;
+    counter-reset: section-l3;
+    margin-left: 1.5rem;
+  }
+  .ProseMirror [data-section-style="mscd-digital"][data-section-level="3"]::before {
+    content: "Section " counter(section-l1) "." counter(section-l2) "." counter(section-l3, lower-alpha) ". ";
+    counter-increment: section-l3;
+    margin-left: 3rem;
+  }
+
+  /* Legal Articles: Article I, Section 1 */
+  .ProseMirror [data-section-style="article"][data-section-level="1"]::before {
+    content: "Article " counter(section-l1, upper-roman) ". ";
+    counter-increment: section-l1;
+    counter-reset: section-l2;
+    font-weight: 600;
+  }
+  .ProseMirror [data-section-style="article"][data-section-level="2"]::before {
+    content: "Section " counter(section-l2) ". ";
+    counter-increment: section-l2;
+    counter-reset: section-l3;
+    margin-left: 1.5rem;
+  }
+  .ProseMirror [data-section-style="article"][data-section-level="3"]::before {
+    content: counter(section-l3) ". ";
+    counter-increment: section-l3;
+    margin-left: 3rem;
+  }
+  .ProseMirror [data-section-style="article"][data-section-level="4"]::before {
+    content: "(" counter(section-l4, lower-alpha) ") ";
+    counter-increment: section-l4;
+    margin-left: 4.5rem;
+  }
 }
