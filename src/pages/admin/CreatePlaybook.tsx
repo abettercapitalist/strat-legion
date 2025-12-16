@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,9 +16,11 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   WorkflowStepsSection,
   WorkflowStep,
+  StepValidationError,
 } from "@/components/admin/WorkflowStepsSection";
 import { ApprovalWorkflowSection } from "@/components/admin/ApprovalWorkflowSection";
 import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
+import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
 
 const playbookSchema = z.object({
   name: z
@@ -140,39 +142,123 @@ export default function CreatePlaybook() {
     fetchPlay();
   }, [id, reset, toast, navigate]);
 
-  const [activationErrors, setActivationErrors] = useState<{
-    steps?: string;
-    approvalTemplate?: string;
-  }>({});
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [stepErrors, setStepErrors] = useState<StepValidationError[]>([]);
 
-  const validateForActivation = (): boolean => {
-    const newErrors: typeof activationErrors = {};
-    
-    const hasImmediateStep = workflowSteps.some(
-      (step) => step.requirement_type === "required_immediate"
-    );
+  const STEP_VALIDATION_RULES: Record<string, { field: string; label: string; conditional?: (config: Record<string, unknown>) => boolean }[]> = {
+    generate_document: [{ field: "template_id", label: "Template" }],
+    approval_gate: [{ field: "gate_type", label: "Gate Type" }],
+    send_notification: [{ field: "notify_team", label: "Recipient" }],
+    assign_task: [
+      { field: "assign_to", label: "Assignee" },
+      { field: "description", label: "Task Description" },
+      { field: "internal_owner", label: "Internal Owner", conditional: (config) => config.assign_to === "counterparty" },
+    ],
+    request_information: [
+      { field: "request_from", label: "Request From" },
+      { field: "info_needed", label: "Information Needed" },
+    ],
+    send_reminder: [
+      { field: "remind_who", label: "Remind Who" },
+      { field: "about", label: "About" },
+    ],
+  };
+
+  const getStepLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      generate_document: "Generate Document",
+      approval_gate: "Approval Gate",
+      send_notification: "Send Notification",
+      assign_task: "Assign Task",
+      request_information: "Request Information",
+      send_reminder: "Send Reminder",
+    };
+    return labels[type] || type;
+  };
+
+  const validateForActivation = useCallback((): boolean => {
+    const errors: ValidationError[] = [];
+    const stepErrs: StepValidationError[] = [];
+
+    // Validate workflow steps have at least one immediate step
+    const hasImmediateStep = workflowSteps.some((step) => step.requirement_type === "required_immediate");
     if (!hasImmediateStep) {
-      newErrors.steps = "At least one step must be set as 'Required (immediate)' to activate.";
+      errors.push({
+        id: "workflow-immediate",
+        section: "workflow",
+        field: "requirement_type",
+        message: "At least one step must be 'Required (immediate)' to activate",
+      });
     }
-    
+
+    // Validate each step's required fields
+    workflowSteps.forEach((step, index) => {
+      const rules = STEP_VALIDATION_RULES[step.step_type] || [];
+      rules.forEach((rule) => {
+        const shouldValidate = !rule.conditional || rule.conditional(step.config);
+        if (shouldValidate && !step.config[rule.field]) {
+          const error: ValidationError = {
+            id: `${step.step_id}-${rule.field}`,
+            section: "workflow",
+            stepId: step.step_id,
+            stepNumber: index + 1,
+            stepType: getStepLabel(step.step_type),
+            field: rule.field,
+            message: `${rule.label} is required`,
+          };
+          errors.push(error);
+          stepErrs.push({ stepId: step.step_id, field: rule.field, message: `${rule.label} is required` });
+        }
+      });
+
+      // Validate trigger_step_id when after_specific_step is selected
+      if (step.trigger_timing === "after_specific_step" && !step.trigger_step_id) {
+        errors.push({
+          id: `${step.step_id}-trigger_step_id`,
+          section: "workflow",
+          stepId: step.step_id,
+          stepNumber: index + 1,
+          stepType: getStepLabel(step.step_type),
+          field: "trigger_step_id",
+          message: "Trigger step must be selected",
+        });
+        stepErrs.push({ stepId: step.step_id, field: "trigger_step_id", message: "Trigger step must be selected" });
+      }
+    });
+
+    // Validate approval template
     if (!selectedApprovalTemplateId) {
-      newErrors.approvalTemplate = "An approval template is required to activate.";
+      errors.push({
+        id: "approval-template",
+        section: "approval",
+        field: "approval_template_id",
+        message: "An approval template is required to activate",
+      });
     }
-    
-    setActivationErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    setValidationErrors(errors);
+    setStepErrors(stepErrs);
+    return errors.length === 0;
+  }, [workflowSteps, selectedApprovalTemplateId]);
+
+  const handleErrorClick = (error: ValidationError) => {
+    setCurrentStep(error.section);
   };
 
   const onSubmit = async (data: PlaybookFormData, status: "Draft" | "Active") => {
-    setActivationErrors({});
+    setValidationErrors([]);
+    setStepErrors([]);
     
     if (status === "Active" && !validateForActivation()) {
-      // Navigate to the step with errors
-      if (activationErrors.steps) {
-        setCurrentStep("workflow");
-      } else if (activationErrors.approvalTemplate) {
-        setCurrentStep("approval");
+      const firstError = validationErrors[0];
+      if (firstError) {
+        setCurrentStep(firstError.section);
       }
+      toast({
+        title: "Cannot activate play",
+        description: `${validationErrors.length} issue${validationErrors.length > 1 ? "s" : ""} found. Please fix them to continue.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -289,6 +375,13 @@ export default function CreatePlaybook() {
         currentStep={currentStep}
         onStepClick={handleStepClick}
         completedSteps={completedSteps}
+      />
+
+      {/* Validation Summary Panel */}
+      <ValidationSummaryPanel
+        errors={validationErrors}
+        onDismiss={() => setValidationErrors([])}
+        onErrorClick={handleErrorClick}
       />
 
       {/* Form */}
@@ -411,10 +504,8 @@ export default function CreatePlaybook() {
             <WorkflowStepsSection
               steps={workflowSteps}
               onStepsChange={setWorkflowSteps}
+              stepErrors={stepErrors}
             />
-            {activationErrors.steps && (
-              <p className="text-xs text-destructive">{activationErrors.steps}</p>
-            )}
           </div>
         )}
 
@@ -425,8 +516,10 @@ export default function CreatePlaybook() {
               selectedTemplateId={selectedApprovalTemplateId}
               onTemplateChange={setSelectedApprovalTemplateId}
             />
-            {activationErrors.approvalTemplate && (
-              <p className="text-xs text-destructive">{activationErrors.approvalTemplate}</p>
+            {validationErrors.some(e => e.section === "approval") && (
+              <p className="text-xs text-destructive">
+                {validationErrors.find(e => e.section === "approval")?.message}
+              </p>
             )}
           </div>
         )}

@@ -78,9 +78,17 @@ export interface WorkflowStep {
   documents: StepDocument[];
 }
 
+export interface StepValidationError {
+  stepId: string;
+  field: string;
+  message: string;
+}
+
 interface WorkflowStepsSectionProps {
   steps: WorkflowStep[];
   onStepsChange: (steps: WorkflowStep[]) => void;
+  stepErrors?: StepValidationError[];
+  onExpandStep?: (stepId: string) => void;
 }
 
 const STEP_TYPES: {
@@ -137,9 +145,24 @@ const TEAM_OPTIONS = [
 export function WorkflowStepsSection({
   steps,
   onStepsChange,
+  stepErrors = [],
+  onExpandStep,
 }: WorkflowStepsSectionProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+
+  // Auto-expand steps with errors
+  const expandStepWithErrors = (stepId: string) => {
+    setExpandedSteps((prev) => new Set([...prev, stepId]));
+  };
+
+  // Helper to get errors for a specific step
+  const getStepErrors = (stepId: string) => 
+    stepErrors.filter((e) => e.stepId === stepId);
+
+  // Helper to check if step has errors
+  const stepHasErrors = (stepId: string) => 
+    stepErrors.some((e) => e.stepId === stepId);
 
   const toggleStepExpanded = (stepId: string) => {
     setExpandedSteps((prev) => {
@@ -263,6 +286,9 @@ export function WorkflowStepsSection({
       <div className="space-y-4">
         {steps.map((step, index) => {
           const isExpanded = expandedSteps.has(step.step_id);
+          const hasErrors = stepHasErrors(step.step_id);
+          const errors = getStepErrors(step.step_id);
+          
           return (
             <Card
               key={step.step_id}
@@ -272,7 +298,7 @@ export function WorkflowStepsSection({
               onDragEnd={handleDragEnd}
               className={`p-4 ${
                 draggedIndex === index ? "opacity-50 border-primary" : ""
-              }`}
+              } ${hasErrors ? "border-destructive bg-destructive/5" : ""}`}
             >
               {/* Step Header */}
               <div 
@@ -295,6 +321,12 @@ export function WorkflowStepsSection({
                 <span className="font-medium text-foreground">
                   Step {step.position}: {getStepLabel(step.step_type)}
                 </span>
+                {/* Error badge when collapsed */}
+                {hasErrors && !isExpanded && (
+                  <span className="text-xs bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full">
+                    {errors.length} {errors.length === 1 ? "issue" : "issues"}
+                  </span>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -309,6 +341,20 @@ export function WorkflowStepsSection({
                 </Button>
               </div>
 
+              {/* Inline errors summary when collapsed */}
+              {hasErrors && !isExpanded && (
+                <div className="pl-8 mt-2">
+                  <ul className="text-xs text-destructive space-y-0.5">
+                    {errors.slice(0, 2).map((error) => (
+                      <li key={error.field}>• {error.message}</li>
+                    ))}
+                    {errors.length > 2 && (
+                      <li>• and {errors.length - 2} more...</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
               {/* Step Configuration - Collapsible */}
               {isExpanded && (
                 <div className="pl-8 space-y-4 mt-4">
@@ -317,6 +363,7 @@ export function WorkflowStepsSection({
                     step={step}
                     allSteps={steps}
                     onUpdate={(updates) => updateStep(step.step_id, updates)}
+                    errors={errors}
                   />
 
                   {/* Universal Timing Field */}
@@ -501,14 +548,19 @@ function StepTypeFields({
   step,
   allSteps,
   onUpdate,
+  errors = [],
 }: {
   step: WorkflowStep;
   allSteps: WorkflowStep[];
   onUpdate: (updates: Partial<WorkflowStep>) => void;
+  errors?: StepValidationError[];
 }) {
   const updateConfig = (key: string, value: unknown) => {
     onUpdate({ config: { ...step.config, [key]: value } });
   };
+
+  const getFieldError = (field: string) => 
+    errors.find((e) => e.field === field)?.message;
 
   switch (step.step_type) {
     case "generate_document":
@@ -521,7 +573,7 @@ function StepTypeFields({
             value={(step.config.template_id as string) || ""}
             onValueChange={(value) => updateConfig("template_id", value)}
           >
-            <SelectTrigger className="w-full max-w-sm">
+            <SelectTrigger className={`w-full max-w-sm ${getFieldError("template_id") ? "border-destructive" : ""}`}>
               <SelectValue placeholder="Select template" />
             </SelectTrigger>
             <SelectContent>
@@ -531,6 +583,9 @@ function StepTypeFields({
               <SelectItem value="order_form">Order Form</SelectItem>
             </SelectContent>
           </Select>
+          {getFieldError("template_id") && (
+            <p className="text-xs text-destructive">{getFieldError("template_id")}</p>
+          )}
         </div>
       );
 
@@ -545,7 +600,7 @@ function StepTypeFields({
               value={(step.config.gate_type as string) || ""}
               onValueChange={(value) => updateConfig("gate_type", value)}
             >
-              <SelectTrigger className="w-full max-w-sm">
+              <SelectTrigger className={`w-full max-w-sm ${getFieldError("gate_type") ? "border-destructive" : ""}`}>
                 <SelectValue placeholder="Select gate type" />
               </SelectTrigger>
               <SelectContent>
@@ -556,6 +611,9 @@ function StepTypeFields({
                 ))}
               </SelectContent>
             </Select>
+            {getFieldError("gate_type") && (
+              <p className="text-xs text-destructive">{getFieldError("gate_type")}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Approvers</Label>
@@ -599,7 +657,7 @@ function StepTypeFields({
               value={(step.config.notify_team as string) || ""}
               onValueChange={(value) => updateConfig("notify_team", value)}
             >
-              <SelectTrigger className="w-full max-w-sm">
+              <SelectTrigger className={`w-full max-w-sm ${getFieldError("notify_team") ? "border-destructive" : ""}`}>
                 <SelectValue placeholder="Select team/role" />
               </SelectTrigger>
               <SelectContent>
@@ -610,6 +668,9 @@ function StepTypeFields({
                 ))}
               </SelectContent>
             </Select>
+            {getFieldError("notify_team") && (
+              <p className="text-xs text-destructive">{getFieldError("notify_team")}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Message Template</Label>
@@ -673,7 +734,7 @@ function StepTypeFields({
                 }
               }}
             >
-              <SelectTrigger className="w-full max-w-sm">
+              <SelectTrigger className={`w-full max-w-sm ${getFieldError("assign_to") ? "border-destructive" : ""}`}>
                 <SelectValue placeholder="Select team/role" />
               </SelectTrigger>
               <SelectContent>
@@ -684,6 +745,9 @@ function StepTypeFields({
                 ))}
               </SelectContent>
             </Select>
+            {getFieldError("assign_to") && (
+              <p className="text-xs text-destructive">{getFieldError("assign_to")}</p>
+            )}
           </div>
           
           {/* Internal Owner - shown when counterparty is selected */}
@@ -699,7 +763,7 @@ function StepTypeFields({
                 value={(step.config.internal_owner as string) || ""}
                 onValueChange={(value) => updateConfig("internal_owner", value)}
               >
-                <SelectTrigger className="w-full max-w-sm">
+                <SelectTrigger className={`w-full max-w-sm ${getFieldError("internal_owner") ? "border-destructive" : ""}`}>
                   <SelectValue placeholder="Select internal team/role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -710,6 +774,9 @@ function StepTypeFields({
                   ))}
                 </SelectContent>
               </Select>
+              {getFieldError("internal_owner") && (
+                <p className="text-xs text-destructive">{getFieldError("internal_owner")}</p>
+              )}
             </div>
           )}
           
@@ -722,8 +789,11 @@ function StepTypeFields({
               value={(step.config.description as string) || ""}
               onChange={(e) => updateConfig("description", e.target.value)}
               rows={2}
-              className="resize-none"
+              className={`resize-none ${getFieldError("description") ? "border-destructive" : ""}`}
             />
+            {getFieldError("description") && (
+              <p className="text-xs text-destructive">{getFieldError("description")}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
@@ -757,7 +827,7 @@ function StepTypeFields({
               value={(step.config.request_from as string) || ""}
               onValueChange={(value) => updateConfig("request_from", value)}
             >
-              <SelectTrigger className="w-full max-w-sm">
+              <SelectTrigger className={`w-full max-w-sm ${getFieldError("request_from") ? "border-destructive" : ""}`}>
                 <SelectValue placeholder="Select team/role" />
               </SelectTrigger>
               <SelectContent>
@@ -768,6 +838,9 @@ function StepTypeFields({
                 ))}
               </SelectContent>
             </Select>
+            {getFieldError("request_from") && (
+              <p className="text-xs text-destructive">{getFieldError("request_from")}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
@@ -778,8 +851,11 @@ function StepTypeFields({
               value={(step.config.info_needed as string) || ""}
               onChange={(e) => updateConfig("info_needed", e.target.value)}
               rows={2}
-              className="resize-none"
+              className={`resize-none ${getFieldError("info_needed") ? "border-destructive" : ""}`}
             />
+            {getFieldError("info_needed") && (
+              <p className="text-xs text-destructive">{getFieldError("info_needed")}</p>
+            )}
           </div>
         </div>
       );
@@ -795,7 +871,7 @@ function StepTypeFields({
               value={(step.config.remind_who as string) || ""}
               onValueChange={(value) => updateConfig("remind_who", value)}
             >
-              <SelectTrigger className="w-full max-w-sm">
+              <SelectTrigger className={`w-full max-w-sm ${getFieldError("remind_who") ? "border-destructive" : ""}`}>
                 <SelectValue placeholder="Select who to remind" />
               </SelectTrigger>
               <SelectContent>
@@ -806,6 +882,9 @@ function StepTypeFields({
                 ))}
               </SelectContent>
             </Select>
+            {getFieldError("remind_who") && (
+              <p className="text-xs text-destructive">{getFieldError("remind_who")}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
@@ -816,8 +895,11 @@ function StepTypeFields({
               value={(step.config.about as string) || ""}
               onChange={(e) => updateConfig("about", e.target.value)}
               rows={2}
-              className="resize-none"
+              className={`resize-none ${getFieldError("about") ? "border-destructive" : ""}`}
             />
+            {getFieldError("about") && (
+              <p className="text-xs text-destructive">{getFieldError("about")}</p>
+            )}
           </div>
         </div>
       );
