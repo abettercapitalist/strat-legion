@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Plus, Lightbulb } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Lightbulb, ChevronUp, ChevronDown } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ export default function CreateEditApprovalTemplate() {
   const [isFetching, setIsFetching] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
 
   // Fetch existing template when editing
   useEffect(() => {
@@ -485,6 +486,84 @@ export default function CreateEditApprovalTemplate() {
               <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
                 <Lightbulb className="h-4 w-4 text-amber-500" />
                 <span>Routes execute in sequence. Drag to reorder routes.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Preview */}
+          <div style={{ marginTop: "48px" }}>
+            <button
+              type="button"
+              onClick={() => setPreviewExpanded(!previewExpanded)}
+              className="flex items-center justify-between w-full text-left group"
+            >
+              <h2 className="text-base font-semibold text-foreground">Preview</h2>
+              <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                {previewExpanded ? (
+                  <>
+                    Collapse <ChevronUp className="h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    Expand <ChevronDown className="h-4 w-4" />
+                  </>
+                )}
+              </span>
+            </button>
+
+            {previewExpanded && (
+              <div className="mt-4 font-mono text-sm bg-muted/50 rounded-lg p-4 overflow-x-auto">
+                {routes.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Add routes to see preview</p>
+                ) : (
+                  <div className="space-y-2">
+                    {routes.map((route, index) => {
+                      const routeTypeLabels: Record<string, string> = {
+                        pre_deal: "Pre-Deal Approval",
+                        proposal: "Proposal Approval",
+                        closing: "Closing Approval",
+                        custom: route.custom_route_name || "Custom Route",
+                      };
+                      const routeName = routeTypeLabels[route.route_type] || route.route_type;
+                      const approverRole = route.auto_approval_fallback_role
+                        ? route.auto_approval_fallback_role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+                        : "Approver";
+                      
+                      const thresholdText = {
+                        unanimous: "All must approve",
+                        minimum: `${route.minimum_approvals || 2} out of ${route.approvers_count || 3} required`,
+                        percentage: `${route.percentage_required || 67}% required`,
+                        any_one: "Any one approver (first wins)",
+                      }[route.approval_threshold] || "All must approve";
+
+                      const modeText = route.approval_mode === "parallel" ? "Parallel" : "Serial";
+
+                      return (
+                        <div key={route.id}>
+                          <pre className="text-foreground whitespace-pre">
+{`┌${"─".repeat(45)}┐
+│ ${routeName.padEnd(44)}│
+│${" ".repeat(46)}│`}
+{route.auto_approval_enabled ? `
+│  Auto-approve if conditions met${" ".repeat(13)}│` : ""}
+{`│  ${approverRole} (SLA: TBD)${" ".repeat(Math.max(0, 24 - approverRole.length))}──┐${" ".repeat(8)}│
+│${" ".repeat(37)}├─→ ${modeText}${" ".repeat(Math.max(0, 4 - modeText.length))}│`}
+{route.is_conditional ? `
+│  *Conditional route${" ".repeat(26)}│` : ""}
+{`│${" ".repeat(46)}│
+│  Threshold: ${thresholdText.padEnd(32)}│
+└${"─".repeat(45)}┘`}
+                          </pre>
+                          {index < routes.length - 1 && (
+                            <pre className="text-muted-foreground text-center">
+                              {"              ↓"}
+                            </pre>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
