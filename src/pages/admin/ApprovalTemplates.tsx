@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Pencil, Trash2, MoreHorizontal, Copy } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Pencil, MoreHorizontal, Copy, Archive, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,24 +24,96 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useApprovalTemplates } from "@/hooks/useApprovalTemplates";
+import { useApprovalTemplates, ApprovalTemplate } from "@/hooks/useApprovalTemplates";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { format } from "date-fns";
+
+type SortField = "name" | "updatedAt";
+type SortDirection = "asc" | "desc";
 
 export default function ApprovalTemplates() {
   const { templates, loading, error, refetch } = useApprovalTemplates();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<typeof templates[0] | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ApprovalTemplate | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [gatesFilter, setGatesFilter] = useState<string>("all");
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const filteredAndSortedTemplates = useMemo(() => {
+    let result = [...templates];
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      result = result.filter((t) => t.status === statusFilter);
+    }
+
+    // Apply gates filter
+    if (gatesFilter !== "all") {
+      if (gatesFilter === "1") {
+        result = result.filter((t) => t.gateCount === 1);
+      } else if (gatesFilter === "2-3") {
+        result = result.filter((t) => t.gateCount >= 2 && t.gateCount <= 3);
+      } else if (gatesFilter === "4+") {
+        result = result.filter((t) => t.gateCount >= 4);
+      }
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === "name") {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortField === "updatedAt") {
+        comparison = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return result;
+  }, [templates, statusFilter, gatesFilter, sortField, sortDirection]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "active":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>;
+      case "archived":
+        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Archived</Badge>;
+      default:
+        return <Badge variant="secondary">Draft</Badge>;
+    }
+  };
 
   const handleCreate = async () => {
     if (!formData.name.trim()) {
@@ -57,7 +129,7 @@ export default function ApprovalTemplates() {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           approval_sequence: [],
-          is_active: true,
+          status: "draft",
         });
 
       if (insertError) throw insertError;
@@ -105,28 +177,28 @@ export default function ApprovalTemplates() {
     }
   };
 
-  const handleDelete = async (template: typeof templates[0]) => {
-    if (!confirm(`Delete "${template.name}"? This cannot be undone.`)) return;
+  const handleArchive = async (template: ApprovalTemplate) => {
+    const newStatus = template.status === "archived" ? "draft" : "archived";
+    const action = template.status === "archived" ? "restored" : "archived";
 
     try {
-      const { error: deleteError } = await supabase
+      const { error: updateError } = await supabase
         .from("approval_templates")
-        .delete()
+        .update({ status: newStatus })
         .eq("id", template.id);
 
-      if (deleteError) throw deleteError;
+      if (updateError) throw updateError;
 
-      toast.success("Approval template deleted");
+      toast.success(`Approval template ${action}`);
       refetch();
     } catch (err) {
-      console.error("Error deleting template:", err);
-      toast.error("Failed to delete template");
+      console.error("Error archiving template:", err);
+      toast.error("Failed to update template");
     }
   };
 
-  const handleDuplicate = async (template: typeof templates[0]) => {
+  const handleDuplicate = async (template: ApprovalTemplate) => {
     try {
-      // Fetch full template data
       const { data, error: fetchError } = await supabase
         .from("approval_templates")
         .select("*")
@@ -142,7 +214,7 @@ export default function ApprovalTemplates() {
           description: data.description,
           approval_sequence: data.approval_sequence,
           trigger_conditions: data.trigger_conditions,
-          is_active: true,
+          status: "draft",
         });
 
       if (insertError) throw insertError;
@@ -155,7 +227,7 @@ export default function ApprovalTemplates() {
     }
   };
 
-  const openEditDialog = (template: typeof templates[0]) => {
+  const openEditDialog = (template: ApprovalTemplate) => {
     setSelectedTemplate(template);
     setFormData({
       name: template.name,
@@ -173,13 +245,40 @@ export default function ApprovalTemplates() {
             Approval Templates
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure approval workflows for plays and workstreams
+            Define approval workflows for your business processes
           </p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Create Template
+          Create Approval Template
         </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-4 mb-6">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={gatesFilter} onValueChange={setGatesFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Gates" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Gates</SelectItem>
+            <SelectItem value="1">1 gate</SelectItem>
+            <SelectItem value="2-3">2-3 gates</SelectItem>
+            <SelectItem value="4+">4+ gates</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Content */}
@@ -191,40 +290,69 @@ export default function ApprovalTemplates() {
         </div>
       ) : error ? (
         <div className="text-center py-12 text-destructive">{error}</div>
-      ) : templates.length === 0 ? (
+      ) : filteredAndSortedTemplates.length === 0 && templates.length === 0 ? (
         <div className="text-center py-16 border rounded-lg bg-muted/30">
-          <p className="text-muted-foreground mb-4">No approval templates yet</p>
+          <p className="text-lg font-medium text-foreground mb-2">No approval templates yet</p>
+          <p className="text-muted-foreground mb-6">Create your first approval workflow</p>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Your First Template
+            Create Approval Template
           </Button>
+        </div>
+      ) : filteredAndSortedTemplates.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          No templates match the current filters
         </div>
       ) : (
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8 data-[state=open]:bg-accent"
+                    onClick={() => toggleSort("name")}
+                  >
+                    Name
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
                 <TableHead className="text-center">Gates</TableHead>
+                <TableHead className="text-center">Used By</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8 data-[state=open]:bg-accent"
+                    onClick={() => toggleSort("updatedAt")}
+                  >
+                    Last Modified
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {templates.map((template) => (
+              {filteredAndSortedTemplates.map((template) => (
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">{template.name}</TableCell>
-                  <TableCell className="text-muted-foreground max-w-[300px] truncate">
-                    {template.description || "—"}
+                  <TableCell className="text-center">{template.gateCount}</TableCell>
+                  <TableCell className="text-center">
+                    {template.usedByCount > 0 ? (
+                      <span>{template.usedByCount} play{template.usedByCount !== 1 ? "s" : ""}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {format(new Date(template.updatedAt), "MMM d, yyyy")}
                   </TableCell>
                   <TableCell className="text-center">
-                    {template.gateCount}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={template.is_active ? "default" : "secondary"}>
-                      {template.is_active ? "Active" : "Inactive"}
-                    </Badge>
+                    {getStatusBadge(template.status)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -242,12 +370,9 @@ export default function ApprovalTemplates() {
                           <Copy className="h-4 w-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(template)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                        <DropdownMenuItem onClick={() => handleArchive(template)}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          {template.status === "archived" ? "Restore" : "Archive"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
