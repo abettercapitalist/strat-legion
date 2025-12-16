@@ -1,4 +1,4 @@
-import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText } from "lucide-react";
+import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText, Check } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -24,12 +24,11 @@ const librariesNavigation = [
   { name: "Template Library", href: "/law/templates", icon: FileText },
 ];
 
-// Admin-only library item
-const playbooksLibrary = {
-  name: "Play Library",
-  href: "/admin/workstream-types",
-  icon: PlaybookIcon,
-};
+// Admin-only library items
+const playLibraryItems = [
+  { name: "Plays", href: "/admin/workstream-types", icon: PlaybookIcon },
+  { name: "Approval Templates", href: "/play-library/approval-templates", icon: Check },
+];
 export function LawSidebar() {
   const {
     state
@@ -102,24 +101,27 @@ export function LawSidebar() {
                   </SidebarMenuItem>
                 );
               })}
-              {/* Playbooks Library - admin only, at bottom of Libraries */}
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={playbooksLibrary.href}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                        location.pathname.startsWith(playbooksLibrary.href)
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent"
-                      }`}
-                    >
-                      <playbooksLibrary.icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && <span className="flex-1 text-sm">{playbooksLibrary.name}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+              {/* Play Library - admin only, at bottom of Libraries */}
+              {isAdmin && playLibraryItems.map((item) => {
+                const isActive = location.pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.href}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                          isActive
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        {!isCollapsed && <span className="flex-1 text-sm">{item.name}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
