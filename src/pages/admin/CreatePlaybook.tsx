@@ -254,11 +254,7 @@ export default function CreatePlaybook() {
       if (firstError) {
         setCurrentStep(firstError.section);
       }
-      toast({
-        title: "Cannot activate play",
-        description: `${validationErrors.length} issue${validationErrors.length > 1 ? "s" : ""} found. Please fix them to continue.`,
-        variant: "destructive",
-      });
+      // Validation errors shown via ValidationSummaryPanel - no toast needed
       return;
     }
 
