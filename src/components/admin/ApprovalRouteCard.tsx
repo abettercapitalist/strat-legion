@@ -47,6 +47,11 @@ export interface ApprovalRouteData {
   auto_approval_conditions: RouteCondition[];
   auto_approval_fallback_role?: string;
   notification_message?: string;
+  approval_mode: "serial" | "parallel";
+  approval_threshold: "unanimous" | "minimum" | "percentage" | "any_one";
+  minimum_approvals?: number;
+  percentage_required?: number;
+  approvers_count?: number;
 }
 
 interface ApprovalRouteCardProps {
@@ -411,6 +416,143 @@ export function ApprovalRouteCard({
                 />
                 <p className="text-xs text-muted-foreground">
                   {(route.notification_message || "").length}/500 characters · Leave blank to use default notification
+                </p>
+              </div>
+
+              {/* 5. Approval Mode */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Approval Mode:
+                </Label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`approval-mode-${route.id}`}
+                      checked={route.approval_mode === "serial"}
+                      onChange={() => onUpdate(route.id, { approval_mode: "serial" })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Serial (one at a time)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`approval-mode-${route.id}`}
+                      checked={route.approval_mode === "parallel"}
+                      onChange={() => onUpdate(route.id, { approval_mode: "parallel" })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Parallel (all at once)</span>
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">
+                  {route.approval_mode === "serial" 
+                    ? "Approvers notified one at a time, in order listed above"
+                    : "All approvers notified simultaneously"}
+                </p>
+              </div>
+
+              {/* 6. Approval Threshold */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Approval Threshold:
+                </Label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`approval-threshold-${route.id}`}
+                      checked={route.approval_threshold === "unanimous"}
+                      onChange={() => onUpdate(route.id, { approval_threshold: "unanimous" })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">All must approve (unanimous)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`approval-threshold-${route.id}`}
+                      checked={route.approval_threshold === "minimum"}
+                      onChange={() => onUpdate(route.id, { approval_threshold: "minimum", minimum_approvals: 2 })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Minimum approvals required</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`approval-threshold-${route.id}`}
+                      checked={route.approval_threshold === "percentage"}
+                      onChange={() => onUpdate(route.id, { approval_threshold: "percentage", percentage_required: 67 })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Percentage required</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`approval-threshold-${route.id}`}
+                      checked={route.approval_threshold === "any_one"}
+                      onChange={() => onUpdate(route.id, { approval_threshold: "any_one" })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Any one approver (first wins)</span>
+                  </label>
+                </div>
+
+                {/* Minimum approvals config */}
+                {route.approval_threshold === "minimum" && (
+                  <div className="flex items-center gap-2 pl-6 mt-2">
+                    <span className="text-sm">Need at least</span>
+                    <Select
+                      value={String(route.minimum_approvals || 2)}
+                      onValueChange={(value) => onUpdate(route.id, { minimum_approvals: parseInt(value) })}
+                    >
+                      <SelectTrigger className="h-8 w-16">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: route.approvers_count || 5 }, (_, i) => i + 1).map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-sm">out of {route.approvers_count || "?"} approvers</span>
+                  </div>
+                )}
+
+                {/* Percentage config */}
+                {route.approval_threshold === "percentage" && (
+                  <div className="flex items-center gap-2 pl-6 mt-2">
+                    <span className="text-sm">Need at least</span>
+                    <Select
+                      value={String(route.percentage_required || 67)}
+                      onValueChange={(value) => onUpdate(route.id, { percentage_required: parseInt(value) })}
+                    >
+                      <SelectTrigger className="h-8 w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25%</SelectItem>
+                        <SelectItem value="50">50%</SelectItem>
+                        <SelectItem value="67">67%</SelectItem>
+                        <SelectItem value="75">75%</SelectItem>
+                        <SelectItem value="100">100%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-sm">of approvers</span>
+                  </div>
+                )}
+
+                {/* Helper text for thresholds */}
+                <p className="text-xs text-muted-foreground pl-6">
+                  {route.approval_threshold === "unanimous" && "All approvers must approve. Any rejection fails the route."}
+                  {route.approval_threshold === "minimum" && "Route completes when X approvers approve. If threshold becomes unreachable, route fails."}
+                  {route.approval_threshold === "percentage" && "Route completes when X% approve. Calculated as: ceil(total × percentage)."}
+                  {route.approval_threshold === "any_one" && "First approver to approve completes the route. Only fails if all reject."}
                 </p>
               </div>
             </div>

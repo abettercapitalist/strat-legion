@@ -83,6 +83,11 @@ export default function CreateEditApprovalTemplate() {
             auto_approval_conditions: item.auto_approval_conditions || [],
             auto_approval_fallback_role: item.auto_approval_fallback_role || "",
             notification_message: item.notification_message || "",
+            approval_mode: item.approval_mode || "serial",
+            approval_threshold: item.approval_threshold || "unanimous",
+            minimum_approvals: item.minimum_approvals || 2,
+            percentage_required: item.percentage_required || 67,
+            approvers_count: item.approvers_count || 3,
           }));
           setRoutes(parsedRoutes);
         }
@@ -123,6 +128,11 @@ export default function CreateEditApprovalTemplate() {
       auto_approval_conditions: [],
       auto_approval_fallback_role: "",
       notification_message: "",
+      approval_mode: "serial",
+      approval_threshold: "unanimous",
+      minimum_approvals: 2,
+      percentage_required: 67,
+      approvers_count: 3,
     };
     setRoutes([...routes, newRoute]);
   };
@@ -269,6 +279,11 @@ export default function CreateEditApprovalTemplate() {
         auto_approval_conditions: (r.auto_approval_conditions || []).map((c) => ({ ...c })),
         auto_approval_fallback_role: r.auto_approval_fallback_role || "",
         notification_message: r.notification_message || "",
+        approval_mode: r.approval_mode || "serial",
+        approval_threshold: r.approval_threshold || "unanimous",
+        minimum_approvals: r.minimum_approvals || 2,
+        percentage_required: r.percentage_required || 67,
+        approvers_count: r.approvers_count || 3,
         approvers: [],
       }));
 
