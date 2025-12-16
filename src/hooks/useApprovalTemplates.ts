@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface ApprovalGate {
-  gate: number;
-  gate_name: string;
-  approver_role: string;
-  sla_hours?: number;
-  description?: string;
-  condition?: string;
+export interface ApprovalRoute {
+  id: string;
+  position: number;
+  route_name: string;
+  route_type: string;
+  approvers: {
+    role: string;
+    sla_hours?: number;
+    is_required?: boolean;
+  }[];
 }
 
 export interface ApprovalTemplate {
@@ -15,15 +18,8 @@ export interface ApprovalTemplate {
   name: string;
   description: string | null;
   status: string;
-  gates: {
-    name: string;
-    approvers: {
-      role: string;
-      sla: string;
-      conditional?: string;
-    }[];
-  }[];
-  gateCount: number;
+  routes: ApprovalRoute[];
+  routeCount: number;
   usedByCount: number;
   updatedAt: string;
 }
@@ -64,41 +60,46 @@ export function useApprovalTemplates() {
       });
 
       const parsed: ApprovalTemplate[] = (templatesData || []).map((template) => {
-        const sequence = (template.approval_sequence as unknown) as ApprovalGate[];
+        const sequence = template.approval_sequence as unknown;
+        let routes: ApprovalRoute[] = [];
         
-        // Group by gate number
-        const gatesMap = new Map<number, { name: string; approvers: { role: string; sla: string; conditional?: string }[] }>();
-        
+        // Parse routes from approval_sequence
         if (Array.isArray(sequence)) {
-          sequence.forEach((item) => {
-            const gateNum = item.gate;
-            if (!gatesMap.has(gateNum)) {
-              gatesMap.set(gateNum, {
-                name: item.gate_name || `Gate ${gateNum}`,
-                approvers: [],
+          // Check if it's the new routes format or legacy gate format
+          if (sequence.length > 0 && 'route_name' in (sequence[0] as object)) {
+            routes = sequence as ApprovalRoute[];
+          } else {
+            // Convert legacy gate format to routes
+            const gatesMap = new Map<number, ApprovalRoute>();
+            sequence.forEach((item: any) => {
+              const gateNum = item.gate || item.position || 1;
+              if (!gatesMap.has(gateNum)) {
+                gatesMap.set(gateNum, {
+                  id: `legacy-${gateNum}`,
+                  position: gateNum,
+                  route_name: item.gate_name || `Route ${gateNum}`,
+                  route_type: 'approval',
+                  approvers: [],
+                });
+              }
+              const route = gatesMap.get(gateNum)!;
+              route.approvers.push({
+                role: item.approver_role,
+                sla_hours: item.sla_hours,
+                is_required: true,
               });
-            }
-            
-            const gate = gatesMap.get(gateNum)!;
-            gate.approvers.push({
-              role: item.approver_role,
-              sla: item.sla_hours ? `${item.sla_hours} hours` : "No SLA",
-              conditional: item.condition,
             });
-          });
+            routes = Array.from(gatesMap.values()).sort((a, b) => a.position - b.position);
+          }
         }
-
-        const gates = Array.from(gatesMap.entries())
-          .sort(([a], [b]) => a - b)
-          .map(([, gate]) => gate);
 
         return {
           id: template.id,
           name: template.name,
           description: template.description,
           status: template.status || "draft",
-          gates,
-          gateCount: gates.length,
+          routes,
+          routeCount: routes.length,
           usedByCount: usageCount.get(template.id) || 0,
           updatedAt: template.updated_at,
         };
