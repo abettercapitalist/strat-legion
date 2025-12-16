@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Pencil, MoreHorizontal, Copy, Archive, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,23 +18,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useApprovalTemplates, ApprovalTemplate } from "@/hooks/useApprovalTemplates";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,15 +34,8 @@ type SortField = "name" | "updatedAt";
 type SortDirection = "asc" | "desc";
 
 export default function ApprovalTemplates() {
+  const navigate = useNavigate();
   const { templates, loading, error, refetch } = useApprovalTemplates();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<ApprovalTemplate | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-  });
-  const [isSaving, setIsSaving] = useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -115,68 +98,6 @@ export default function ApprovalTemplates() {
     }
   };
 
-  const handleCreate = async () => {
-    if (!formData.name.trim()) {
-      toast.error("Name is required");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const { error: insertError } = await supabase
-        .from("approval_templates")
-        .insert({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          approval_sequence: [],
-          status: "draft",
-        });
-
-      if (insertError) throw insertError;
-
-      toast.success("Approval template created");
-      setIsCreateDialogOpen(false);
-      setFormData({ name: "", description: "" });
-      refetch();
-    } catch (err) {
-      console.error("Error creating template:", err);
-      toast.error("Failed to create template");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleEdit = async () => {
-    if (!selectedTemplate || !formData.name.trim()) {
-      toast.error("Name is required");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const { error: updateError } = await supabase
-        .from("approval_templates")
-        .update({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
-        })
-        .eq("id", selectedTemplate.id);
-
-      if (updateError) throw updateError;
-
-      toast.success("Approval template updated");
-      setIsEditDialogOpen(false);
-      setSelectedTemplate(null);
-      setFormData({ name: "", description: "" });
-      refetch();
-    } catch (err) {
-      console.error("Error updating template:", err);
-      toast.error("Failed to update template");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleArchive = async (template: ApprovalTemplate) => {
     const newStatus = template.status === "archived" ? "draft" : "archived";
     const action = template.status === "archived" ? "restored" : "archived";
@@ -203,9 +124,13 @@ export default function ApprovalTemplates() {
         .from("approval_templates")
         .select("*")
         .eq("id", template.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
+      if (!data) {
+        toast.error("Template not found");
+        return;
+      }
 
       const { error: insertError } = await supabase
         .from("approval_templates")
@@ -227,15 +152,6 @@ export default function ApprovalTemplates() {
     }
   };
 
-  const openEditDialog = (template: ApprovalTemplate) => {
-    setSelectedTemplate(template);
-    setFormData({
-      name: template.name,
-      description: template.description || "",
-    });
-    setIsEditDialogOpen(true);
-  };
-
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
       {/* Header */}
@@ -248,7 +164,7 @@ export default function ApprovalTemplates() {
             Define approval workflows for your business processes
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => navigate("/play-library/approval-templates/new")}>
           <Plus className="h-4 w-4 mr-2" />
           Create Approval Template
         </Button>
@@ -294,7 +210,7 @@ export default function ApprovalTemplates() {
         <div className="text-center py-16 border rounded-lg bg-muted/30">
           <p className="text-lg font-medium text-foreground mb-2">No approval templates yet</p>
           <p className="text-muted-foreground mb-6">Create your first approval workflow</p>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Button onClick={() => navigate("/play-library/approval-templates/new")}>
             <Plus className="h-4 w-4 mr-2" />
             Create Approval Template
           </Button>
@@ -362,7 +278,7 @@ export default function ApprovalTemplates() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditDialog(template)}>
+                        <DropdownMenuItem onClick={() => navigate(`/play-library/approval-templates/${template.id}/edit`)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
@@ -383,104 +299,6 @@ export default function ApprovalTemplates() {
           </Table>
         </div>
       )}
-
-      {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Approval Template</DialogTitle>
-            <DialogDescription>
-              Add a new approval workflow template
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="e.g., Standard Deal Approval"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, description: e.target.value }))
-                }
-                placeholder="Describe when this template should be used..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={isSaving}>
-              {isSaving ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Approval Template</DialogTitle>
-            <DialogDescription>
-              Update template name and description
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">
-                Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, description: e.target.value }))
-                }
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleEdit} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
