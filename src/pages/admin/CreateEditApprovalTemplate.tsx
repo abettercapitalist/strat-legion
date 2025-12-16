@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Plus, Lightbulb, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Lightbulb, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,9 @@ export default function CreateEditApprovalTemplate() {
   const [isSaving, setIsSaving] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [status, setStatus] = useState<"draft" | "active" | "archived">("draft");
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // Fetch existing template when editing
   useEffect(() => {
@@ -68,6 +71,7 @@ export default function CreateEditApprovalTemplate() {
 
         setName(data.name);
         setDescription(data.description || "");
+        setStatus((data.status as "draft" | "active" | "archived") || "draft");
 
         // Parse routes from approval_sequence
         const sequence = data.approval_sequence as unknown;
@@ -243,50 +247,132 @@ export default function CreateEditApprovalTemplate() {
     }
   };
 
-  // Handle save
-  const handleSave = async () => {
-    // Final validation
-    const nameValidation = nameSchema.safeParse(name);
-    if (!nameValidation.success) {
-      setNameError(nameValidation.error.errors[0].message);
-      return;
+  // Prepare routes data for storage
+  const prepareRoutesData = () => routes.map((r) => ({
+    id: r.id,
+    position: r.position,
+    route_type: r.route_type,
+    custom_route_name: r.custom_route_name || "",
+    is_conditional: r.is_conditional,
+    conditions: (r.conditions || []).map((c) => ({ ...c })),
+    condition_logic: r.condition_logic,
+    auto_approval_enabled: r.auto_approval_enabled,
+    auto_approval_conditions: (r.auto_approval_conditions || []).map((c) => ({ ...c })),
+    auto_approval_fallback_role: r.auto_approval_fallback_role || "",
+    notification_message: r.notification_message || "",
+    approval_mode: r.approval_mode || "serial",
+    approval_threshold: r.approval_threshold || "unanimous",
+    minimum_approvals: r.minimum_approvals || 2,
+    percentage_required: r.percentage_required || 67,
+    approvers_count: r.approvers_count || 3,
+    approvers: [],
+  }));
+
+  // Validate for activation
+  const validateForActivation = async (): Promise<string[]> => {
+    const errors: string[] = [];
+
+    // Name validation
+    if (!name.trim()) {
+      errors.push("Name is required");
+    } else {
+      const uniquenessError = await validateName(name);
+      if (uniquenessError) {
+        errors.push(`Name already exists - try "${name} v2"`);
+      }
     }
 
-    const descValidation = descriptionSchema.safeParse(description);
-    if (!descValidation.success) {
-      setDescriptionError(descValidation.error.errors[0].message);
-      return;
+    // At least one route
+    if (routes.length === 0) {
+      errors.push("At least one route is required");
     }
 
-    // Check uniqueness one more time
-    const uniquenessError = await validateName(name);
-    if (uniquenessError) {
-      setNameError(uniquenessError);
-      return;
-    }
+    // Check for duplicate route types (unless custom)
+    const routeTypeCounts: Record<string, number> = {};
+    routes.forEach((r) => {
+      if (r.route_type !== "custom") {
+        routeTypeCounts[r.route_type] = (routeTypeCounts[r.route_type] || 0) + 1;
+      }
+    });
+    Object.entries(routeTypeCounts).forEach(([type, count]) => {
+      if (count > 1) {
+        const typeLabel = {
+          pre_deal: "Pre-Deal Approval",
+          proposal: "Proposal Approval",
+          closing: "Closing Approval",
+        }[type] || type;
+        errors.push(`Duplicate route type "${typeLabel}" - use unique names or Custom Route`);
+      }
+    });
 
-    setIsSaving(true);
+    // Each route needs at least one approver (checking fallback role as proxy for now)
+    routes.forEach((r, index) => {
+      if (!r.auto_approval_fallback_role && !r.auto_approval_enabled) {
+        errors.push(`Route ${index + 1} needs at least one approver`);
+      }
+    });
+
+    return errors;
+  };
+
+  // Handle save as draft
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true);
+    setValidationErrors([]);
+    
     try {
-      // Prepare routes data for storage - serialize conditions to plain objects
-      const routesData = routes.map((r) => ({
-        id: r.id,
-        position: r.position,
-        route_type: r.route_type,
-        custom_route_name: r.custom_route_name || "",
-        is_conditional: r.is_conditional,
-        conditions: (r.conditions || []).map((c) => ({ ...c })),
-        condition_logic: r.condition_logic,
-        auto_approval_enabled: r.auto_approval_enabled,
-        auto_approval_conditions: (r.auto_approval_conditions || []).map((c) => ({ ...c })),
-        auto_approval_fallback_role: r.auto_approval_fallback_role || "",
-        notification_message: r.notification_message || "",
-        approval_mode: r.approval_mode || "serial",
-        approval_threshold: r.approval_threshold || "unanimous",
-        minimum_approvals: r.minimum_approvals || 2,
-        percentage_required: r.percentage_required || 67,
-        approvers_count: r.approvers_count || 3,
-        approvers: [],
-      }));
+      const routesData = prepareRoutesData();
+
+      if (isEditing && id) {
+        const { error } = await supabase
+          .from("approval_templates")
+          .update({
+            name: name.trim() || "Untitled Template",
+            description: description.trim() || null,
+            approval_sequence: routesData as unknown as any,
+            status: "draft",
+          })
+          .eq("id", id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("approval_templates").insert({
+          name: name.trim() || "Untitled Template",
+          description: description.trim() || null,
+          approval_sequence: routesData as unknown as any,
+          status: "draft",
+        });
+
+        if (error) throw error;
+      }
+
+      toast.success("Draft saved");
+      setStatus("draft");
+    } catch (err) {
+      console.error("Error saving draft:", err);
+      toast.error("Failed to save draft");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Handle activate
+  const handleActivate = async () => {
+    setIsSaving(true);
+    setValidationErrors([]);
+
+    // Validate
+    const errors = await validateForActivation();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setIsSaving(false);
+      // Scroll to top to show errors
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    try {
+      const routesData = prepareRoutesData();
 
       if (isEditing && id) {
         const { error } = await supabase
@@ -295,27 +381,28 @@ export default function CreateEditApprovalTemplate() {
             name: name.trim(),
             description: description.trim() || null,
             approval_sequence: routesData as unknown as any,
+            status: status,
           })
           .eq("id", id);
 
         if (error) throw error;
-        toast.success("Approval template updated");
+        toast.success("Approval template activated successfully");
       } else {
         const { error } = await supabase.from("approval_templates").insert({
           name: name.trim(),
           description: description.trim() || null,
           approval_sequence: routesData as unknown as any,
-          status: "draft",
+          status: "active",
         });
 
         if (error) throw error;
-        toast.success("Approval template created");
+        toast.success("Approval template activated successfully");
       }
 
       navigate("/play-library/approval-templates");
     } catch (err) {
-      console.error("Error saving template:", err);
-      toast.error("Failed to save template");
+      console.error("Error activating template:", err);
+      toast.error("Failed to activate template");
     } finally {
       setIsSaving(false);
     }
@@ -357,6 +444,23 @@ export default function CreateEditApprovalTemplate() {
 
         {/* Form */}
         <div className="bg-card rounded-lg border p-8">
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium text-destructive">Please fix the following errors:</p>
+                  <ul className="list-disc list-inside text-sm text-destructive space-y-1">
+                    {validationErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Section 1: Basic Information */}
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-6">
@@ -567,6 +671,69 @@ export default function CreateEditApprovalTemplate() {
               </div>
             )}
           </div>
+
+          {/* Section 4: Status & Activation */}
+          <div style={{ marginTop: "48px" }}>
+            <h2 className="text-base font-semibold text-foreground mb-4">
+              Status & Activation
+            </h2>
+
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="status"
+                  checked={status === "draft"}
+                  onChange={() => setStatus("draft")}
+                  className="w-4 h-4"
+                />
+                <div>
+                  <span className="text-sm font-medium">Draft</span>
+                  <p className="text-xs text-muted-foreground">Not available for plays</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="status"
+                  checked={status === "active"}
+                  onChange={() => setStatus("active")}
+                  className="w-4 h-4"
+                />
+                <div>
+                  <span className="text-sm font-medium">Active</span>
+                  <p className="text-xs text-muted-foreground">Available for use</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="status"
+                  checked={status === "archived"}
+                  onChange={() => setStatus("archived")}
+                  className="w-4 h-4"
+                />
+                <div>
+                  <span className="text-sm font-medium">Archived</span>
+                  <p className="text-xs text-muted-foreground">Read-only, existing workstreams unaffected</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Warning for archiving used templates */}
+            {isEditing && status === "archived" && usedByCount > 0 && (
+              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-amber-700">
+                    This template is used by {usedByCount} play{usedByCount !== 1 ? "s" : ""}. 
+                    Archiving will prevent new workstreams from using it, but existing workstreams 
+                    will continue to function.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer Actions */}
@@ -578,18 +745,30 @@ export default function CreateEditApprovalTemplate() {
             Cancel
           </Button>
           <Button
-            onClick={handleSave}
-            disabled={isSaving || isLoading || Boolean(nameError) || !name.trim()}
+            variant="outline"
+            onClick={handleSaveDraft}
+            disabled={isSavingDraft || isSaving}
           >
-            {isSaving ? (
+            {isSavingDraft ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Saving...
               </>
-            ) : isEditing ? (
-              "Save Changes"
             ) : (
-              "Create Template"
+              "Save as Draft"
+            )}
+          </Button>
+          <Button
+            onClick={handleActivate}
+            disabled={isSaving || isSavingDraft}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Activating...
+              </>
+            ) : (
+              "Activate Approval Template"
             )}
           </Button>
         </div>
