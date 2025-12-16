@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GripVertical, X, Plus, Trash2 } from "lucide-react";
+import { GripVertical, X, Plus, Trash2, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +22,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 export interface RouteCondition {
   id: string;
@@ -100,6 +105,7 @@ export function ApprovalRouteCard({
   isDragging,
 }: ApprovalRouteCardProps) {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   const routeTypeLabel = ROUTE_TYPES.find((t) => t.value === route.route_type)?.label || "Unknown";
   const displayName = route.route_type === "custom" && route.custom_route_name 
@@ -231,177 +237,186 @@ export function ApprovalRouteCard({
 
   return (
     <>
-      <div
-        draggable
-        onDragStart={(e) => onDragStart(e, index)}
-        onDragOver={onDragOver}
-        onDrop={(e) => onDrop(e, index)}
-        className={`border rounded-lg p-4 bg-card transition-all ${
-          isDragging ? "opacity-50 border-primary" : "border-border"
-        }`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="cursor-grab hover:text-primary transition-colors text-muted-foreground"
-              title="Drag to reorder"
-            >
-              <GripVertical className="h-5 w-5" />
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div
+          draggable
+          onDragStart={(e) => onDragStart(e, index)}
+          onDragOver={onDragOver}
+          onDrop={(e) => onDrop(e, index)}
+          className={`border rounded-lg bg-card transition-all ${
+            isDragging ? "opacity-50 border-primary" : "border-border"
+          }`}
+        >
+          {/* Header - Always visible */}
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div
+                className="cursor-grab hover:text-primary transition-colors text-muted-foreground"
+                title="Drag to reorder"
+              >
+                <GripVertical className="h-5 w-5" />
+              </div>
+              <CollapsibleTrigger asChild>
+                <button className="flex items-center gap-2 hover:text-primary transition-colors">
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Route {route.position}: {displayName}
+                  </h3>
+                </button>
+              </CollapsibleTrigger>
             </div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Route {route.position}: {displayName}
-            </h3>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-muted-foreground hover:text-destructive"
-            onClick={() => setShowConfirmDialog(true)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className="space-y-6 pl-8">
-          {/* 1. Route Type */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground">
-              Route Type
-            </Label>
-            <Select
-              value={route.route_type}
-              onValueChange={(value) =>
-                onUpdate(route.id, { route_type: value, custom_route_name: value === "custom" ? "" : undefined })
-              }
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-muted-foreground hover:text-destructive"
+              onClick={() => setShowConfirmDialog(true)}
             >
-              <SelectTrigger className="h-9 w-64">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {ROUTE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {route.route_type === "custom" && (
-              <div className="mt-2">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Collapsible Content */}
+          <CollapsibleContent className="animate-accordion-down">
+            <div className="space-y-6 px-4 pb-4 pl-12">
+              {/* 1. Route Type */}
+              <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground">
-                  Custom Route Name
+                  Route Type
                 </Label>
-                <Input
-                  value={route.custom_route_name || ""}
-                  onChange={(e) =>
-                    onUpdate(route.id, { custom_route_name: e.target.value.slice(0, 50) })
+                <Select
+                  value={route.route_type}
+                  onValueChange={(value) =>
+                    onUpdate(route.id, { route_type: value, custom_route_name: value === "custom" ? "" : undefined })
                   }
-                  placeholder="Enter custom route name"
-                  className="h-9 w-64 mt-1"
-                  maxLength={50}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {(route.custom_route_name || "").length}/50 characters
-                </p>
+                >
+                  <SelectTrigger className="h-9 w-64">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROUTE_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {route.route_type === "custom" && (
+                  <div className="mt-2">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Custom Route Name
+                    </Label>
+                    <Input
+                      value={route.custom_route_name || ""}
+                      onChange={(e) =>
+                        onUpdate(route.id, { custom_route_name: e.target.value.slice(0, 50) })
+                      }
+                      placeholder="Enter custom route name"
+                      className="h-9 w-64 mt-1"
+                      maxLength={50}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(route.custom_route_name || "").length}/50 characters
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* 2. Conditional Route */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground">
-              Conditional Route:
-            </Label>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id={`conditional-${route.id}`}
-                checked={route.is_conditional}
-                onCheckedChange={(checked) =>
-                  onUpdate(route.id, { is_conditional: !!checked })
-                }
-              />
-              <label
-                htmlFor={`conditional-${route.id}`}
-                className="text-sm cursor-pointer"
-              >
-                Only trigger this route if conditions are met
-              </label>
-            </div>
-            {route.is_conditional && renderConditionBuilder("conditions", route.conditions || [])}
-          </div>
-
-          {/* 3. Auto-Approval Rules */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground">
-              Auto-Approval:
-            </Label>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id={`auto-approval-${route.id}`}
-                checked={route.auto_approval_enabled}
-                onCheckedChange={(checked) =>
-                  onUpdate(route.id, { auto_approval_enabled: !!checked })
-                }
-              />
-              <label
-                htmlFor={`auto-approval-${route.id}`}
-                className="text-sm cursor-pointer"
-              >
-                Auto-approve if conditions met
-              </label>
-            </div>
-            {route.auto_approval_enabled && (
-              <div className="mt-3 pl-6 space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  Auto-approve this route if ALL conditions are true:
-                </p>
-                {renderConditionBuilder("auto_approval_conditions", route.auto_approval_conditions || [])}
-                <div className="flex items-center gap-2 mt-3">
-                  <span className="text-xs text-muted-foreground">Otherwise require approval from:</span>
-                  <Select
-                    value={route.auto_approval_fallback_role || ""}
-                    onValueChange={(value) =>
-                      onUpdate(route.id, { auto_approval_fallback_role: value })
+              {/* 2. Conditional Route */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Conditional Route:
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`conditional-${route.id}`}
+                    checked={route.is_conditional}
+                    onCheckedChange={(checked) =>
+                      onUpdate(route.id, { is_conditional: !!checked })
                     }
+                  />
+                  <label
+                    htmlFor={`conditional-${route.id}`}
+                    className="text-sm cursor-pointer"
                   >
-                    <SelectTrigger className="h-8 w-48">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {APPROVER_ROLES.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          {role.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    Only trigger this route if conditions are met
+                  </label>
                 </div>
+                {route.is_conditional && renderConditionBuilder("conditions", route.conditions || [])}
               </div>
-            )}
-          </div>
 
-          {/* 4. Custom Notification Message */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground">
-              Notification Message (optional)
-            </Label>
-            <Textarea
-              value={route.notification_message || ""}
-              onChange={(e) =>
-                onUpdate(route.id, { notification_message: e.target.value.slice(0, 500) })
-              }
-              placeholder="Custom message sent to approvers when this route triggers"
-              rows={2}
-              maxLength={500}
-            />
-            <p className="text-xs text-muted-foreground">
-              {(route.notification_message || "").length}/500 characters · Leave blank to use default notification
-            </p>
-          </div>
+              {/* 3. Auto-Approval Rules */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Auto-Approval:
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`auto-approval-${route.id}`}
+                    checked={route.auto_approval_enabled}
+                    onCheckedChange={(checked) =>
+                      onUpdate(route.id, { auto_approval_enabled: !!checked })
+                    }
+                  />
+                  <label
+                    htmlFor={`auto-approval-${route.id}`}
+                    className="text-sm cursor-pointer"
+                  >
+                    Auto-approve if conditions met
+                  </label>
+                </div>
+                {route.auto_approval_enabled && (
+                  <div className="mt-3 pl-6 space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Auto-approve this route if ALL conditions are true:
+                    </p>
+                    {renderConditionBuilder("auto_approval_conditions", route.auto_approval_conditions || [])}
+                    <div className="flex items-center gap-2 mt-3">
+                      <span className="text-xs text-muted-foreground">Otherwise require approval from:</span>
+                      <Select
+                        value={route.auto_approval_fallback_role || ""}
+                        onValueChange={(value) =>
+                          onUpdate(route.id, { auto_approval_fallback_role: value })
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-48">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {APPROVER_ROLES.map((role) => (
+                            <SelectItem key={role.value} value={role.value}>
+                              {role.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Custom Notification Message */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Notification Message (optional)
+                </Label>
+                <Textarea
+                  value={route.notification_message || ""}
+                  onChange={(e) =>
+                    onUpdate(route.id, { notification_message: e.target.value.slice(0, 500) })
+                  }
+                  placeholder="Custom message sent to approvers when this route triggers"
+                  rows={2}
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {(route.notification_message || "").length}/500 characters · Leave blank to use default notification
+                </p>
+              </div>
+            </div>
+          </CollapsibleContent>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
