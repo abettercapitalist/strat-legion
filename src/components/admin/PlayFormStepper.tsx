@@ -26,9 +26,7 @@ export function PlayFormStepper({ currentStep, onStepClick, completedSteps }: Pl
     <div className="mb-8">
       <div className="flex gap-1">
       {STEPS.map((step, index) => {
-          const isCompleted = completedSteps.has(step.id);
           const isCurrent = step.id === currentStep;
-          const isActive = isCurrent || isCompleted;
 
           return (
             <button
@@ -37,8 +35,8 @@ export function PlayFormStepper({ currentStep, onStepClick, completedSteps }: Pl
               onClick={() => onStepClick?.(step.id)}
               className={cn(
                 "flex-1 h-8 rounded-md px-3 flex items-center text-sm transition-colors",
-                isActive ? "bg-primary" : "bg-muted",
-                isActive ? "text-primary-foreground" : "text-muted-foreground",
+                isCurrent ? "bg-primary" : "bg-muted",
+                isCurrent ? "text-primary-foreground" : "text-muted-foreground",
                 isCurrent && "font-medium",
                 onStepClick && "cursor-pointer hover:opacity-90"
               )}
