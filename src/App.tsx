@@ -25,6 +25,7 @@ import LawResponseLibrary from "./pages/law/ResponseLibrary";
 
 // Admin Module Pages
 import WorkstreamTypes from "./pages/admin/WorkstreamTypes";
+import ApprovalTemplates from "./pages/admin/ApprovalTemplates";
 import CreatePlaybook from "./pages/admin/CreatePlaybook";
 
 // Sales Module Pages
@@ -76,6 +77,11 @@ const App = () => (
               <Route path="workstream-types" element={<WorkstreamTypes />} />
               <Route path="workstream-types/new" element={<CreatePlaybook />} />
               <Route path="workstream-types/:id/edit" element={<CreatePlaybook />} />
+            </Route>
+
+            {/* Play Library Routes */}
+            <Route path="/play-library" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+              <Route path="approval-templates" element={<ApprovalTemplates />} />
             </Route>
 
             {/* Sales Module Routes */}
