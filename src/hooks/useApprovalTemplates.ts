@@ -24,7 +24,7 @@ export interface ApprovalTemplate {
   updatedAt: string;
 }
 
-export function useApprovalTemplates() {
+export function useApprovalTemplates(filterActive: boolean = false) {
   const [templates, setTemplates] = useState<ApprovalTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,11 +33,20 @@ export function useApprovalTemplates() {
     try {
       setLoading(true);
       
-      // Fetch templates
-      const { data: templatesData, error: templatesError } = await supabase
+      // Build query
+      let query = supabase
         .from("approval_templates")
-        .select("*")
-        .order("name");
+        .select("*");
+      
+      // Filter by status if requested
+      if (filterActive) {
+        query = query.eq("status", "active");
+      }
+      
+      // Sort alphabetically by name
+      query = query.order("name");
+
+      const { data: templatesData, error: templatesError } = await query;
 
       if (templatesError) throw templatesError;
 
@@ -113,7 +122,7 @@ export function useApprovalTemplates() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterActive]);
 
   useEffect(() => {
     fetchTemplates();
