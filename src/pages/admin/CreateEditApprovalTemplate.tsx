@@ -74,8 +74,15 @@ export default function CreateEditApprovalTemplate() {
           const parsedRoutes: ApprovalRouteData[] = sequence.map((item: any, index: number) => ({
             id: item.id || uuidv4(),
             position: item.position || index + 1,
-            route_name: item.route_name || "",
-            route_type: item.route_type || "custom",
+            route_type: item.route_type || "pre_deal",
+            custom_route_name: item.custom_route_name || "",
+            is_conditional: item.is_conditional || false,
+            conditions: item.conditions || [],
+            condition_logic: item.condition_logic || "AND",
+            auto_approval_enabled: item.auto_approval_enabled || false,
+            auto_approval_conditions: item.auto_approval_conditions || [],
+            auto_approval_fallback_role: item.auto_approval_fallback_role || "",
+            notification_message: item.notification_message || "",
           }));
           setRoutes(parsedRoutes);
         }
@@ -107,8 +114,15 @@ export default function CreateEditApprovalTemplate() {
     const newRoute: ApprovalRouteData = {
       id: uuidv4(),
       position: routes.length + 1,
-      route_name: "",
-      route_type: "custom",
+      route_type: "pre_deal",
+      custom_route_name: "",
+      is_conditional: false,
+      conditions: [],
+      condition_logic: "AND",
+      auto_approval_enabled: false,
+      auto_approval_conditions: [],
+      auto_approval_fallback_role: "",
+      notification_message: "",
     };
     setRoutes([...routes, newRoute]);
   };
@@ -242,12 +256,19 @@ export default function CreateEditApprovalTemplate() {
 
     setIsSaving(true);
     try {
-      // Prepare routes data for storage
+      // Prepare routes data for storage - serialize conditions to plain objects
       const routesData = routes.map((r) => ({
         id: r.id,
         position: r.position,
-        route_name: r.route_name,
         route_type: r.route_type,
+        custom_route_name: r.custom_route_name || "",
+        is_conditional: r.is_conditional,
+        conditions: (r.conditions || []).map((c) => ({ ...c })),
+        condition_logic: r.condition_logic,
+        auto_approval_enabled: r.auto_approval_enabled,
+        auto_approval_conditions: (r.auto_approval_conditions || []).map((c) => ({ ...c })),
+        auto_approval_fallback_role: r.auto_approval_fallback_role || "",
+        notification_message: r.notification_message || "",
         approvers: [],
       }));
 
@@ -257,7 +278,7 @@ export default function CreateEditApprovalTemplate() {
           .update({
             name: name.trim(),
             description: description.trim() || null,
-            approval_sequence: routesData,
+            approval_sequence: routesData as unknown as any,
           })
           .eq("id", id);
 
@@ -267,7 +288,7 @@ export default function CreateEditApprovalTemplate() {
         const { error } = await supabase.from("approval_templates").insert({
           name: name.trim(),
           description: description.trim() || null,
-          approval_sequence: routesData,
+          approval_sequence: routesData as unknown as any,
           status: "draft",
         });
 
