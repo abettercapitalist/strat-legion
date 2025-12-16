@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Lightbulb } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ApprovalRouteCard, ApprovalRouteData } from "@/components/admin/ApprovalRouteCard";
+import { v4 as uuidv4 } from "uuid";
+
+const MAX_ROUTES = 10;
 
 const nameSchema = z
   .string()
@@ -31,12 +36,14 @@ export default function CreateEditApprovalTemplate() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [routes, setRoutes] = useState<ApprovalRouteData[]>([]);
   const [usedByCount, setUsedByCount] = useState<number>(0);
   const [nameError, setNameError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Fetch existing template when editing
   useEffect(() => {
@@ -61,6 +68,18 @@ export default function CreateEditApprovalTemplate() {
         setName(data.name);
         setDescription(data.description || "");
 
+        // Parse routes from approval_sequence
+        const sequence = data.approval_sequence as unknown;
+        if (Array.isArray(sequence)) {
+          const parsedRoutes: ApprovalRouteData[] = sequence.map((item: any, index: number) => ({
+            id: item.id || uuidv4(),
+            position: item.position || index + 1,
+            route_name: item.route_name || "",
+            route_type: item.route_type || "custom",
+          }));
+          setRoutes(parsedRoutes);
+        }
+
         // Fetch usage count
         const { count, error: countError } = await supabase
           .from("workstream_types")
@@ -80,6 +99,64 @@ export default function CreateEditApprovalTemplate() {
 
     fetchTemplate();
   }, [id, navigate]);
+
+  // Route management functions
+  const handleAddRoute = () => {
+    if (routes.length >= MAX_ROUTES) return;
+    
+    const newRoute: ApprovalRouteData = {
+      id: uuidv4(),
+      position: routes.length + 1,
+      route_name: "",
+      route_type: "custom",
+    };
+    setRoutes([...routes, newRoute]);
+  };
+
+  const handleUpdateRoute = (routeId: string, updates: Partial<ApprovalRouteData>) => {
+    setRoutes(routes.map((r) => (r.id === routeId ? { ...r, ...updates } : r)));
+  };
+
+  const handleRemoveRoute = (routeId: string) => {
+    const newRoutes = routes.filter((r) => r.id !== routeId);
+    // Recalculate positions
+    const reordered = newRoutes.map((r, index) => ({
+      ...r,
+      position: index + 1,
+    }));
+    setRoutes(reordered);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      return;
+    }
+
+    const newRoutes = [...routes];
+    const [draggedRoute] = newRoutes.splice(draggedIndex, 1);
+    newRoutes.splice(dropIndex, 0, draggedRoute);
+
+    // Recalculate positions
+    const reordered = newRoutes.map((r, index) => ({
+      ...r,
+      position: index + 1,
+    }));
+
+    setRoutes(reordered);
+    setDraggedIndex(null);
+  };
 
   // Validate name with uniqueness check
   const validateName = useCallback(
@@ -165,12 +242,22 @@ export default function CreateEditApprovalTemplate() {
 
     setIsSaving(true);
     try {
+      // Prepare routes data for storage
+      const routesData = routes.map((r) => ({
+        id: r.id,
+        position: r.position,
+        route_name: r.route_name,
+        route_type: r.route_type,
+        approvers: [],
+      }));
+
       if (isEditing && id) {
         const { error } = await supabase
           .from("approval_templates")
           .update({
             name: name.trim(),
             description: description.trim() || null,
+            approval_sequence: routesData,
           })
           .eq("id", id);
 
@@ -180,7 +267,7 @@ export default function CreateEditApprovalTemplate() {
         const { error } = await supabase.from("approval_templates").insert({
           name: name.trim(),
           description: description.trim() || null,
-          approval_sequence: [],
+          approval_sequence: routesData,
           status: "draft",
         });
 
@@ -301,6 +388,69 @@ export default function CreateEditApprovalTemplate() {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Section 2: Approval Routes */}
+          <div style={{ marginTop: "48px" }}>
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-foreground">
+                Approval Routes
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Define the sequence of approval routes in this workflow
+              </p>
+            </div>
+
+            {/* Add Route Button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-block">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddRoute}
+                      disabled={routes.length >= MAX_ROUTES}
+                      className="mb-4"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Route
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {routes.length >= MAX_ROUTES && (
+                  <TooltipContent>
+                    <p>Maximum 10 routes per template</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Route Cards */}
+            <div className="space-y-3">
+              {routes.map((route, index) => (
+                <ApprovalRouteCard
+                  key={route.id}
+                  route={route}
+                  index={index}
+                  onUpdate={handleUpdateRoute}
+                  onRemove={handleRemoveRoute}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  isDragging={draggedIndex === index}
+                />
+              ))}
+            </div>
+
+            {/* Tip */}
+            {routes.length > 1 && (
+              <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
+                <Lightbulb className="h-4 w-4 text-amber-500" />
+                <span>Routes execute in sequence. Drag to reorder routes.</span>
+              </div>
+            )}
           </div>
         </div>
 

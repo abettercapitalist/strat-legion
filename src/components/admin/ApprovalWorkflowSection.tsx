@@ -64,7 +64,7 @@ export function ApprovalWorkflowSection({
               ) : (
                 templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
-                    {template.name} ({template.gateCount} {template.gateCount === 1 ? "gate" : "gates"})
+                    {template.name} ({template.routeCount} {template.routeCount === 1 ? "route" : "routes"})
                   </SelectItem>
                 ))
               )}
@@ -117,25 +117,20 @@ export function ApprovalWorkflowSection({
             </p>
           ) : (
             <div className="space-y-4">
-              {selectedTemplate.gates.map((gate, gateIndex) => (
-                <div key={gateIndex}>
+              {selectedTemplate.routes.map((route, routeIndex) => (
+                <div key={routeIndex}>
                   <p className="text-sm font-medium text-foreground">
-                    {gate.name}
+                    {route.route_name}
                   </p>
                   <ul className="mt-1 space-y-1">
-                    {gate.approvers.map((approver, approverIndex) => (
+                    {route.approvers.map((approver, approverIndex) => (
                       <li
                         key={approverIndex}
                         className="text-sm text-muted-foreground flex items-start gap-2"
                       >
                         <span className="text-muted-foreground/60">•</span>
                         <span>
-                          {approver.role} ({approver.sla})
-                          {approver.conditional && (
-                            <span className="text-xs italic ml-1">
-                              — {approver.conditional}
-                            </span>
-                          )}
+                          {approver.role} ({approver.sla_hours ? `${approver.sla_hours} hours` : "No SLA"})
                         </span>
                       </li>
                     ))}

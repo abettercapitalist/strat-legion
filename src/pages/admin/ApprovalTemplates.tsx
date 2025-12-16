@@ -39,7 +39,7 @@ export default function ApprovalTemplates() {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [gatesFilter, setGatesFilter] = useState<string>("all");
+  const [routesFilter, setRoutesFilter] = useState<string>("all");
 
   // Sorting
   const [sortField, setSortField] = useState<SortField>("name");
@@ -53,14 +53,14 @@ export default function ApprovalTemplates() {
       result = result.filter((t) => t.status === statusFilter);
     }
 
-    // Apply gates filter
-    if (gatesFilter !== "all") {
-      if (gatesFilter === "1") {
-        result = result.filter((t) => t.gateCount === 1);
-      } else if (gatesFilter === "2-3") {
-        result = result.filter((t) => t.gateCount >= 2 && t.gateCount <= 3);
-      } else if (gatesFilter === "4+") {
-        result = result.filter((t) => t.gateCount >= 4);
+    // Apply routes filter
+    if (routesFilter !== "all") {
+      if (routesFilter === "1") {
+        result = result.filter((t) => t.routeCount === 1);
+      } else if (routesFilter === "2-3") {
+        result = result.filter((t) => t.routeCount >= 2 && t.routeCount <= 3);
+      } else if (routesFilter === "4+") {
+        result = result.filter((t) => t.routeCount >= 4);
       }
     }
 
@@ -76,7 +76,7 @@ export default function ApprovalTemplates() {
     });
 
     return result;
-  }, [templates, statusFilter, gatesFilter, sortField, sortDirection]);
+  }, [templates, statusFilter, routesFilter, sortField, sortDirection]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -184,15 +184,15 @@ export default function ApprovalTemplates() {
           </SelectContent>
         </Select>
 
-        <Select value={gatesFilter} onValueChange={setGatesFilter}>
+        <Select value={routesFilter} onValueChange={setRoutesFilter}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Gates" />
+            <SelectValue placeholder="Routes" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Gates</SelectItem>
-            <SelectItem value="1">1 gate</SelectItem>
-            <SelectItem value="2-3">2-3 gates</SelectItem>
-            <SelectItem value="4+">4+ gates</SelectItem>
+            <SelectItem value="all">All Routes</SelectItem>
+            <SelectItem value="1">1 route</SelectItem>
+            <SelectItem value="2-3">2-3 routes</SelectItem>
+            <SelectItem value="4+">4+ routes</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -235,7 +235,7 @@ export default function ApprovalTemplates() {
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
-                <TableHead className="text-center">Gates</TableHead>
+                <TableHead className="text-center">Routes</TableHead>
                 <TableHead className="text-center">Used By</TableHead>
                 <TableHead>
                   <Button
@@ -256,7 +256,7 @@ export default function ApprovalTemplates() {
               {filteredAndSortedTemplates.map((template) => (
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">{template.name}</TableCell>
-                  <TableCell className="text-center">{template.gateCount}</TableCell>
+                  <TableCell className="text-center">{template.routeCount}</TableCell>
                   <TableCell className="text-center">
                     {template.usedByCount > 0 ? (
                       <span>{template.usedByCount} play{template.usedByCount !== 1 ? "s" : ""}</span>
