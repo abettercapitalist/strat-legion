@@ -14,7 +14,7 @@ export interface ApprovalTemplate {
   id: string;
   name: string;
   description: string | null;
-  is_active: boolean;
+  status: string;
   gates: {
     name: string;
     approvers: {
@@ -24,6 +24,8 @@ export interface ApprovalTemplate {
     }[];
   }[];
   gateCount: number;
+  usedByCount: number;
+  updatedAt: string;
 }
 
 export function useApprovalTemplates() {
@@ -34,36 +36,57 @@ export function useApprovalTemplates() {
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
+      
+      // Fetch templates
+      const { data: templatesData, error: templatesError } = await supabase
         .from("approval_templates")
         .select("*")
-        .eq("is_active", true)
         .order("name");
 
-      if (fetchError) throw fetchError;
+      if (templatesError) throw templatesError;
 
-      const parsed: ApprovalTemplate[] = (data || []).map((template) => {
+      // Fetch workstream_types to count usage
+      const { data: workstreamTypes, error: workstreamError } = await supabase
+        .from("workstream_types")
+        .select("approval_template_id");
+
+      if (workstreamError) throw workstreamError;
+
+      // Count usage per template
+      const usageCount = new Map<string, number>();
+      workstreamTypes?.forEach((wt) => {
+        if (wt.approval_template_id) {
+          usageCount.set(
+            wt.approval_template_id,
+            (usageCount.get(wt.approval_template_id) || 0) + 1
+          );
+        }
+      });
+
+      const parsed: ApprovalTemplate[] = (templatesData || []).map((template) => {
         const sequence = (template.approval_sequence as unknown) as ApprovalGate[];
         
         // Group by gate number
         const gatesMap = new Map<number, { name: string; approvers: { role: string; sla: string; conditional?: string }[] }>();
         
-        sequence.forEach((item) => {
-          const gateNum = item.gate;
-          if (!gatesMap.has(gateNum)) {
-            gatesMap.set(gateNum, {
-              name: item.gate_name || `Gate ${gateNum}`,
-              approvers: [],
+        if (Array.isArray(sequence)) {
+          sequence.forEach((item) => {
+            const gateNum = item.gate;
+            if (!gatesMap.has(gateNum)) {
+              gatesMap.set(gateNum, {
+                name: item.gate_name || `Gate ${gateNum}`,
+                approvers: [],
+              });
+            }
+            
+            const gate = gatesMap.get(gateNum)!;
+            gate.approvers.push({
+              role: item.approver_role,
+              sla: item.sla_hours ? `${item.sla_hours} hours` : "No SLA",
+              conditional: item.condition,
             });
-          }
-          
-          const gate = gatesMap.get(gateNum)!;
-          gate.approvers.push({
-            role: item.approver_role,
-            sla: item.sla_hours ? `${item.sla_hours} hours` : "No SLA",
-            conditional: item.condition,
           });
-        });
+        }
 
         const gates = Array.from(gatesMap.entries())
           .sort(([a], [b]) => a - b)
@@ -73,9 +96,11 @@ export function useApprovalTemplates() {
           id: template.id,
           name: template.name,
           description: template.description,
-          is_active: template.is_active ?? true,
+          status: template.status || "draft",
           gates,
           gateCount: gates.length,
+          usedByCount: usageCount.get(template.id) || 0,
+          updatedAt: template.updated_at,
         };
       });
 
