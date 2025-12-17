@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.submit-manual-tags]
 verify_jwt = true
+
+[functions.create-approvals-from-template]
+verify_jwt = true
