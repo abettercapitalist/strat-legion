@@ -18,6 +18,21 @@ interface TagRule {
   description: string;
 }
 
+interface ApprovalRoute {
+  id: string;
+  position: number;
+  route_type: string;
+  approval_mode: "serial" | "parallel";
+  approval_threshold: "unanimous" | "minimum" | "percentage" | "any_one";
+  minimum_approvals?: number;
+  percentage_required?: number;
+  approvers?: Array<{
+    role: string;
+    sla_hours?: number;
+    is_required?: boolean;
+  }>;
+}
+
 // Tag inference rules based on structured data
 function inferTags(
   workstream: Record<string, unknown>,
@@ -53,7 +68,8 @@ function inferTags(
     notes.includes("payment") ||
     objective.includes("payment") ||
     notes.includes("net 30") ||
-    notes.includes("net 60")
+    notes.includes("net 60") ||
+    notes.includes("net 90")
   ) {
     tags.push({
       tag_name: "payment_terms_modified",
@@ -107,6 +123,122 @@ function inferTags(
   return tags;
 }
 
+// Check if a route is complete based on threshold logic
+function checkRouteComplete(
+  route: ApprovalRoute,
+  approvedCount: number,
+  rejectedCount: number,
+  totalApprovers: number
+): "complete" | "failed" | "pending" {
+  const remaining = totalApprovers - approvedCount - rejectedCount;
+
+  switch (route.approval_threshold) {
+    case "unanimous":
+      if (approvedCount === totalApprovers) return "complete";
+      if (rejectedCount > 0) return "failed";
+      return "pending";
+
+    case "minimum":
+      const minRequired = route.minimum_approvals || 1;
+      if (approvedCount >= minRequired) return "complete";
+      if (approvedCount + remaining < minRequired) return "failed";
+      return "pending";
+
+    case "percentage":
+      const percentage = route.percentage_required || 67;
+      const required = Math.ceil(totalApprovers * percentage / 100);
+      if (approvedCount >= required) return "complete";
+      if (approvedCount + remaining < required) return "failed";
+      return "pending";
+
+    case "any_one":
+      if (approvedCount > 0) return "complete";
+      if (rejectedCount === totalApprovers) return "failed";
+      return "pending";
+
+    default:
+      // Default to unanimous if not specified
+      if (approvedCount === totalApprovers) return "complete";
+      if (rejectedCount > 0) return "failed";
+      return "pending";
+  }
+}
+
+// Run AI tag inference on reasoning text
+async function runAITagInference(reasoning: string, lovableApiKey: string): Promise<TagRule[]> {
+  const systemPrompt = `You are a tag extraction assistant. Given approval decision reasoning text, extract relevant tags that categorize this decision.
+
+Available tag categories:
+- customer_characteristics: established_customer, new_customer, high_risk, low_risk, strategic_account
+- concerns: liability_concerns, payment_concerns, data_residency, compliance_requirements
+- modifications: standard_terms, minor_changes, significant_deviation
+- business_factors: time_sensitive, competitive_pressure, relationship_building
+
+Return a JSON array of tag objects with: tag_name, tag_category, description (brief).
+Only return tags that are clearly supported by the text. Maximum 5 tags.`;
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Extract tags from this approval reasoning:\n\n"${reasoning}"` }
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "extract_tags",
+            description: "Extract semantic tags from approval reasoning",
+            parameters: {
+              type: "object",
+              properties: {
+                tags: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      tag_name: { type: "string" },
+                      tag_category: { type: "string" },
+                      description: { type: "string" }
+                    },
+                    required: ["tag_name", "tag_category", "description"]
+                  }
+                }
+              },
+              required: ["tags"]
+            }
+          }
+        }],
+        tool_choice: { type: "function", function: { name: "extract_tags" } }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI gateway error:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    
+    if (toolCall?.function?.arguments) {
+      const parsed = JSON.parse(toolCall.function.arguments);
+      return (parsed.tags || []).slice(0, 5);
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error in AI tag inference:", error);
+    return [];
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -116,7 +248,8 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+
     // Get auth header for user context
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -161,10 +294,16 @@ Deno.serve(async (req) => {
 
     console.log(`Processing decision: ${decision} for approval: ${approval_id}`);
 
-    // Fetch the workstream_approval to get workstream context
+    // Fetch the workstream_approval with template
     const { data: approval, error: approvalError } = await supabaseAdmin
       .from("workstream_approvals")
-      .select("*, workstream_id, submitted_at")
+      .select(`
+        *,
+        workstream_id,
+        submitted_at,
+        current_gate,
+        approval_template:approval_templates(id, name, approval_sequence)
+      `)
       .eq("id", approval_id)
       .maybeSingle();
 
@@ -243,28 +382,118 @@ Deno.serve(async (req) => {
 
     console.log(`Created decision record: ${decisionRecord.id}`);
 
+    // Get the current route from template
+    const routes = (approval.approval_template?.approval_sequence as ApprovalRoute[]) || [];
+    const currentGate = approval.current_gate || 1;
+    const currentRoute = routes.find(r => r.position === currentGate);
+
+    // For now, treat each approval as having 1 approver per gate
+    // In production, you'd track multiple approvers per route
+    const totalApprovers = currentRoute?.approvers?.length || 1;
+    const approvedCount = decision === "approved" ? 1 : 0;
+    const rejectedCount = decision === "rejected" ? 1 : 0;
+
+    let routeStatus: "complete" | "failed" | "pending" = "pending";
+    let nextRouteCreated = false;
+    let workstreamCompleted = false;
+
+    if (currentRoute) {
+      routeStatus = checkRouteComplete(currentRoute, approvedCount, rejectedCount, totalApprovers);
+      console.log(`Route ${currentGate} status: ${routeStatus}`);
+    } else {
+      // No route info, use simple logic
+      routeStatus = decision === "approved" ? "complete" : decision === "rejected" ? "failed" : "pending";
+    }
+
+    // Determine new approval status
+    let newStatus: string;
+    if (routeStatus === "complete") {
+      // Check if there's a next route
+      const nextRoute = routes.find(r => r.position === currentGate + 1);
+      
+      if (nextRoute) {
+        // Create next approval record
+        const { error: nextApprovalError } = await supabaseAdmin
+          .from("workstream_approvals")
+          .insert({
+            workstream_id: approval.workstream_id,
+            approval_template_id: approval.approval_template?.id,
+            status: "pending",
+            current_gate: nextRoute.position,
+            submitted_at: now.toISOString(),
+          });
+
+        if (!nextApprovalError) {
+          nextRouteCreated = true;
+          console.log(`Created next approval for route ${nextRoute.position}`);
+        }
+        
+        newStatus = "approved"; // This gate approved, workflow continues
+      } else {
+        // All routes complete - mark workstream as approved
+        newStatus = "approved";
+        workstreamCompleted = true;
+        
+        if (approval.workstream_id) {
+          await supabaseAdmin
+            .from("workstreams")
+            .update({ 
+              stage: "approved",
+              updated_at: now.toISOString()
+            })
+            .eq("id", approval.workstream_id);
+          console.log("Workstream marked as approved");
+        }
+      }
+    } else if (routeStatus === "failed") {
+      newStatus = "rejected";
+      
+      // Update workstream stage to rejected
+      if (approval.workstream_id) {
+        await supabaseAdmin
+          .from("workstreams")
+          .update({ 
+            stage: "rejected",
+            updated_at: now.toISOString()
+          })
+          .eq("id", approval.workstream_id);
+        console.log("Workstream marked as rejected");
+      }
+    } else {
+      newStatus = decision === "request_changes" ? "changes_requested" : "pending";
+    }
+
     // Update workstream_approval status
-    const newStatus = decision === "approved" ? "approved" : decision === "rejected" ? "rejected" : "changes_requested";
     await supabaseAdmin
       .from("workstream_approvals")
       .update({
         status: newStatus,
-        completed_at: decision === "approved" || decision === "rejected" ? now.toISOString() : null,
+        completed_at: routeStatus !== "pending" ? now.toISOString() : null,
         updated_at: now.toISOString(),
       })
       .eq("id", approval_id);
 
-    // Infer tags from workstream data
+    // Infer tags from workstream data (auto-tagging)
     const inferredTags = workstream
       ? inferTags(workstream, counterparty, approval.submitted_at, now)
       : [];
 
-    console.log(`Inferred ${inferredTags.length} tags:`, inferredTags.map(t => t.tag_name));
+    console.log(`Inferred ${inferredTags.length} auto-tags:`, inferredTags.map(t => t.tag_name));
 
+    // Run AI tag inference if reasoning provided
+    let aiTags: TagRule[] = [];
+    if (reasoning && reasoning.trim().length > 10 && lovableApiKey) {
+      console.log("Running AI tag inference on reasoning...");
+      aiTags = await runAITagInference(reasoning, lovableApiKey);
+      console.log(`AI inferred ${aiTags.length} tags:`, aiTags.map(t => t.tag_name));
+    }
+
+    const allTags = [...inferredTags, ...aiTags];
     const appliedTags: string[] = [];
+    const aiAppliedTags: string[] = [];
 
-    // Process each inferred tag
-    for (const tagRule of inferredTags) {
+    // Process each tag
+    for (const tagRule of allTags) {
       // Check if tag exists
       const { data: existingTag, error: tagQueryError } = await supabaseAdmin
         .from("tags")
@@ -280,15 +509,12 @@ Deno.serve(async (req) => {
       let tagId: string;
 
       if (existingTag) {
-        // Tag exists - increment usage count
         tagId = existingTag.id;
         await supabaseAdmin
           .from("tags")
           .update({ usage_count: (existingTag.usage_count || 0) + 1 })
           .eq("id", tagId);
-        console.log(`Updated existing tag: ${tagRule.tag_name}`);
       } else {
-        // Create new tag
         const { data: newTag, error: createTagError } = await supabaseAdmin
           .from("tags")
           .insert({
@@ -296,7 +522,7 @@ Deno.serve(async (req) => {
             tag_category: tagRule.tag_category,
             description: tagRule.description,
             usage_count: 1,
-            created_by: null, // System-created
+            created_by: null,
           })
           .select()
           .single();
@@ -306,28 +532,35 @@ Deno.serve(async (req) => {
           continue;
         }
         tagId = newTag.id;
-        console.log(`Created new tag: ${tagRule.tag_name}`);
       }
 
-      // Create content_tag linking to approval_decision
+      // Determine confidence (1.0 for auto, 0.8 for AI)
+      const isAiTag = aiTags.some(t => t.tag_name === tagRule.tag_name);
+      const confidence = isAiTag ? 0.8 : 1.0;
+
+      // Create content_tag
       const { error: contentTagError } = await supabaseAdmin
         .from("content_tags")
         .insert({
           content_type: "approval_decision",
           content_id: decisionRecord.id,
           tag_id: tagId,
-          tagged_by: null, // Auto-tagged (not user-tagged)
-          confidence: 1.0, // High confidence for rule-based inference
+          tagged_by: null,
+          confidence,
         });
 
       if (contentTagError) {
         console.error(`Error creating content_tag for ${tagRule.tag_name}:`, contentTagError);
       } else {
-        appliedTags.push(tagRule.tag_name);
+        if (isAiTag) {
+          aiAppliedTags.push(tagRule.tag_name);
+        } else {
+          appliedTags.push(tagRule.tag_name);
+        }
       }
     }
 
-    console.log(`Successfully applied ${appliedTags.length} tags`);
+    console.log(`Applied ${appliedTags.length} auto-tags, ${aiAppliedTags.length} AI tags`);
 
     return new Response(
       JSON.stringify({
@@ -339,7 +572,15 @@ Deno.serve(async (req) => {
           created_at: decisionRecord.created_at,
         },
         auto_tags: appliedTags,
-        message: `Decision recorded. Auto-tagged: ${appliedTags.length > 0 ? appliedTags.join(", ") : "none"}`,
+        ai_tags: aiAppliedTags,
+        route_status: routeStatus,
+        next_route_created: nextRouteCreated,
+        workstream_completed: workstreamCompleted,
+        message: `Decision recorded. Route status: ${routeStatus}. ${
+          appliedTags.length + aiAppliedTags.length > 0 
+            ? `Tags: ${[...appliedTags, ...aiAppliedTags].join(", ")}`
+            : "No tags applied."
+        }`,
       }),
       {
         status: 200,

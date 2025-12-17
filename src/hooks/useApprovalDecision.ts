@@ -17,6 +17,10 @@ export interface ProcessApprovalDecisionResult {
     created_at: string;
   };
   auto_tags?: string[];
+  ai_tags?: string[];
+  route_status?: "complete" | "failed" | "pending";
+  next_route_created?: boolean;
+  workstream_completed?: boolean;
   message?: string;
   error?: string;
 }
