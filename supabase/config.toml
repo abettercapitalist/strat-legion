@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.process-approval-decision]
 verify_jwt = true
+
+[functions.check-tagging-prompt]
+verify_jwt = true
+
+[functions.submit-manual-tags]
+verify_jwt = true
