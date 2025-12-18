@@ -27,7 +27,7 @@ const librariesNavigation = [
 // Admin-only library items
 const playLibraryItems = [
   { name: "Play Library", href: "/admin/workstream-types", icon: PlaybookIcon },
-  { name: "Approval Templates", href: "/play-library/approval-templates", icon: Check },
+  { name: "Approval Routes", href: "/play-library/approval-templates", icon: Check },
 ];
 export function LawSidebar() {
   const {
