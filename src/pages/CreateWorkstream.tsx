@@ -29,6 +29,7 @@ import { CounterpartyStep } from "@/components/wizard/CounterpartyStep";
 import { ObjectiveStep } from "@/components/wizard/ObjectiveStep";
 import { OptionsStep } from "@/components/wizard/OptionsStep";
 import { TermsStep } from "@/components/wizard/TermsStep";
+import { ReviewStep } from "@/components/wizard/ReviewStep";
 
 // Module configuration
 const moduleConfig: Record<string, { displayName: string; itemName: string }> = {
@@ -77,9 +78,11 @@ function WizardContent({ module, playName }: { module: string; playName: string 
         return <TermsStep />;
       case 5:
         return (
-          <div className="text-center py-16 text-muted-foreground">
-            Review Step - Coming Soon
-          </div>
+          <ReviewStep 
+            module={module} 
+            displayName={config.itemName} 
+            playId={state.play_id} 
+          />
         );
       default:
         return null;
@@ -121,50 +124,46 @@ function WizardContent({ module, playName }: { module: string; playName: string 
       {/* Step content */}
       <div className="max-w-2xl">{renderStep()}</div>
 
-      {/* Navigation buttons */}
-      <div className="flex items-center justify-between pt-6 border-t">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" className="text-muted-foreground">
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You'll lose all progress on this {config.itemName.toLowerCase()}. This action
-                cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep editing</AlertDialogCancel>
-              <AlertDialogAction onClick={handleCancel}>Discard</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      {/* Navigation buttons - hide on Review step (step 5) which has its own buttons */}
+      {state.current_step < 5 && (
+        <div className="flex items-center justify-between pt-6 border-t">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" className="text-muted-foreground">
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You'll lose all progress on this {config.itemName.toLowerCase()}. This action
+                  cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep editing</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancel}>Discard</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
-        <div className="flex gap-3">
-          {state.current_step > 1 && (
-            <Button variant="outline" onClick={prevStep}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
-          )}
+          <div className="flex gap-3">
+            {state.current_step > 1 && (
+              <Button variant="outline" onClick={prevStep}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
+              </Button>
+            )}
 
-          {state.current_step < 5 ? (
             <Button onClick={handleContinue} disabled={!canProceed(state.current_step)}>
               Continue
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
-          ) : (
-            <Button disabled={!canProceed(state.current_step)}>
-              Create {config.itemName}
-            </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
