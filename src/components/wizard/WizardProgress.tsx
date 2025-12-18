@@ -1,16 +1,18 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkstreamWizard } from "@/contexts/WorkstreamWizardContext";
 
 interface Step {
   id: number;
   name: string;
+  salesOnly?: boolean;
 }
 
-const steps: Step[] = [
+const allSteps: Step[] = [
   { id: 1, name: "Counterparty" },
   { id: 2, name: "Objective" },
   { id: 3, name: "Options" },
-  { id: 4, name: "Terms" },
+  { id: 4, name: "Terms", salesOnly: true },
   { id: 5, name: "Review" },
 ];
 
@@ -21,10 +23,17 @@ interface WizardProgressProps {
 }
 
 export function WizardProgress({ currentStep, onStepClick, canNavigateTo }: WizardProgressProps) {
+  const { isSalesModule, getDisplayStep } = useWorkstreamWizard();
+  
+  // Filter out Terms step for non-sales modules
+  const steps = allSteps.filter(step => !step.salesOnly || isSalesModule);
+  
+  const displayStep = getDisplayStep(currentStep);
+  
   return (
     <div className="w-full">
       <div className="text-sm text-muted-foreground mb-4">
-        Step {currentStep} of {steps.length}
+        Step {displayStep} of {steps.length}
       </div>
       
       <nav aria-label="Progress">
@@ -33,6 +42,9 @@ export function WizardProgress({ currentStep, onStepClick, canNavigateTo }: Wiza
             const isCompleted = step.id < currentStep;
             const isCurrent = step.id === currentStep;
             const isClickable = canNavigateTo ? canNavigateTo(step.id) : isCompleted;
+            
+            // Display number is 1-indexed position in filtered array
+            const displayNumber = stepIdx + 1;
             
             return (
               <li key={step.name} className={cn("relative", stepIdx !== steps.length - 1 && "pr-8 sm:pr-20 flex-1")}>
@@ -58,7 +70,7 @@ export function WizardProgress({ currentStep, onStepClick, canNavigateTo }: Wiza
                           isCurrent ? "text-primary" : "text-muted-foreground"
                         )}
                       >
-                        {step.id}
+                        {displayNumber}
                       </span>
                     )}
                   </button>
