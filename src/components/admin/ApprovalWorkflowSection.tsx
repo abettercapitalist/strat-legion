@@ -70,10 +70,10 @@ export function ApprovalWorkflowSection({
         </h2>
       </div>
 
-      {/* Approval Template Dropdown */}
+      {/* Approval Route Dropdown */}
       <div className="space-y-2">
         <Label className="text-sm font-semibold">
-          Approval Template <span className="text-destructive">*</span>
+          Approval Route <span className="text-destructive">*</span>
         </Label>
         <p className="text-xs text-muted-foreground italic">
           Select the approval workflow for this play
@@ -86,7 +86,7 @@ export function ApprovalWorkflowSection({
             onValueChange={(value) => onTemplateChange(value || null)}
           >
             <SelectTrigger className="w-full max-w-md">
-              <SelectValue placeholder="Select an approval template" />
+              <SelectValue placeholder="Select an approval route" />
             </SelectTrigger>
             <SelectContent>
               {error ? (
@@ -95,7 +95,7 @@ export function ApprovalWorkflowSection({
                 </div>
               ) : templates.length === 0 ? (
                 <div className="p-3 text-sm text-muted-foreground">
-                  <p>No approval templates available</p>
+                  <p>No approval routes available</p>
                   <Button
                     type="button"
                     variant="link"
@@ -131,7 +131,7 @@ export function ApprovalWorkflowSection({
             onClick={handleCreateNew}
           >
             <ExternalLink className="h-3 w-3 mr-1" />
-            Create New Approval Template
+            Create New Approval Route
           </Button>
           <Button
             type="button"
@@ -142,7 +142,7 @@ export function ApprovalWorkflowSection({
             onClick={handleEditTemplate}
           >
             <Pencil className="h-3 w-3 mr-1" />
-            Edit Template
+            Edit Route
           </Button>
         </div>
       </div>
@@ -155,7 +155,7 @@ export function ApprovalWorkflowSection({
             <p className="text-muted-foreground">Loading preview...</p>
           ) : !selectedTemplateId ? (
             <p className="text-muted-foreground italic font-sans text-sm">
-              Select an approval template to see preview
+              Select an approval route to see preview
             </p>
           ) : !selectedTemplate ? (
             <p className="text-muted-foreground italic font-sans text-sm">

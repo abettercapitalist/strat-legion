@@ -232,7 +232,7 @@ export default function CreatePlaybook() {
         id: "approval-template",
         section: "approval",
         field: "approval_template_id",
-        message: "An approval template is required to activate",
+        message: "An approval route is required to activate",
       });
     }
 
