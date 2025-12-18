@@ -13,8 +13,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "./ui/sidebar";
+import { useTheme } from "@/contexts/ThemeContext";
 
-const navigation = [
+const getNavigation = (dealsLabel: string, reviewLabel: string) => [
   { 
     name: "Home", 
     href: "/sales", 
@@ -22,13 +23,13 @@ const navigation = [
     badge: undefined,
   },
   { 
-    name: "Active Deals", 
+    name: `Active ${dealsLabel}`, 
     href: "/sales/deals", 
     icon: FolderOpen,
     badge: undefined,
   },
   { 
-    name: "Performance Review", 
+    name: reviewLabel, 
     href: "/sales/review", 
     icon: ClipboardCheck,
     badge: 2,
@@ -62,7 +63,10 @@ const navigation = [
 export function SalesSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
+  const { labels } = useTheme();
   const isCollapsed = state === "collapsed";
+  
+  const navigation = getNavigation(labels.deals, labels.performanceReview);
 
   return (
     <Sidebar 

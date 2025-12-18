@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDeals, usePendingApprovals, type Deal } from "@/hooks/useDeals";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // Static targets (could be fetched from settings/targets table in future)
 const teamTarget = { current: 420000, goal: 500000 };
@@ -76,6 +77,7 @@ function getPriorityIndicator(priority: string) {
 export default function MyDeals() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const navigate = useNavigate();
+  const { labels } = useTheme();
   
   const { data: dealsData, isLoading: isLoadingDeals } = useDeals();
   const { data: approvalTasks = [], isLoading: isLoadingApprovals } = usePendingApprovals();
@@ -97,7 +99,7 @@ export default function MyDeals() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight">My Deals</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">My {labels.deals}</h1>
           <p className="text-lg text-muted-foreground mt-2">
             Track, negotiate, close
           </p>
@@ -106,16 +108,16 @@ export default function MyDeals() {
           <DropdownMenuTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create New Deal
+              Create New {labels.deal}
               <ChevronDown className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-popover border-border">
             <DropdownMenuItem onClick={() => navigate("/sales/deals/new?type=new")}>
-              New Customer Deal
+              New Customer {labels.deal}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/sales/deals/new?type=renewal")}>
-              Renewal Deal
+              Renewal {labels.deal}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -126,7 +128,7 @@ export default function MyDeals() {
         <CardContent className="pt-6 pb-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Deal Pipeline
+              {labels.deal} Pipeline
             </span>
             <span className="text-2xl font-semibold">${totalPipeline}K</span>
           </div>
@@ -151,7 +153,7 @@ export default function MyDeals() {
               </Tooltip>
             )) : (
               <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
-                No deals in pipeline
+                No {labels.deals.toLowerCase()} in pipeline
               </div>
             )}
           </div>
@@ -318,7 +320,7 @@ export default function MyDeals() {
         <table className="w-full">
           <thead className="bg-muted/30">
             <tr className="text-left text-sm text-muted-foreground">
-              <th className="px-6 py-4 font-medium">Deal Name</th>
+              <th className="px-6 py-4 font-medium">{labels.deal} Name</th>
               <th className="px-6 py-4 font-medium">Customer</th>
               <th className="px-6 py-4 font-medium">ARR</th>
               <th className="px-6 py-4 font-medium">Stage</th>
@@ -331,7 +333,7 @@ export default function MyDeals() {
             {deals.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                  No deals yet. Create your first deal to get started.
+                  No {labels.deals.toLowerCase()} yet. Create your first {labels.deal.toLowerCase()} to get started.
                 </td>
               </tr>
             ) : deals.slice(0, 7).map((deal) => (

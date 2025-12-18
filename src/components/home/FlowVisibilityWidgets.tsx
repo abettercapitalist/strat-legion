@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, Users, AlertTriangle, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface WaitingItem {
   id: string;
@@ -34,7 +35,9 @@ export function FlowVisibilityWidgets({
   waitingOnOthers,
   atRiskItems,
 }: FlowVisibilityWidgetsProps) {
+  const { labels } = useTheme();
   const totalWaitingOnOthers = waitingOnOthers.reduce((acc, item) => acc + item.count, 0);
+  const mattersPath = modulePrefix === "sales" ? "deals" : "matters";
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -69,7 +72,7 @@ export function FlowVisibilityWidgets({
                   </li>
                 ))}
               </ul>
-              <Link to={`/${modulePrefix}/matters?filter=waiting-on-me`}>
+              <Link to={`/${modulePrefix}/${mattersPath}?filter=waiting-on-me`}>
                 <Button variant="ghost" size="sm" className="w-full justify-between mt-2">
                   View All ({waitingOnMe.length})
                   <ArrowRight className="h-4 w-4" />
@@ -108,7 +111,7 @@ export function FlowVisibilityWidgets({
                   </li>
                 ))}
               </ul>
-              <Link to={`/${modulePrefix}/matters?filter=waiting-on-others`}>
+              <Link to={`/${modulePrefix}/${mattersPath}?filter=waiting-on-others`}>
                 <Button variant="ghost" size="sm" className="w-full justify-between mt-2">
                   View All ({totalWaitingOnOthers})
                   <ArrowRight className="h-4 w-4" />
@@ -148,7 +151,7 @@ export function FlowVisibilityWidgets({
                   </li>
                 ))}
               </ul>
-              <Link to={`/${modulePrefix}/matters?filter=at-risk`}>
+              <Link to={`/${modulePrefix}/${mattersPath}?filter=at-risk`}>
                 <Button variant="ghost" size="sm" className="w-full justify-between mt-2">
                   View All ({atRiskItems.length})
                   <ArrowRight className="h-4 w-4" />

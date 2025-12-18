@@ -6,11 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./ui/sidebar";
 import { PlaybookIcon } from "./icons/PlaybookIcon";
 import { ClauseIcon } from "./icons/ClauseIcon";
+import { useTheme } from "@/contexts/ThemeContext";
 
-const lawDeptNavigation = [
+const getLawDeptNavigation = (mattersLabel: string, reviewLabel: string) => [
   { name: "Home", href: "/law/home", icon: Home, badge: undefined },
-  { name: "Active Matters", href: "/law/matters", icon: FolderOpen, badge: undefined },
-  { name: "Performance Review", href: "/law/review", icon: ClipboardCheck, badge: 3 },
+  { name: `Active ${mattersLabel}`, href: "/law/matters", icon: FolderOpen, badge: undefined },
+  { name: reviewLabel, href: "/law/review", icon: ClipboardCheck, badge: 3 },
 ];
 
 const adminNavigation = [
@@ -34,10 +35,13 @@ export function LawSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const { role } = useAuth();
+  const { labels } = useTheme();
   const isCollapsed = state === "collapsed";
 
   // Admin roles that can see the Workstreams section
   const isAdmin = role === "general_counsel" || role === "legal_ops";
+  
+  const lawDeptNavigation = getLawDeptNavigation(labels.matters, labels.performanceReview);
 
   return (
     <Sidebar className="w-60 border-r-0 bg-sidebar text-sidebar-foreground" collapsible="icon">
