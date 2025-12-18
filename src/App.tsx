@@ -17,7 +17,8 @@ import LawTemplates from "./pages/law/Templates";
 import LawCreateTemplate from "./pages/law/CreateTemplate";
 import LawClauses from "./pages/law/Clauses";
 import LawCreateClause from "./pages/law/CreateClause";
-import LawChangeRequests from "./pages/law/ChangeRequests";
+import LawActiveMatters from "./pages/law/ActiveMatters";
+import LawMatterReview from "./pages/law/MatterReview";
 import LawDashboard from "./pages/law/LearningDashboard";
 import LawHome from "./pages/law/Home";
 import LawSettings from "./pages/law/Settings";
@@ -38,7 +39,7 @@ import SalesHome from "./pages/sales/Home";
 import SalesDeals from "./pages/sales/Deals";
 import CreateDeal from "./pages/sales/CreateDeal";
 import DealDetail from "./pages/sales/DealDetail";
-import SalesApprovals from "./pages/sales/Approvals";
+import DealReview from "./pages/sales/DealReview";
 import SalesCustomers from "./pages/sales/Customers";
 import SalesTargets from "./pages/sales/Targets";
 import ResponseLibrary from "./pages/sales/ResponseLibrary";
@@ -64,6 +65,9 @@ const App = () => (
               <Route path="home" element={<LawHome />} />
               <Route path="new" element={<SelectPlay />} />
               <Route path="new/:playId" element={<CreateWorkstream />} />
+              <Route path="matters" element={<LawActiveMatters />} />
+              <Route path="matters/:id" element={<div className="p-6">Matter Detail - Coming Soon</div>} />
+              <Route path="review" element={<LawMatterReview />} />
               <Route path="templates" element={<LawTemplates />} />
               <Route path="templates/new" element={<LawCreateTemplate />} />
               <Route path="templates/:id/edit" element={<LawCreateTemplate />} />
@@ -72,9 +76,6 @@ const App = () => (
               <Route path="clauses/new" element={<LawCreateClause />} />
               <Route path="clauses/:id/edit" element={<LawCreateClause />} />
               <Route path="responses" element={<LawResponseLibrary />} />
-              <Route path="requests" element={<LawChangeRequests />} />
-              <Route path="requests/approved" element={<LawChangeRequests />} />
-              <Route path="requests/rejected" element={<LawChangeRequests />} />
               <Route path="dashboard" element={<LawDashboard />} />
               <Route path="settings" element={<LawSettings />} />
             </Route>
@@ -101,9 +102,9 @@ const App = () => (
               <Route path="deals" element={<SalesDeals />} />
               <Route path="deals/new" element={<CreateDeal />} />
               <Route path="deals/:id" element={<DealDetail />} />
+              <Route path="review" element={<DealReview />} />
               <Route path="customers" element={<SalesCustomers />} />
               <Route path="targets" element={<SalesTargets />} />
-              <Route path="approvals" element={<SalesApprovals />} />
               <Route path="responses" element={<ResponseLibrary />} />
               <Route path="settings" element={<div className="text-center py-16 text-muted-foreground">Settings - Coming Soon</div>} />
             </Route>
