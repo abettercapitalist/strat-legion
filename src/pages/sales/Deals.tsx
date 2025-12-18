@@ -24,148 +24,15 @@ import {
   ChevronDown, 
   ArrowRight,
   Clock,
-  TrendingUp,
   Users,
   Target,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useDeals, usePendingApprovals, type Deal } from "@/hooks/useDeals";
 
-interface Deal {
-  id: string;
-  title: string;
-  customer: string;
-  customerType: "new" | "renewal";
-  arr: string;
-  arrValue: number;
-  stage: "Draft" | "Negotiation" | "Approval" | "Signature";
-  expectedClose: string;
-  nextAction: string;
-  statusDetail: string;
-  priority: "high" | "medium" | "low";
-  daysInStage: number;
-  keyTerms?: string;
-  businessObjective?: string;
-}
-
-interface ApprovalTask {
-  id: string;
-  dealName: string;
-  customer: string;
-  type: string;
-  dueDate: string;
-  urgency: "high" | "medium" | "low";
-}
-
-const deals: Deal[] = [
-  {
-    id: "1",
-    title: "Enterprise SaaS Agreement",
-    customer: "Meridian Software",
-    customerType: "new",
-    arr: "$85K",
-    arrValue: 85000,
-    stage: "Approval",
-    expectedClose: "Dec 15, 2024",
-    nextAction: "Awaiting manager approval",
-    statusDetail: "Submitted for approval 2 days ago. Manager review typically takes 1-2 business days.",
-    priority: "high",
-    daysInStage: 2,
-    keyTerms: "3-year term, Net 30, 500 seats",
-    businessObjective: "New logo acquisition - strategic account",
-  },
-  {
-    id: "2",
-    title: "Platform Subscription",
-    customer: "Cascade Analytics",
-    customerType: "new",
-    arr: "$62K",
-    arrValue: 62000,
-    stage: "Negotiation",
-    expectedClose: "Dec 20, 2024",
-    nextAction: "Send revised pricing proposal",
-    statusDetail: "Customer requested pricing adjustment. Revised proposal due by tomorrow.",
-    priority: "high",
-    daysInStage: 5,
-    keyTerms: "Annual term, Net 45, 200 seats",
-    businessObjective: "Competitive displacement - currently using legacy system",
-  },
-  {
-    id: "3",
-    title: "Service Renewal",
-    customer: "Northwind Traders",
-    customerType: "renewal",
-    arr: "$45K",
-    arrValue: 45000,
-    stage: "Draft",
-    expectedClose: "Jan 10, 2025",
-    nextAction: "Schedule renewal discussion",
-    statusDetail: "Contract expires in 45 days. Customer has been with us for 2 years.",
-    priority: "medium",
-    daysInStage: 3,
-    keyTerms: "2-year renewal, Net 30, 150 seats",
-    businessObjective: "Retention - expand seat count by 20%",
-  },
-  {
-    id: "4",
-    title: "Growth Package",
-    customer: "Alpine Industries",
-    customerType: "new",
-    arr: "$38K",
-    arrValue: 38000,
-    stage: "Signature",
-    expectedClose: "Dec 12, 2024",
-    nextAction: "Awaiting customer signature",
-    statusDetail: "Contract sent for signature 1 day ago. Customer confirmed they will sign by EOW.",
-    priority: "high",
-    daysInStage: 1,
-    keyTerms: "Annual term, Net 30, 100 seats",
-    businessObjective: "Land deal - expansion opportunity identified",
-  },
-  {
-    id: "5",
-    title: "Professional Services Add-on",
-    customer: "Summit Healthcare",
-    customerType: "renewal",
-    arr: "$57K",
-    arrValue: 57000,
-    stage: "Negotiation",
-    expectedClose: "Dec 28, 2024",
-    nextAction: "Review legal markup",
-    statusDetail: "Customer legal team returned contract with 3 redlines. Legal review in progress.",
-    priority: "medium",
-    daysInStage: 7,
-    keyTerms: "2-year term, Net 60, 250 seats",
-    businessObjective: "Upsell - adding implementation services",
-  },
-];
-
-const approvalTasks: ApprovalTask[] = [
-  {
-    id: "1",
-    dealName: "Meridian Software",
-    customer: "Enterprise SaaS Agreement",
-    type: "Manager Approval",
-    dueDate: "Today",
-    urgency: "high",
-  },
-  {
-    id: "2",
-    dealName: "Summit Healthcare",
-    customer: "Professional Services Add-on",
-    type: "Legal Review",
-    dueDate: "Tomorrow",
-    urgency: "medium",
-  },
-];
-
-const pipelineStages = [
-  { name: "Draft", count: 1, value: 45 },
-  { name: "Negotiation", count: 2, value: 119 },
-  { name: "Approval", count: 1, value: 85 },
-  { name: "Signature", count: 1, value: 38 },
-];
-
+// Static targets (could be fetched from settings/targets table in future)
 const teamTarget = { current: 420000, goal: 500000 };
 const personalTarget = { current: 287000, goal: 350000 };
 
@@ -209,8 +76,21 @@ function getPriorityIndicator(priority: string) {
 export default function MyDeals() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const navigate = useNavigate();
+  
+  const { data: dealsData, isLoading: isLoadingDeals } = useDeals();
+  const { data: approvalTasks = [], isLoading: isLoadingApprovals } = usePendingApprovals();
 
+  const deals = dealsData?.deals || [];
+  const pipelineStages = dealsData?.pipelineStages || [];
   const totalPipeline = pipelineStages.reduce((acc, s) => acc + s.value, 0);
+
+  if (isLoadingDeals) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -253,7 +133,7 @@ export default function MyDeals() {
           
           {/* Simple Monochrome Stacked Bar */}
           <div className="h-8 flex rounded-md overflow-hidden bg-border/50">
-            {pipelineStages.map((stage, index) => (
+            {totalPipeline > 0 ? pipelineStages.map((stage, index) => (
               <Tooltip key={stage.name}>
                 <TooltipTrigger asChild>
                   <div 
@@ -269,7 +149,11 @@ export default function MyDeals() {
                   <p className="text-sm text-muted-foreground">{stage.count} deals · ${stage.value}K</p>
                 </TooltipContent>
               </Tooltip>
-            ))}
+            )) : (
+              <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                No deals in pipeline
+              </div>
+            )}
           </div>
 
           {/* Stage Columns with Deal Cards */}
@@ -444,7 +328,13 @@ export default function MyDeals() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {deals.slice(0, 7).map((deal) => (
+            {deals.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                  No deals yet. Create your first deal to get started.
+                </td>
+              </tr>
+            ) : deals.slice(0, 7).map((deal) => (
               <tr 
                 key={deal.id} 
                 className="hover:bg-muted/20 transition-colors cursor-pointer group"
@@ -527,6 +417,7 @@ export default function MyDeals() {
                 </td>
               </tr>
             ))}
+            
           </tbody>
         </table>
       </div>
