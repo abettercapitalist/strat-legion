@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkstreamWizard } from "@/contexts/WorkstreamWizardContext";
-
+import { useApprovalWorkflow } from "@/hooks/useApprovalWorkflow";
 interface ReviewStepProps {
   module: string;
   displayName: string;
@@ -35,6 +35,7 @@ export function ReviewStep({ module, displayName, playId }: ReviewStepProps) {
   const { toast } = useToast();
   const { state, goToStep, isSalesModule, resetWizard } = useWorkstreamWizard();
   const [isCreating, setIsCreating] = useState(false);
+  const { createApprovalsFromTemplate } = useApprovalWorkflow();
 
   const terms = state.commercial_terms as CommercialTerms | null;
 
@@ -87,11 +88,42 @@ export function ReviewStep({ module, displayName, playId }: ReviewStepProps) {
 
       if (error) throw error;
 
-      // Success
-      toast({
-        title: `${displayName} created successfully!`,
-        description: `${workstreamName} is now ready.`,
+      // Log the creation activity
+      await supabase.from("workstream_activity").insert({
+        workstream_id: workstream.id,
+        activity_type: "created",
+        actor_id: user?.id || null,
+        description: `${displayName} created: ${workstreamName}`,
+        metadata: {
+          play_id: playId,
+          counterparty_id: state.counterparty_id,
+          business_objective: state.business_objective,
+        },
       });
+
+      // Create approval workflow from template
+      const approvalResult = await createApprovalsFromTemplate(workstream.id);
+      
+      if (approvalResult.success) {
+        const approvalMessage = approvalResult.approvals_created 
+          ? `${approvalResult.approvals_created} approval${approvalResult.approvals_created > 1 ? 's' : ''} initiated.`
+          : approvalResult.auto_approved 
+            ? `${approvalResult.auto_approved} approval${approvalResult.auto_approved > 1 ? 's' : ''} auto-approved.`
+            : '';
+        
+        toast({
+          title: `${displayName} created successfully!`,
+          description: `${workstreamName} is now ready. ${approvalMessage}`.trim(),
+        });
+      } else {
+        // Workstream created but approvals failed - still navigate but warn
+        console.warn("Approval workflow creation failed:", approvalResult.error);
+        toast({
+          title: `${displayName} created`,
+          description: `${workstreamName} created, but approval workflow could not be started.`,
+          variant: "default",
+        });
+      }
 
       // Reset wizard and redirect
       resetWizard();
