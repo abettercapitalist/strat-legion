@@ -25,6 +25,7 @@ import {
 } from "recharts";
 import { FlowVisibilityWidgets } from "@/components/home/FlowVisibilityWidgets";
 import { WorkloadBalance } from "@/components/home/WorkloadBalance";
+import { useFlowVisibility } from "@/hooks/useFlowVisibility";
 
 interface PriorityTask {
   id: string;
@@ -94,27 +95,7 @@ const targetProgress = {
   team: { current: 420, goal: 500, label: "Team Target" },
 };
 
-// Mock data for flow visibility widgets
-const waitingOnMe = [
-  { id: "1", name: "Meridian Software discount", dueText: "due in 2 hrs", isOverdue: false },
-  { id: "2", name: "Cascade Analytics terms", dueText: "due today", isOverdue: false },
-  { id: "3", name: "TechFlow renewal", dueText: "overdue 1 day", isOverdue: true },
-];
-
-const waitingOnOthers = [
-  { role: "Finance approval", count: 3 },
-  { role: "Legal review", count: 2 },
-  { role: "Manager approval", count: 1 },
-];
-
-const atRiskItems = [
-  { id: "1", name: "Northwind Traders", reason: "no activity 10 days" },
-  { id: "2", name: "Summit Corp", reason: "approval overdue 4 days" },
-];
-
-// Mock workload data
-const userLoad = 68;
-const teamAverage = 55;
+// Flow visibility data is now fetched from useFlowVisibility hook
 
 function getUrgencyStyles(urgency: string) {
   switch (urgency) {
@@ -154,6 +135,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function SalesHome() {
+  const { waitingOnMe, waitingOnOthers, atRiskItems, userLoad, teamAverage } = useFlowVisibility("sales");
   const totalPipeline = pipelineData.reduce((acc, item) => acc + item.value, 0);
 
   return (
