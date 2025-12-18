@@ -25,6 +25,7 @@ import LawResponseLibrary from "./pages/law/ResponseLibrary";
 
 // Shared Pages
 import SelectPlay from "./pages/SelectPlay";
+import CreateWorkstream from "./pages/CreateWorkstream";
 
 // Admin Module Pages
 import WorkstreamTypes from "./pages/admin/WorkstreamTypes";
@@ -62,7 +63,7 @@ const App = () => (
               <Route index element={<Navigate to="/law/home" replace />} />
               <Route path="home" element={<LawHome />} />
               <Route path="new" element={<SelectPlay />} />
-              <Route path="new/:playId" element={<div className="text-center py-16 text-muted-foreground">Create Matter - Coming Soon</div>} />
+              <Route path="new/:playId" element={<CreateWorkstream />} />
               <Route path="templates" element={<LawTemplates />} />
               <Route path="templates/new" element={<LawCreateTemplate />} />
               <Route path="templates/:id/edit" element={<LawCreateTemplate />} />
@@ -96,7 +97,7 @@ const App = () => (
             <Route path="/sales" element={<ProtectedRoute><SalesLayout /></ProtectedRoute>}>
               <Route index element={<SalesHome />} />
               <Route path="new" element={<SelectPlay />} />
-              <Route path="new/:playId" element={<div className="text-center py-16 text-muted-foreground">Create Deal - Coming Soon</div>} />
+              <Route path="new/:playId" element={<CreateWorkstream />} />
               <Route path="deals" element={<SalesDeals />} />
               <Route path="deals/new" element={<CreateDeal />} />
               <Route path="deals/:id" element={<DealDetail />} />
