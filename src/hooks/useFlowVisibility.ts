@@ -64,6 +64,7 @@ export function useFlowVisibility(teamCategory?: string): FlowVisibilityData {
           .eq("status", "pending");
 
         // Fetch workstreams with no recent activity (at risk)
+        // Also include owner_id to calculate team workload
         const { data: allWorkstreams } = await supabase
           .from("workstreams")
           .select(`
@@ -72,7 +73,9 @@ export function useFlowVisibility(teamCategory?: string): FlowVisibilityData {
             expected_close_date,
             stage,
             updated_at,
-            counterparty:counterparties(name)
+            owner_id,
+            counterparty:counterparties(name),
+            workstream_type:workstream_types(team_category)
           `)
           .not("stage", "eq", "closed");
 
@@ -81,6 +84,10 @@ export function useFlowVisibility(teamCategory?: string): FlowVisibilityData {
           .from("workstream_activity")
           .select("workstream_id, created_at")
           .order("created_at", { ascending: false });
+
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        const currentUserId = user?.id;
 
         // Build activity map (most recent activity per workstream)
         const activityMap = new Map<string, Date>();
@@ -169,10 +176,35 @@ export function useFlowVisibility(teamCategory?: string): FlowVisibilityData {
           }
         });
 
-        // Calculate workload (active workstreams count)
-        const activeCount = allWorkstreams?.length || 0;
-        const userLoad = Math.min(100, (activeCount / 10) * 100); // Normalize to percentage
-        const teamAverage = 55; // Would calculate from team data
+        // Calculate workload based on active workstreams
+        // Filter by team category if specified
+        const filteredWorkstreams = teamCategory 
+          ? allWorkstreams?.filter((w: any) => w.workstream_type?.team_category === teamCategory)
+          : allWorkstreams;
+
+        // Count workstreams per owner to calculate team workload
+        const ownerWorkloadMap = new Map<string, number>();
+        filteredWorkstreams?.forEach((w) => {
+          if (w.owner_id) {
+            const count = ownerWorkloadMap.get(w.owner_id) || 0;
+            ownerWorkloadMap.set(w.owner_id, count + 1);
+          }
+        });
+
+        // Calculate user's workload (their active workstreams)
+        const userWorkstreamsCount = currentUserId 
+          ? (ownerWorkloadMap.get(currentUserId) || 0)
+          : filteredWorkstreams?.length || 0;
+        
+        // Calculate team average (average workstreams per team member)
+        const teamMembers = ownerWorkloadMap.size || 1;
+        const totalWorkstreams = filteredWorkstreams?.length || 0;
+        const avgWorkstreamsPerMember = totalWorkstreams / teamMembers;
+
+        // Normalize to 0-100 scale (assuming 10 workstreams = 100% capacity)
+        const maxCapacity = 10;
+        const userLoad = Math.min(100, (userWorkstreamsCount / maxCapacity) * 100);
+        const teamAverage = Math.min(100, (avgWorkstreamsPerMember / maxCapacity) * 100);
 
         setData({
           waitingOnMe: waitingOnMe.slice(0, 5),
