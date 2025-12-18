@@ -628,6 +628,51 @@ export type Database = {
         }
         Relationships: []
       }
+      workstream_activity: {
+        Row: {
+          activity_type: string
+          actor_id: string | null
+          created_at: string
+          description: string
+          id: string
+          metadata: Json | null
+          workstream_id: string
+        }
+        Insert: {
+          activity_type: string
+          actor_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          workstream_id: string
+        }
+        Update: {
+          activity_type?: string
+          actor_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          workstream_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workstream_activity_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstream_activity_workstream_id_fkey"
+            columns: ["workstream_id"]
+            isOneToOne: false
+            referencedRelation: "workstreams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workstream_approvals: {
         Row: {
           approval_template_id: string | null
@@ -672,6 +717,72 @@ export type Database = {
           },
           {
             foreignKeyName: "workstream_approvals_workstream_id_fkey"
+            columns: ["workstream_id"]
+            isOneToOne: false
+            referencedRelation: "workstreams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workstream_steps: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json | null
+          created_at: string
+          id: string
+          position: number
+          required_before: string | null
+          requirement_type: string
+          status: string
+          step_id: string
+          step_type: string
+          trigger_timing: string | null
+          updated_at: string
+          workstream_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json | null
+          created_at?: string
+          id?: string
+          position?: number
+          required_before?: string | null
+          requirement_type?: string
+          status?: string
+          step_id: string
+          step_type: string
+          trigger_timing?: string | null
+          updated_at?: string
+          workstream_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json | null
+          created_at?: string
+          id?: string
+          position?: number
+          required_before?: string | null
+          requirement_type?: string
+          status?: string
+          step_id?: string
+          step_type?: string
+          trigger_timing?: string | null
+          updated_at?: string
+          workstream_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workstream_steps_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstream_steps_workstream_id_fkey"
             columns: ["workstream_id"]
             isOneToOne: false
             referencedRelation: "workstreams"
