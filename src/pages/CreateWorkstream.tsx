@@ -28,6 +28,7 @@ import { WizardProgress } from "@/components/wizard/WizardProgress";
 import { CounterpartyStep } from "@/components/wizard/CounterpartyStep";
 import { ObjectiveStep } from "@/components/wizard/ObjectiveStep";
 import { OptionsStep } from "@/components/wizard/OptionsStep";
+import { TermsStep } from "@/components/wizard/TermsStep";
 
 // Module configuration
 const moduleConfig: Record<string, { displayName: string; itemName: string }> = {
@@ -39,7 +40,7 @@ const moduleConfig: Record<string, { displayName: string; itemName: string }> = 
 
 function WizardContent({ module, playName }: { module: string; playName: string }) {
   const navigate = useNavigate();
-  const { state, nextStep, prevStep, goToStep, canProceed } = useWorkstreamWizard();
+  const { state, nextStep, prevStep, goToStep, canProceed, isSalesModule, totalSteps, getDisplayStep } = useWorkstreamWizard();
   const config = moduleConfig[module];
 
   const handleContinue = () => {
@@ -52,8 +53,10 @@ function WizardContent({ module, playName }: { module: string; playName: string 
     navigate(`/${module}/new`);
   };
 
-  // Determine if user can navigate to a step
+  // Determine if user can navigate to a step (using actual step numbers)
   const canNavigateTo = (step: number): boolean => {
+    // Don't allow navigating to step 4 for non-sales modules
+    if (!isSalesModule && step === 4) return false;
     // Can always go back to completed steps
     if (step < state.current_step) return true;
     // Can only go forward if current step is valid
@@ -70,11 +73,8 @@ function WizardContent({ module, playName }: { module: string; playName: string 
       case 3:
         return <OptionsStep playId={state.play_id} displayName={config.itemName} />;
       case 4:
-        return (
-          <div className="text-center py-16 text-muted-foreground">
-            Terms Step - Coming Soon
-          </div>
-        );
+        // This should only render for sales module
+        return <TermsStep />;
       case 5:
         return (
           <div className="text-center py-16 text-muted-foreground">
@@ -223,7 +223,7 @@ export default function CreateWorkstream() {
   const playName = play.display_name || play.name;
 
   return (
-    <WorkstreamWizardProvider playId={play.id} playName={playName}>
+    <WorkstreamWizardProvider playId={play.id} playName={playName} module={module}>
       <WizardContent module={module} playName={playName} />
     </WorkstreamWizardProvider>
   );
