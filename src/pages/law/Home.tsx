@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Library, Inbox, Clock, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { FlowVisibilityWidgets } from "@/components/home/FlowVisibilityWidgets";
+import { WorkloadBalance } from "@/components/home/WorkloadBalance";
 
 // Mock data for tasks and reminders
 const pendingChangeRequests = [
@@ -26,6 +28,28 @@ const recentActivity = [
   { id: 2, action: "Change request approved", item: "Payment Terms clause", time: "3 hours ago", icon: CheckCircle2 },
   { id: 3, action: "Clause created", item: "Data Processing Addendum", time: "Yesterday", icon: FileText },
 ];
+
+// Mock data for flow visibility widgets
+const waitingOnMe = [
+  { id: "1", name: "Acme Corp approval", dueText: "due in 4 hrs", isOverdue: false },
+  { id: "2", name: "Globex terms review", dueText: "due today", isOverdue: false },
+  { id: "3", name: "Initech signature", dueText: "overdue 2 days", isOverdue: true },
+];
+
+const waitingOnOthers = [
+  { role: "Finance approval", count: 2 },
+  { role: "Sales Manager approval", count: 2 },
+  { role: "Legal review", count: 1 },
+];
+
+const atRiskItems = [
+  { id: "1", name: "Umbrella Corp", reason: "no activity 7 days" },
+  { id: "2", name: "Wayne Ent", reason: "approval overdue 3 days" },
+];
+
+// Mock workload data (would be calculated from real data)
+const userLoad = 35;
+const teamAverage = 52;
 
 export default function LawHome() {
   return (
@@ -93,6 +117,20 @@ export default function LawHome() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Flow Visibility Section */}
+      <div className="space-y-2">
+        <h2 className="text-lg font-medium text-foreground">Flow Visibility</h2>
+        <FlowVisibilityWidgets
+          modulePrefix="law"
+          waitingOnMe={waitingOnMe}
+          waitingOnOthers={waitingOnOthers}
+          atRiskItems={atRiskItems}
+        />
+      </div>
+
+      {/* Workload Balance */}
+      <WorkloadBalance userLoad={userLoad} teamAverage={teamAverage} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
