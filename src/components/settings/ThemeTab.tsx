@@ -6,6 +6,12 @@ import { toast } from "sonner";
 
 const themeOptions: { value: SportsTheme; label: string; icon: string; description: string }[] = [
   { 
+    value: "none", 
+    label: "None", 
+    icon: "📋", 
+    description: "Standard business terminology - Workstreams, Deals, Matters"
+  },
+  { 
     value: "baseball", 
     label: "Baseball", 
     icon: "⚾", 
