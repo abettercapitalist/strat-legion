@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow, isPast, isWithinInterval, addDays } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useTheme } from "@/contexts/ThemeContext";
 
 type Workstream = {
   id: string;
@@ -116,6 +117,7 @@ function getDueUrgency(dueDate: string | null): "overdue" | "urgent" | "normal" 
 
 export default function ActiveMatters() {
   const navigate = useNavigate();
+  const { labels } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("my");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -185,22 +187,22 @@ export default function ActiveMatters() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Active Matters</h1>
+          <h1 className="text-2xl font-semibold">Active {labels.matters}</h1>
           <p className="text-muted-foreground">
-            All matters requiring attention from you or your team
+            All {labels.matters.toLowerCase()} requiring attention from you or your team
           </p>
         </div>
         <Button onClick={() => navigate("/law/new")}>
           <Plus className="h-4 w-4 mr-2" />
-          New Matter
+          New {labels.matter}
         </Button>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="my">My Matters</TabsTrigger>
-          <TabsTrigger value="team">Team Matters</TabsTrigger>
+          <TabsTrigger value="my">My {labels.matters}</TabsTrigger>
+          <TabsTrigger value="team">Team {labels.matters}</TabsTrigger>
           <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -210,7 +212,7 @@ export default function ActiveMatters() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search matters..."
+            placeholder={`Search ${labels.matters.toLowerCase()}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -379,18 +381,18 @@ export default function ActiveMatters() {
           <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">
             {searchQuery || stageFilter !== "all" 
-              ? "No matters match your filters"
-              : "No active matters yet"}
+              ? `No ${labels.matters.toLowerCase()} match your filters`
+              : `No active ${labels.matters.toLowerCase()} yet`}
           </h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery || stageFilter !== "all" 
               ? "Try adjusting your search or filter criteria"
-              : "Get started by creating your first matter"}
+              : `Get started by creating your first ${labels.matter.toLowerCase()}`}
           </p>
           {!searchQuery && stageFilter === "all" && (
             <Button onClick={() => navigate("/law/new")}>
               <Plus className="h-4 w-4 mr-2" />
-              Create your first matter
+              Create your first {labels.matter.toLowerCase()}
             </Button>
           )}
         </div>

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface Workstream {
   id: string;
@@ -36,6 +37,8 @@ interface WorkstreamOverviewTabProps {
 }
 
 export function WorkstreamOverviewTab({ workstream, module }: WorkstreamOverviewTabProps) {
+  const { labels } = useTheme();
+  
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -65,7 +68,7 @@ export function WorkstreamOverviewTab({ workstream, module }: WorkstreamOverview
               </div>
             )}
             <div>
-              <p className="text-sm text-muted-foreground mb-1">{module === "sales" ? "Deal" : "Matter"} Type</p>
+              <p className="text-sm text-muted-foreground mb-1">{module === "sales" ? labels.deal : labels.matter} Type</p>
               <p className="font-medium">
                 {workstream.workstream_type?.display_name || workstream.workstream_type?.name || "Not specified"}
               </p>

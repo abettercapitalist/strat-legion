@@ -11,6 +11,7 @@ import { WorkstreamOverviewTab } from "@/components/workstream/WorkstreamOvervie
 import { WorkstreamApprovalsTab } from "@/components/workstream/WorkstreamApprovalsTab";
 import { WorkstreamActivityTab } from "@/components/workstream/WorkstreamActivityTab";
 import { WorkstreamDocumentsTab } from "@/components/workstream/WorkstreamDocumentsTab";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface WorkstreamDetailProps {
   module: "law" | "sales";
@@ -39,8 +40,10 @@ const stageLabels: Record<string, string> = {
 export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { labels } = useTheme();
 
-  const displayName = module === "sales" ? "Deal" : "Matter";
+  const displayName = module === "sales" ? labels.deal : labels.matter;
+  const displayNamePlural = module === "sales" ? labels.deals : labels.matters;
   const backPath = module === "sales" ? "/sales/deals" : "/law/matters";
 
   const { data: workstream, isLoading, error } = useQuery({
@@ -86,7 +89,7 @@ export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
         <p className="text-muted-foreground">{displayName} not found</p>
         <Button variant="outline" onClick={() => navigate(backPath)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to {module === "sales" ? "Deals" : "Matters"}
+          Back to {displayNamePlural}
         </Button>
       </div>
     );

@@ -26,6 +26,7 @@ import {
 import { FlowVisibilityWidgets } from "@/components/home/FlowVisibilityWidgets";
 import { WorkloadBalance } from "@/components/home/WorkloadBalance";
 import { useFlowVisibility } from "@/hooks/useFlowVisibility";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface PriorityTask {
   id: string;
@@ -135,6 +136,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function SalesHome() {
+  const { labels } = useTheme();
   const { waitingOnMe, waitingOnOthers, atRiskItems, userLoad, teamAverage } = useFlowVisibility("sales");
   const totalPipeline = pipelineData.reduce((acc, item) => acc + item.value, 0);
 
@@ -367,9 +369,9 @@ export default function SalesHome() {
               <div className="p-3 rounded-lg bg-primary/10 w-fit mb-4 group-hover:bg-primary/20 transition-colors">
                 <FileText className="h-5 w-5 text-primary" />
               </div>
-              <h3 className="font-medium group-hover:text-primary transition-colors">My Deals</h3>
+              <h3 className="font-medium group-hover:text-primary transition-colors">My {labels.deals}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                View and manage your active deals
+                View and manage your active {labels.deals.toLowerCase()}
               </p>
             </CardContent>
           </Card>
