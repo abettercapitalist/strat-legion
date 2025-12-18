@@ -1,4 +1,4 @@
-import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText, Check } from "lucide-react";
+import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText, Check, Scale } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -9,6 +9,7 @@ import { ClauseIcon } from "./icons/ClauseIcon";
 
 const lawDeptNavigation = [
   { name: "Home", href: "/law/home", icon: Home, badge: undefined },
+  { name: "New Matter", href: "/law/new", icon: Scale, badge: undefined },
   { name: "Change Requests", href: "/law/requests", icon: Inbox, badge: 3 },
   { name: "Learning Center", href: "/law/dashboard", icon: BarChart3, badge: undefined },
 ];

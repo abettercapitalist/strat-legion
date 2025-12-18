@@ -1,4 +1,4 @@
-import { Handshake, ClipboardList, Settings, BookOpen, Home, Users, Target } from "lucide-react";
+import { Handshake, ClipboardList, Settings, BookOpen, Home, Users, Target, Briefcase } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -19,6 +19,12 @@ const navigation = [
     name: "Home", 
     href: "/sales", 
     icon: Home,
+    badge: undefined,
+  },
+  { 
+    name: "New Deal", 
+    href: "/sales/new", 
+    icon: Briefcase,
     badge: undefined,
   },
   { 
