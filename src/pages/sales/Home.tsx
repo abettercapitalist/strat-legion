@@ -23,6 +23,8 @@ import {
   YAxis,
   Tooltip
 } from "recharts";
+import { FlowVisibilityWidgets } from "@/components/home/FlowVisibilityWidgets";
+import { WorkloadBalance } from "@/components/home/WorkloadBalance";
 
 interface PriorityTask {
   id: string;
@@ -92,6 +94,28 @@ const targetProgress = {
   team: { current: 420, goal: 500, label: "Team Target" },
 };
 
+// Mock data for flow visibility widgets
+const waitingOnMe = [
+  { id: "1", name: "Meridian Software discount", dueText: "due in 2 hrs", isOverdue: false },
+  { id: "2", name: "Cascade Analytics terms", dueText: "due today", isOverdue: false },
+  { id: "3", name: "TechFlow renewal", dueText: "overdue 1 day", isOverdue: true },
+];
+
+const waitingOnOthers = [
+  { role: "Finance approval", count: 3 },
+  { role: "Legal review", count: 2 },
+  { role: "Manager approval", count: 1 },
+];
+
+const atRiskItems = [
+  { id: "1", name: "Northwind Traders", reason: "no activity 10 days" },
+  { id: "2", name: "Summit Corp", reason: "approval overdue 4 days" },
+];
+
+// Mock workload data
+const userLoad = 68;
+const teamAverage = 55;
+
 function getUrgencyStyles(urgency: string) {
   switch (urgency) {
     case "high":
@@ -143,9 +167,9 @@ export default function SalesHome() {
       </div>
 
       {/* Hero Visualization Section */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Pipeline Donut - Main Visual */}
-        <Card className="col-span-5 border-border overflow-hidden">
+        <Card className="lg:col-span-5 border-border overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               Pipeline Distribution
@@ -198,7 +222,7 @@ export default function SalesHome() {
         </Card>
 
         {/* Activity Trend */}
-        <Card className="col-span-4 border-border overflow-hidden">
+        <Card className="lg:col-span-4 border-border overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               This Week's Activity
@@ -237,7 +261,7 @@ export default function SalesHome() {
         </Card>
 
         {/* Target Progress */}
-        <div className="col-span-3 space-y-4">
+        <div className="lg:col-span-3 space-y-4">
           {/* Team Target */}
           <Card className="border-border">
             <CardContent className="pt-4 pb-4">
@@ -287,6 +311,20 @@ export default function SalesHome() {
           </Card>
         </div>
       </div>
+
+      {/* Flow Visibility Section */}
+      <div className="space-y-2">
+        <h2 className="text-lg font-medium text-foreground">Flow Visibility</h2>
+        <FlowVisibilityWidgets
+          modulePrefix="sales"
+          waitingOnMe={waitingOnMe}
+          waitingOnOthers={waitingOnOthers}
+          atRiskItems={atRiskItems}
+        />
+      </div>
+
+      {/* Workload Balance */}
+      <WorkloadBalance userLoad={userLoad} teamAverage={teamAverage} />
 
       {/* Priority Tasks */}
       <Card className="border-border">
@@ -340,7 +378,7 @@ export default function SalesHome() {
       </Card>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link to="/sales/deals">
           <Card className="border-border hover:border-primary/30 hover:shadow-md transition-all cursor-pointer h-full group">
             <CardContent className="pt-6">
