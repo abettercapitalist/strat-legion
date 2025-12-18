@@ -1,278 +1,220 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigate } from "react-router-dom";
-import { ClipboardCheck, Clock, CheckCircle, XCircle, AlertCircle, DollarSign } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TeamPatternsTab } from "@/components/review/TeamPatternsTab";
+import { MyPerformanceTab } from "@/components/review/MyPerformanceTab";
+import { RecognitionTab } from "@/components/review/RecognitionTab";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
-type ApprovalWithDetails = {
-  id: string;
-  status: string | null;
-  current_gate: number | null;
-  submitted_at: string | null;
-  created_at: string;
-  workstream: {
-    id: string;
-    name: string;
-    business_objective: string | null;
-    annual_value: number | null;
-    counterparty: {
-      name: string;
-    } | null;
-  } | null;
-  approval_template: {
-    name: string;
-    approval_sequence: unknown;
-  } | null;
-};
+// Mock data for Team Patterns
+const mockClosureByType = [
+  { name: "Enterprise SaaS Deal", avgDays: 14.2 },
+  { name: "Mid-Market Deal", avgDays: 8.4 },
+  { name: "SMB Deal", avgDays: 4.6 },
+  { name: "Renewal", avgDays: 3.2 },
+];
+
+const mockClosureByRoute = [
+  { name: "Discount Approval", avgDays: 0.8 },
+  { name: "Legal Review", avgDays: 2.4 },
+  { name: "Finance Approval", avgDays: 1.6 },
+];
+
+const mockApprovalDelays = [
+  { role: "Finance", percentage: 42 },
+  { role: "Legal", percentage: 31 },
+  { role: "Sales Manager", percentage: 15 },
+];
+
+const mockInsights = [
+  {
+    type: "insight" as const,
+    title: "Q4 deals closing 25% faster than Q3",
+    description: "New pricing tiers reducing back-and-forth on custom quotes",
+    suggestion: "Consider expanding tiered pricing to all segments?",
+  },
+  {
+    type: "insight" as const,
+    title: "Healthcare vertical has 85% close rate",
+    description: "Mike Chen has closed 12 of 14 healthcare opportunities",
+    suggestion: "Route healthcare leads to Mike for higher conversion",
+  },
+  {
+    type: "warning" as const,
+    title: "5 deals stalled at Legal review stage",
+    description: "Average wait time: 4.3 days (vs 2.4 day target)",
+    suggestion: "May need additional legal resources or clearer SLAs",
+  },
+];
+
+// Mock data for My Performance
+const mockPersonalMetrics = [
+  { label: "Deals Closed", value: "8", change: "↑ 23% from last period", trend: "up" as const },
+  { label: "Avg deal cycle", value: "11.2 days", change: "↓ 18% faster", trend: "up" as const },
+  { label: "Win rate", value: "68%", change: "↑ from 61%", trend: "up" as const },
+];
+
+const mockTeamImpact = [
+  { icon: "🎯", text: "Your deal templates used by 5 teammates" },
+  { icon: "💡", text: "Pricing strategy shared saved $45K in discounts" },
+  { icon: "🤝", text: "Helped 3 teammates close enterprise deals" },
+];
+
+// Mock data for Recognition
+const mockCandidates = [
+  {
+    id: "1",
+    name: "Mike Chen",
+    type: "top_performer" as const,
+    reason: "Highest win rate, healthcare specialist",
+    details: [
+      "Win rate: 85% (team avg: 62%)",
+      "Closed $420K in Q4 alone",
+      "Mentored 2 new team members",
+    ],
+    isRecognized: false,
+  },
+  {
+    id: "2",
+    name: "Lisa Park",
+    type: "most_improved" as const,
+    reason: "Fastest improvement in deal cycle time",
+    details: [
+      "Reduced avg deal cycle from 18 days to 10 days",
+      "Adopted new qualification framework",
+      "First to use new pricing calculator",
+    ],
+    isRecognized: false,
+  },
+];
 
 export default function DealReview() {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState("team-patterns");
+  const [timePeriod, setTimePeriod] = useState("30");
+  const { role } = useAuth();
+  const { toast } = useToast();
 
-  const { data: approvals, isLoading } = useQuery({
-    queryKey: ["sales-approvals"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workstream_approvals")
-        .select(`
-          id,
-          status,
-          current_gate,
-          submitted_at,
-          created_at,
-          workstream:workstreams(
-            id,
-            name,
-            business_objective,
-            annual_value,
-            counterparty:counterparties(name)
-          ),
-          approval_template:approval_templates(name, approval_sequence)
-        `)
-        .order("created_at", { ascending: false });
+  // Admin roles that can see the Recognition tab
+  const isManager = role === "sales_manager" || role === "general_counsel" || role === "legal_ops";
 
-      if (error) throw error;
-      return data as unknown as ApprovalWithDetails[];
-    },
-  });
-
-  const pendingApprovals = approvals?.filter(a => a.status === "pending") || [];
-  const completedApprovals = approvals?.filter(a => a.status === "approved") || [];
-  const rejectedApprovals = approvals?.filter(a => a.status === "rejected") || [];
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return null;
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+  const handleReviewDetails = (candidateId: string) => {
+    toast({
+      title: "Review Details",
+      description: "Opening detailed performance report...",
+    });
   };
 
-  const getStatusIcon = (status: string | null) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case "approved":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "rejected":
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
+  const handleRecognize = (candidateId: string) => {
+    toast({
+      title: "Recognition Recorded",
+      description: "Team member has been recognized. Consider delivering recognition personally!",
+    });
+  };
+
+  const handleDismiss = (candidateId: string) => {
+    toast({
+      title: "Dismissed",
+      description: "Recognition opportunity dismissed for this period.",
+    });
+  };
+
+  const getTimePeriodLabel = (days: string) => {
+    switch (days) {
+      case "7": return "Last 7 Days";
+      case "30": return "Last 30 Days";
+      case "90": return "Last 90 Days";
+      default: return "Last 30 Days";
     }
   };
-
-  const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pending</Badge>;
-      case "approved":
-        return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Approved</Badge>;
-      case "rejected":
-        return <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Rejected</Badge>;
-      default:
-        return <Badge variant="secondary">Unknown</Badge>;
-    }
-  };
-
-  const renderApprovalCard = (approval: ApprovalWithDetails) => (
-    <Card 
-      key={approval.id}
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={() => approval.workstream && navigate(`/sales/deals/${approval.workstream.id}`)}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-base font-medium">
-              {approval.workstream?.name || "Unknown Deal"}
-            </CardTitle>
-            {approval.workstream?.counterparty && (
-              <p className="text-sm text-muted-foreground">
-                {approval.workstream.counterparty.name}
-              </p>
-            )}
-          </div>
-          {getStatusBadge(approval.status)}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-2 text-sm">
-          {getStatusIcon(approval.status)}
-          <span className="text-muted-foreground">
-            {approval.approval_template?.name || "Approval Route"}
-          </span>
-        </div>
-        {approval.workstream?.annual_value && (
-          <div className="flex items-center gap-2 text-sm">
-            <DollarSign className="h-4 w-4 text-green-500" />
-            <span className="font-medium">{formatCurrency(approval.workstream.annual_value)}</span>
-          </div>
-        )}
-        {approval.submitted_at && (
-          <p className="text-sm text-muted-foreground">
-            Submitted {formatDistanceToNow(new Date(approval.submitted_at), { addSuffix: true })}
-          </p>
-        )}
-        <Button variant="outline" size="sm" className="w-full">
-          Review Details
-        </Button>
-      </CardContent>
-    </Card>
-  );
-
-  const renderEmptyState = (message: string) => (
-    <Card className="p-12 text-center">
-      <ClipboardCheck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-      <h3 className="text-lg font-medium mb-2">{message}</h3>
-      <p className="text-muted-foreground">
-        When deals require your review, they will appear here.
-      </p>
-    </Card>
-  );
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold">Deal Review</h1>
-        <p className="text-muted-foreground">
-          Review and approve pending deals
-        </p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pending Review
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-yellow-500" />
-              <span className="text-2xl font-bold">{pendingApprovals.length}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Approved This Week
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span className="text-2xl font-bold">{completedApprovals.length}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Rejected
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              <span className="text-2xl font-bold">{rejectedApprovals.length}</span>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Deal Review</h1>
+          <p className="text-muted-foreground">
+            Analyze patterns, track performance, and identify improvements
+          </p>
+        </div>
+        <Select value={timePeriod} onValueChange={setTimePeriod}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Time period" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Last 7 Days</SelectItem>
+            <SelectItem value="30">Last 30 Days</SelectItem>
+            <SelectItem value="90">Last 90 Days</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="pending" className="gap-2">
-            Pending
-            {pendingApprovals.length > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {pendingApprovals.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+          <TabsTrigger value="team-patterns">Team Patterns</TabsTrigger>
+          <TabsTrigger value="my-performance">My Performance</TabsTrigger>
+          {isManager && <TabsTrigger value="recognition">Recognition</TabsTrigger>}
         </TabsList>
 
-        {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-8 w-full" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <>
-            <TabsContent value="pending" className="mt-6">
-              {pendingApprovals.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {pendingApprovals.map(renderApprovalCard)}
-                </div>
-              ) : (
-                renderEmptyState("No pending reviews")
-              )}
-            </TabsContent>
+        <TabsContent value="team-patterns" className="mt-6">
+          <TeamPatternsTab
+            timePeriod={getTimePeriodLabel(timePeriod)}
+            moduleLabel="Deal"
+            closureByType={mockClosureByType}
+            closureByRoute={mockClosureByRoute}
+            avgApprovalTime={14.2}
+            firstTimeApprovalRate={72}
+            approvalDelays={mockApprovalDelays}
+            insights={mockInsights}
+          />
+        </TabsContent>
 
-            <TabsContent value="approved" className="mt-6">
-              {completedApprovals.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {completedApprovals.map(renderApprovalCard)}
-                </div>
-              ) : (
-                renderEmptyState("No approved deals yet")
-              )}
-            </TabsContent>
+        <TabsContent value="my-performance" className="mt-6">
+          <MyPerformanceTab
+            timePeriod={getTimePeriodLabel(timePeriod)}
+            personalMetrics={mockPersonalMetrics}
+            speedComparison={{
+              yourSpeed: 11.2,
+              teamAverage: 14.8,
+              percentile: 22,
+            }}
+            qualityComparison={{
+              yourQuality: 68,
+              teamAverage: 62,
+              percentile: 18,
+            }}
+            teamImpact={mockTeamImpact}
+            topInsight={{
+              text: "Multi-year deals with annual payment upfront have 95% renewal rate",
+              usageCount: 8,
+            }}
+            teamStats={{
+              avgApprovalTime: 14.2,
+              previousAvgTime: 16.8,
+              autoApprovalRate: 31,
+              previousAutoRate: 24,
+              teamHelps: 52,
+            }}
+          />
+        </TabsContent>
 
-            <TabsContent value="rejected" className="mt-6">
-              {rejectedApprovals.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {rejectedApprovals.map(renderApprovalCard)}
-                </div>
-              ) : (
-                renderEmptyState("No rejected deals")
-              )}
-            </TabsContent>
-          </>
+        {isManager && (
+          <TabsContent value="recognition" className="mt-6">
+            <RecognitionTab
+              currentMonth="December 2025"
+              candidates={mockCandidates}
+              recognitionStats={{
+                targetPerMonth: "2-3 per month",
+                recognizedLast3Months: 8,
+                dismissedLast3Months: 3,
+              }}
+              onReviewDetails={handleReviewDetails}
+              onRecognize={handleRecognize}
+              onDismiss={handleDismiss}
+            />
+          </TabsContent>
         )}
       </Tabs>
     </div>
