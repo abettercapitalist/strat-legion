@@ -1,4 +1,4 @@
-import { FileText, Inbox, BarChart3, Settings, Home, MessageSquareText, Check, Scale } from "lucide-react";
+import { FileText, Settings, Home, MessageSquareText, Check, FolderOpen, ClipboardCheck } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -9,9 +9,8 @@ import { ClauseIcon } from "./icons/ClauseIcon";
 
 const lawDeptNavigation = [
   { name: "Home", href: "/law/home", icon: Home, badge: undefined },
-  { name: "New Matter", href: "/law/new", icon: Scale, badge: undefined },
-  { name: "Change Requests", href: "/law/requests", icon: Inbox, badge: 3 },
-  { name: "Learning Center", href: "/law/dashboard", icon: BarChart3, badge: undefined },
+  { name: "Active Matters", href: "/law/matters", icon: FolderOpen, badge: undefined },
+  { name: "Matter Review", href: "/law/review", icon: ClipboardCheck, badge: 3 },
 ];
 
 const adminNavigation = [
@@ -30,45 +29,62 @@ const playLibraryItems = [
   { name: "Play Library", href: "/admin/workstream-types", icon: PlaybookIcon },
   { name: "Approval Routes", href: "/play-library/approval-templates", icon: Check },
 ];
+
 export function LawSidebar() {
-  const {
-    state
-  } = useSidebar();
+  const { state } = useSidebar();
   const location = useLocation();
-  const {
-    role
-  } = useAuth();
+  const { role } = useAuth();
   const isCollapsed = state === "collapsed";
 
   // Admin roles that can see the Workstreams section
   const isAdmin = role === "general_counsel" || role === "legal_ops";
-  return <Sidebar className="w-60 border-r-0 bg-sidebar text-sidebar-foreground" collapsible="icon">
+
+  return (
+    <Sidebar className="w-60 border-r-0 bg-sidebar text-sidebar-foreground" collapsible="icon">
       <SidebarContent className="bg-sidebar">
         {/* Logo */}
         <div className="p-4 border-b border-sidebar-border">
-          <img src={logo} alt="Playbook" className={`h-8 w-auto ${isCollapsed ? "mx-auto" : ""}`} style={{
-          filter: "brightness(0) invert(1)"
-        }} />
+          <img 
+            src={logo} 
+            alt="Playbook" 
+            className={`h-8 w-auto ${isCollapsed ? "mx-auto" : ""}`} 
+            style={{ filter: "brightness(0) invert(1)" }} 
+          />
         </div>
         
         <SidebarGroup>
-          {!isCollapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">LAW DEPARTMENT</SidebarGroupLabel>}
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
+              LAW DEPARTMENT
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2 py-2">
               {lawDeptNavigation.map(item => {
-              const isActive = location.pathname.startsWith(item.href);
-              return <SidebarMenuItem key={item.name}>
+                const isActive = location.pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild>
-                      <NavLink to={item.href} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+                      <NavLink 
+                        to={item.href} 
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                          isActive 
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground" 
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        }`}
+                      >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && <span className="flex-1 text-sm">{item.name}</span>}
-                        {!isCollapsed && item.badge && <span className="bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full">
+                        {!isCollapsed && item.badge && (
+                          <span className="bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full">
                             {item.badge}
-                          </span>}
+                          </span>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
-                  </SidebarMenuItem>;
-            })}
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -129,25 +145,37 @@ export function LawSidebar() {
 
         {/* Admin section at bottom */}
         <SidebarGroup className="mt-auto">
-          {!isCollapsed && <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-muted text-xs uppercase tracking-wider px-4 py-2">
               Admin
-            </SidebarGroupLabel>}
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2 py-2">
               {adminNavigation.map(item => {
-              const isActive = location.pathname.startsWith(item.href);
-              return <SidebarMenuItem key={item.name}>
+                const isActive = location.pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton asChild>
-                      <NavLink to={item.href} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}>
+                      <NavLink 
+                        to={item.href} 
+                        className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                          isActive 
+                            ? "bg-sidebar-primary text-sidebar-primary-foreground" 
+                            : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        }`}
+                      >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
                         {!isCollapsed && <span className="flex-1 text-sm">{item.name}</span>}
                       </NavLink>
                     </SidebarMenuButton>
-                  </SidebarMenuItem>;
-            })}
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar>;
+    </Sidebar>
+  );
 }

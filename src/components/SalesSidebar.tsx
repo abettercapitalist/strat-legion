@@ -1,4 +1,4 @@
-import { Handshake, ClipboardList, Settings, BookOpen, Home, Users, Target, Briefcase } from "lucide-react";
+import { Settings, BookOpen, Home, Users, Target, FolderOpen, ClipboardCheck } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -22,16 +22,16 @@ const navigation = [
     badge: undefined,
   },
   { 
-    name: "New Deal", 
-    href: "/sales/new", 
-    icon: Briefcase,
+    name: "Active Deals", 
+    href: "/sales/deals", 
+    icon: FolderOpen,
     badge: undefined,
   },
   { 
-    name: "My Deals", 
-    href: "/sales/deals", 
-    icon: Handshake,
-    badge: undefined,
+    name: "Deal Review", 
+    href: "/sales/review", 
+    icon: ClipboardCheck,
+    badge: 2,
   },
   { 
     name: "My Customers", 
@@ -44,12 +44,6 @@ const navigation = [
     href: "/sales/targets", 
     icon: Target,
     badge: undefined,
-  },
-  { 
-    name: "Approvals", 
-    href: "/sales/approvals", 
-    icon: ClipboardList,
-    badge: 2,
   },
   { 
     name: "Response Library", 
