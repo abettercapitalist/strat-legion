@@ -133,7 +133,7 @@ export default function DealReview() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Deal Review</h1>
+          <h1 className="text-2xl font-semibold">Performance Review</h1>
           <p className="text-muted-foreground">
             Analyze patterns, track performance, and identify improvements
           </p>

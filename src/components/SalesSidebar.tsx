@@ -28,7 +28,7 @@ const navigation = [
     badge: undefined,
   },
   { 
-    name: "Deal Review", 
+    name: "Performance Review", 
     href: "/sales/review", 
     icon: ClipboardCheck,
     badge: 2,
