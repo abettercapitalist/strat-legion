@@ -1,265 +1,219 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigate } from "react-router-dom";
-import { ClipboardCheck, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TeamPatternsTab } from "@/components/review/TeamPatternsTab";
+import { MyPerformanceTab } from "@/components/review/MyPerformanceTab";
+import { RecognitionTab } from "@/components/review/RecognitionTab";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
-type ApprovalWithDetails = {
-  id: string;
-  status: string | null;
-  current_gate: number | null;
-  submitted_at: string | null;
-  created_at: string;
-  workstream: {
-    id: string;
-    name: string;
-    business_objective: string | null;
-    counterparty: {
-      name: string;
-    } | null;
-  } | null;
-  approval_template: {
-    name: string;
-    approval_sequence: unknown;
-  } | null;
-};
+// Mock data for Team Patterns
+const mockClosureByType = [
+  { name: "Enterprise SaaS Deal", avgDays: 12.4 },
+  { name: "Mid-Market Deal", avgDays: 6.8 },
+  { name: "Vendor Agreement", avgDays: 9.2 },
+];
+
+const mockClosureByRoute = [
+  { name: "Pre-Deal Approval", avgDays: 1.2 },
+  { name: "Proposal Approval", avgDays: 3.5 },
+  { name: "Closing Approval", avgDays: 2.1 },
+];
+
+const mockApprovalDelays = [
+  { role: "Finance", percentage: 35 },
+  { role: "Legal", percentage: 28 },
+  { role: "VP approval", percentage: 18 },
+];
+
+const mockInsights = [
+  {
+    type: "insight" as const,
+    title: "Payment terms extended to Net 90 in 5 matters",
+    description: "All enterprise customers, all approved within 24hrs",
+    suggestion: "Consider making Net 90 standard for enterprise?",
+  },
+  {
+    type: "insight" as const,
+    title: "Healthcare matters close 40% faster than average",
+    description: "Sarah Johnson approves these 2x faster than team",
+    suggestion: "She's becoming healthcare specialist",
+  },
+  {
+    type: "warning" as const,
+    title: "Repeated Touches: 3 matters viewed 5+ times",
+    description: "Same users checking same matters multiple times",
+    suggestion: "May indicate uncertainty or missing information",
+  },
+];
+
+// Mock data for My Performance
+const mockPersonalMetrics = [
+  { label: "Approvals", value: "23", change: "↑ 15% from last period", trend: "up" as const },
+  { label: "Avg response time", value: "6.2h", change: "↓ 31% faster", trend: "up" as const },
+  { label: "Fastest approval", value: "47min", change: "Globex deal" },
+];
+
+const mockTeamImpact = [
+  { icon: "📚", text: "8 teammates referenced your past decisions" },
+  { icon: "⏱️", text: "Your tagged approvals saved 14 hours of research time" },
+  { icon: "🤖", text: "2 new auto-approval rules created from your patterns" },
+];
+
+// Mock data for Recognition
+const mockCandidates = [
+  {
+    id: "1",
+    name: "Sarah Johnson",
+    type: "top_performer" as const,
+    reason: "Fastest approval time, helped 8 teammates",
+    details: [
+      "Average approval time: 4.2 hours (team avg: 9.8)",
+      "Quality score: 99% (no issues post-approval)",
+      "Helped 8 teammates with complex legal questions",
+    ],
+    isRecognized: false,
+  },
+  {
+    id: "2",
+    name: "John Smith",
+    type: "breakthrough" as const,
+    reason: "First auto-approval rule created",
+    details: [
+      "Created auto-approval rule for standard NDAs",
+      "Rule has processed 12 approvals automatically",
+      "Saved estimated 8 hours of manual review time",
+    ],
+    isRecognized: false,
+  },
+];
 
 export default function MatterReview() {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState("team-patterns");
+  const [timePeriod, setTimePeriod] = useState("30");
+  const { role } = useAuth();
+  const { toast } = useToast();
 
-  const { data: approvals, isLoading } = useQuery({
-    queryKey: ["law-approvals"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workstream_approvals")
-        .select(`
-          id,
-          status,
-          current_gate,
-          submitted_at,
-          created_at,
-          workstream:workstreams(
-            id,
-            name,
-            business_objective,
-            counterparty:counterparties(name)
-          ),
-          approval_template:approval_templates(name, approval_sequence)
-        `)
-        .order("created_at", { ascending: false });
+  // Admin roles that can see the Recognition tab
+  const isManager = role === "general_counsel" || role === "legal_ops" || role === "sales_manager";
 
-      if (error) throw error;
-      return data as unknown as ApprovalWithDetails[];
-    },
-  });
-
-  const pendingApprovals = approvals?.filter(a => a.status === "pending") || [];
-  const completedApprovals = approvals?.filter(a => a.status === "approved") || [];
-  const rejectedApprovals = approvals?.filter(a => a.status === "rejected") || [];
-
-  const getStatusIcon = (status: string | null) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case "approved":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "rejected":
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
-    }
+  const handleReviewDetails = (candidateId: string) => {
+    toast({
+      title: "Review Details",
+      description: "Opening detailed performance report...",
+    });
   };
 
-  const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pending</Badge>;
-      case "approved":
-        return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Approved</Badge>;
-      case "rejected":
-        return <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Rejected</Badge>;
-      default:
-        return <Badge variant="secondary">Unknown</Badge>;
-    }
+  const handleRecognize = (candidateId: string) => {
+    toast({
+      title: "Recognition Recorded",
+      description: "Team member has been recognized. Consider delivering recognition personally!",
+    });
   };
 
-  const renderApprovalCard = (approval: ApprovalWithDetails) => (
-    <Card 
-      key={approval.id}
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={() => approval.workstream && navigate(`/law/matters/${approval.workstream.id}`)}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-base font-medium">
-              {approval.workstream?.name || "Unknown Matter"}
-            </CardTitle>
-            {approval.workstream?.counterparty && (
-              <p className="text-sm text-muted-foreground">
-                {approval.workstream.counterparty.name}
-              </p>
-            )}
-          </div>
-          {getStatusBadge(approval.status)}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-2 text-sm">
-          {getStatusIcon(approval.status)}
-          <span className="text-muted-foreground">
-            {approval.approval_template?.name || "Approval Route"}
-          </span>
-        </div>
-        {approval.submitted_at && (
-          <p className="text-sm text-muted-foreground">
-            Submitted {formatDistanceToNow(new Date(approval.submitted_at), { addSuffix: true })}
-          </p>
-        )}
-        {approval.workstream?.business_objective && (
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {approval.workstream.business_objective}
-          </p>
-        )}
-        <Button variant="outline" size="sm" className="w-full">
-          Review Details
-        </Button>
-      </CardContent>
-    </Card>
-  );
+  const handleDismiss = (candidateId: string) => {
+    toast({
+      title: "Dismissed",
+      description: "Recognition opportunity dismissed for this period.",
+    });
+  };
 
-  const renderEmptyState = (message: string) => (
-    <Card className="p-12 text-center">
-      <ClipboardCheck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-      <h3 className="text-lg font-medium mb-2">{message}</h3>
-      <p className="text-muted-foreground">
-        When matters require your review, they will appear here.
-      </p>
-    </Card>
-  );
+  const getTimePeriodLabel = (days: string) => {
+    switch (days) {
+      case "7": return "Last 7 Days";
+      case "30": return "Last 30 Days";
+      case "90": return "Last 90 Days";
+      default: return "Last 30 Days";
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold">Matter Review</h1>
-        <p className="text-muted-foreground">
-          Review and approve pending matters
-        </p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pending Review
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-yellow-500" />
-              <span className="text-2xl font-bold">{pendingApprovals.length}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Approved This Week
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span className="text-2xl font-bold">{completedApprovals.length}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Rejected
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              <span className="text-2xl font-bold">{rejectedApprovals.length}</span>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Matter Review</h1>
+          <p className="text-muted-foreground">
+            Analyze patterns, track performance, and identify improvements
+          </p>
+        </div>
+        <Select value={timePeriod} onValueChange={setTimePeriod}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Time period" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Last 7 Days</SelectItem>
+            <SelectItem value="30">Last 30 Days</SelectItem>
+            <SelectItem value="90">Last 90 Days</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="pending" className="gap-2">
-            Pending
-            {pendingApprovals.length > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {pendingApprovals.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+          <TabsTrigger value="team-patterns">Team Patterns</TabsTrigger>
+          <TabsTrigger value="my-performance">My Performance</TabsTrigger>
+          {isManager && <TabsTrigger value="recognition">Recognition</TabsTrigger>}
         </TabsList>
 
-        {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-6">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-8 w-full" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <>
-            <TabsContent value="pending" className="mt-6">
-              {pendingApprovals.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {pendingApprovals.map(renderApprovalCard)}
-                </div>
-              ) : (
-                renderEmptyState("No pending reviews")
-              )}
-            </TabsContent>
+        <TabsContent value="team-patterns" className="mt-6">
+          <TeamPatternsTab
+            timePeriod={getTimePeriodLabel(timePeriod)}
+            moduleLabel="Matter"
+            closureByType={mockClosureByType}
+            closureByRoute={mockClosureByRoute}
+            avgApprovalTime={18.5}
+            firstTimeApprovalRate={78}
+            approvalDelays={mockApprovalDelays}
+            insights={mockInsights}
+          />
+        </TabsContent>
 
-            <TabsContent value="approved" className="mt-6">
-              {completedApprovals.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {completedApprovals.map(renderApprovalCard)}
-                </div>
-              ) : (
-                renderEmptyState("No approved matters yet")
-              )}
-            </TabsContent>
+        <TabsContent value="my-performance" className="mt-6">
+          <MyPerformanceTab
+            timePeriod={getTimePeriodLabel(timePeriod)}
+            personalMetrics={mockPersonalMetrics}
+            speedComparison={{
+              yourSpeed: 6.2,
+              teamAverage: 9.8,
+              percentile: 15,
+            }}
+            qualityComparison={{
+              yourQuality: 98,
+              teamAverage: 94,
+              percentile: 20,
+            }}
+            teamImpact={mockTeamImpact}
+            topInsight={{
+              text: "Established customers with payment history >2 years are low-risk for Net 90 terms",
+              usageCount: 6,
+            }}
+            teamStats={{
+              avgApprovalTime: 9.8,
+              previousAvgTime: 11.2,
+              autoApprovalRate: 23,
+              previousAutoRate: 18,
+              teamHelps: 47,
+            }}
+          />
+        </TabsContent>
 
-            <TabsContent value="rejected" className="mt-6">
-              {rejectedApprovals.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {rejectedApprovals.map(renderApprovalCard)}
-                </div>
-              ) : (
-                renderEmptyState("No rejected matters")
-              )}
-            </TabsContent>
-          </>
+        {isManager && (
+          <TabsContent value="recognition" className="mt-6">
+            <RecognitionTab
+              currentMonth="December 2025"
+              candidates={mockCandidates}
+              recognitionStats={{
+                targetPerMonth: "2-3 per month",
+                recognizedLast3Months: 7,
+                dismissedLast3Months: 4,
+              }}
+              onReviewDetails={handleReviewDetails}
+              onRecognize={handleRecognize}
+              onDismiss={handleDismiss}
+            />
+          </TabsContent>
         )}
       </Tabs>
     </div>
