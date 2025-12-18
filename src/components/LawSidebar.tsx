@@ -10,7 +10,7 @@ import { ClauseIcon } from "./icons/ClauseIcon";
 const lawDeptNavigation = [
   { name: "Home", href: "/law/home", icon: Home, badge: undefined },
   { name: "Active Matters", href: "/law/matters", icon: FolderOpen, badge: undefined },
-  { name: "Matter Review", href: "/law/review", icon: ClipboardCheck, badge: 3 },
+  { name: "Performance Review", href: "/law/review", icon: ClipboardCheck, badge: 3 },
 ];
 
 const adminNavigation = [
