@@ -27,6 +27,7 @@ import LawResponseLibrary from "./pages/law/ResponseLibrary";
 // Shared Pages
 import SelectPlay from "./pages/SelectPlay";
 import CreateWorkstream from "./pages/CreateWorkstream";
+import WorkstreamDetail from "./pages/WorkstreamDetail";
 
 // Admin Module Pages
 import WorkstreamTypes from "./pages/admin/WorkstreamTypes";
@@ -66,7 +67,7 @@ const App = () => (
               <Route path="new" element={<SelectPlay />} />
               <Route path="new/:playId" element={<CreateWorkstream />} />
               <Route path="matters" element={<LawActiveMatters />} />
-              <Route path="matters/:id" element={<div className="p-6">Matter Detail - Coming Soon</div>} />
+              <Route path="matters/:id" element={<WorkstreamDetail module="law" />} />
               <Route path="review" element={<LawMatterReview />} />
               <Route path="templates" element={<LawTemplates />} />
               <Route path="templates/new" element={<LawCreateTemplate />} />
@@ -101,7 +102,7 @@ const App = () => (
               <Route path="new/:playId" element={<CreateWorkstream />} />
               <Route path="deals" element={<SalesDeals />} />
               <Route path="deals/new" element={<CreateDeal />} />
-              <Route path="deals/:id" element={<DealDetail />} />
+              <Route path=":id" element={<WorkstreamDetail module="sales" />} />
               <Route path="review" element={<DealReview />} />
               <Route path="customers" element={<SalesCustomers />} />
               <Route path="targets" element={<SalesTargets />} />
