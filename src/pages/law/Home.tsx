@@ -1,11 +1,18 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Library, Inbox, Clock, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { FileText, Library, Inbox, Clock, AlertCircle, CheckCircle2, ArrowRight, Plus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { FlowVisibilityWidgets } from "@/components/home/FlowVisibilityWidgets";
-import { WorkloadBalance } from "@/components/home/WorkloadBalance";
 import { useFlowVisibility } from "@/hooks/useFlowVisibility";
+import { useTheme } from "@/contexts/ThemeContext";
+import { 
+  MetricRing, 
+  SummaryCard, 
+  ActionCard, 
+  StatusBadge, 
+  VisualBreakdown,
+  WorkloadHistoryMini 
+} from "@/components/dashboard";
 
 // Mock data for tasks and reminders
 const pendingChangeRequests = [
@@ -20,8 +27,8 @@ const draftTemplates = [
 ];
 
 const clausesNeedingReview = [
-  { id: 1, name: "Limitation of Liability", reason: "Low success rate (42%)", priority: "high" },
-  { id: 2, name: "Indemnification", reason: "Frequently negotiated", priority: "medium" },
+  { id: 1, name: "Limitation of Liability", reason: "Low success rate (42%)", priority: "high" as const },
+  { id: 2, name: "Indemnification", reason: "Frequently negotiated", priority: "medium" as const },
 ];
 
 const recentActivity = [
@@ -30,88 +37,138 @@ const recentActivity = [
   { id: 3, action: "Clause created", item: "Data Processing Addendum", time: "Yesterday", icon: FileText },
 ];
 
+// Mock workload history data (last 30 days)
+const workloadHistory = [
+  { date: "Nov 18", userLoad: 45, teamLoad: 52 },
+  { date: "Nov 19", userLoad: 52, teamLoad: 55 },
+  { date: "Nov 20", userLoad: 48, teamLoad: 51 },
+  { date: "Nov 21", userLoad: 55, teamLoad: 54 },
+  { date: "Nov 22", userLoad: 62, teamLoad: 58 },
+  { date: "Nov 23", userLoad: 58, teamLoad: 56 },
+  { date: "Nov 24", userLoad: 45, teamLoad: 48 },
+  { date: "Nov 25", userLoad: 42, teamLoad: 50 },
+  { date: "Nov 26", userLoad: 65, teamLoad: 55 },
+  { date: "Nov 27", userLoad: 70, teamLoad: 60 },
+  { date: "Nov 28", userLoad: 68, teamLoad: 62 },
+  { date: "Nov 29", userLoad: 72, teamLoad: 65 },
+  { date: "Nov 30", userLoad: 65, teamLoad: 63 },
+  { date: "Dec 1", userLoad: 58, teamLoad: 60 },
+  { date: "Dec 2", userLoad: 55, teamLoad: 58 },
+  { date: "Dec 3", userLoad: 60, teamLoad: 55 },
+];
+
+// Mock pipeline distribution
+const pipelineDistribution = [
+  { label: "Draft", value: 3, color: "hsl(var(--stage-draft))" },
+  { label: "Negotiation", value: 5, color: "hsl(var(--stage-negotiation))" },
+  { label: "Approval", value: 2, color: "hsl(var(--stage-approval))" },
+  { label: "Signature", value: 1, color: "hsl(var(--stage-signature))" },
+];
+
 export default function LawHome() {
   const { waitingOnMe, waitingOnOthers, atRiskItems, userLoad, teamAverage, isLoading } = useFlowVisibility("law");
+  const { labels } = useTheme();
 
+  // Calculate engagement percentage (mock: based on completed vs pending)
+  const engagementScore = 72;
+  
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Home</h1>
-        <p className="text-muted-foreground mt-1">Your daily overview and pending tasks</p>
+      {/* Three-Part Hero Section */}
+      <div className="grid grid-cols-12 gap-6 items-stretch">
+        {/* Left: MetricRing (25%) */}
+        <div className="col-span-12 md:col-span-3 flex items-center justify-center">
+          <MetricRing 
+            value={engagementScore} 
+            max={100} 
+            label={labels.engagement}
+            sublabel="This month"
+            size="lg"
+            showValue
+          />
+        </div>
+
+        <div className="col-span-12 md:col-span-6 flex flex-col justify-center">
+          <Card className="border-0 shadow-none bg-transparent">
+            <CardContent className="p-0 space-y-4">
+              <div>
+                <h1 className="text-3xl font-semibold text-foreground">
+                  Good morning
+                </h1>
+                <p className="text-lg text-muted-foreground mt-2">
+                  You have <span className="font-semibold text-foreground">{waitingOnMe.length}</span> items waiting for your action
+                  {atRiskItems.length > 0 && (
+                    <span>, including <span className="text-destructive font-semibold">{atRiskItems.length} at risk</span></span>
+                  )}
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <NavLink to="/law/new">
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    New {labels.workstream}
+                  </Button>
+                </NavLink>
+                <NavLink to="/law/matters">
+                  <Button variant="outline">
+                    View Active {labels.matters}
+                  </Button>
+                </NavLink>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: WorkloadHistoryMini (30%) */}
+        <div className="col-span-12 md:col-span-3">
+          <WorkloadHistoryMini 
+            data={workloadHistory} 
+            title="30-Day Workload"
+          />
+        </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Flow Visibility - Compact Status Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Pending Requests</p>
-                <p className="text-3xl font-semibold text-foreground">3</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                <Inbox className="h-6 w-6 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Draft Templates</p>
-                <p className="text-3xl font-semibold text-foreground">2</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-warning" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Templates</p>
-                <p className="text-3xl font-semibold text-foreground">12</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Clauses in Library</p>
-                <p className="text-3xl font-semibold text-foreground">47</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-secondary/50 flex items-center justify-center">
-                <Library className="h-6 w-6 text-muted-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Flow Visibility Section */}
-      <div className="space-y-2">
-        <h2 className="text-lg font-medium text-foreground">Flow Visibility</h2>
-        <FlowVisibilityWidgets
-          modulePrefix="law"
-          waitingOnMe={waitingOnMe}
-          waitingOnOthers={waitingOnOthers}
-          atRiskItems={atRiskItems}
+        <SummaryCard
+          title="Waiting on Me"
+          value={waitingOnMe.length}
+          trend={{ value: "+2", direction: "up" }}
         />
+        <SummaryCard
+          title="Waiting on Others"
+          value={waitingOnOthers.length}
+        />
+        <SummaryCard
+          title="At Risk"
+          value={atRiskItems.length}
+        />
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground mb-2">Pipeline Distribution</p>
+            <VisualBreakdown segments={pipelineDistribution} />
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Workload Balance */}
-      <WorkloadBalance userLoad={userLoad} teamAverage={teamAverage} />
+      {/* Priority Actions Section */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Priority Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {pendingChangeRequests.slice(0, 3).map((request) => (
+            <ActionCard
+              key={request.id}
+              title={request.template}
+              subtitle={`${request.type} • ${request.requestedBy}`}
+              urgency={request.id === 1 ? "high" : "medium"}
+              actionLabel="Review"
+              metadata={request.date}
+              onAction={() => console.log("Navigate to request", request.id)}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -126,7 +183,10 @@ export default function LawHome() {
                 </CardTitle>
                 <CardDescription>Requests awaiting your review</CardDescription>
               </div>
-              <Badge variant="destructive">{pendingChangeRequests.length}</Badge>
+              <StatusBadge 
+                status="warning" 
+                label={String(pendingChangeRequests.length)} 
+              />
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -134,10 +194,10 @@ export default function LawHome() {
               <div key={request.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                 <div>
                   <p className="font-medium text-sm">{request.template}</p>
-                  <p className="text-xs text-muted-foreground">{request.type} • {request.requestedBy}</p>
+                  <p className="text-sm text-muted-foreground">{request.type} • {request.requestedBy}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{request.date}</span>
+                  <span className="text-sm text-muted-foreground">{request.date}</span>
                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
@@ -161,7 +221,10 @@ export default function LawHome() {
                 </CardTitle>
                 <CardDescription>Unfinished templates in progress</CardDescription>
               </div>
-              <Badge variant="secondary">{draftTemplates.length}</Badge>
+              <StatusBadge 
+                status="neutral" 
+                label={String(draftTemplates.length)} 
+              />
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -169,7 +232,7 @@ export default function LawHome() {
               <div key={draft.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                 <div>
                   <p className="font-medium text-sm">{draft.name}</p>
-                  <p className="text-xs text-muted-foreground">Last modified {draft.lastModified}</p>
+                  <p className="text-sm text-muted-foreground">Last modified {draft.lastModified}</p>
                 </div>
                 <Button variant="ghost" size="sm">
                   Continue
@@ -202,11 +265,12 @@ export default function LawHome() {
               <div key={clause.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                 <div>
                   <p className="font-medium text-sm">{clause.name}</p>
-                  <p className="text-xs text-muted-foreground">{clause.reason}</p>
+                  <p className="text-sm text-muted-foreground">{clause.reason}</p>
                 </div>
-                <Badge variant={clause.priority === 'high' ? 'destructive' : 'secondary'}>
-                  {clause.priority}
-                </Badge>
+                <StatusBadge 
+                  status={clause.priority === 'high' ? 'critical' : 'warning'} 
+                  label={clause.priority} 
+                />
               </div>
             ))}
             <NavLink to="/law/dashboard">
@@ -232,9 +296,9 @@ export default function LawHome() {
                 <activity.icon className="h-4 w-4 text-muted-foreground" />
                 <div className="flex-1">
                   <p className="font-medium text-sm">{activity.action}</p>
-                  <p className="text-xs text-muted-foreground">{activity.item}</p>
+                  <p className="text-sm text-muted-foreground">{activity.item}</p>
                 </div>
-                <span className="text-xs text-muted-foreground">{activity.time}</span>
+                <span className="text-sm text-muted-foreground">{activity.time}</span>
               </div>
             ))}
           </CardContent>
