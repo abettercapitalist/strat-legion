@@ -117,8 +117,8 @@ export function useApprovalTemplates(filterActive: boolean = false) {
       setTemplates(parsed);
       setError(null);
     } catch (err) {
-      console.error("Error fetching approval templates:", err);
-      setError("Failed to load approval templates");
+      console.error("Error fetching approval routes:", err);
+      setError("Failed to load approval routes");
     } finally {
       setLoading(false);
     }

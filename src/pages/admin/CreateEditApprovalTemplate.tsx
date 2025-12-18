@@ -64,7 +64,7 @@ export default function CreateEditApprovalTemplate() {
 
         if (error) throw error;
         if (!data) {
-          toast.error("Template not found");
+          toast.error("Approval route not found");
           navigate("/play-library/approval-templates");
           return;
         }
@@ -108,7 +108,7 @@ export default function CreateEditApprovalTemplate() {
         }
       } catch (err) {
         console.error("Error fetching template:", err);
-        toast.error("Failed to load template");
+        toast.error("Failed to load approval route");
       } finally {
         setIsFetching(false);
       }
@@ -208,7 +208,7 @@ export default function CreateEditApprovalTemplate() {
       }
 
       if (data && data.id !== id) {
-        return "An approval template with this name already exists";
+        return "An approval route with this name already exists";
       }
 
       return null;
@@ -386,7 +386,7 @@ export default function CreateEditApprovalTemplate() {
           .eq("id", id);
 
         if (error) throw error;
-        toast.success("Approval template activated successfully");
+        toast.success("Approval route activated successfully");
       } else {
         const { error } = await supabase.from("approval_templates").insert({
           name: name.trim(),
@@ -396,13 +396,13 @@ export default function CreateEditApprovalTemplate() {
         });
 
         if (error) throw error;
-        toast.success("Approval template activated successfully");
+        toast.success("Approval route activated successfully");
       }
 
       navigate("/play-library/approval-templates");
     } catch (err) {
       console.error("Error activating template:", err);
-      toast.error("Failed to activate template");
+      toast.error("Failed to activate approval route");
     } finally {
       setIsSaving(false);
     }
@@ -427,13 +427,13 @@ export default function CreateEditApprovalTemplate() {
           onClick={() => navigate("/play-library/approval-templates")}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Approval Templates
+          Back to Approval Routes
         </Button>
 
         {/* Header */}
         <div className="mb-12">
           <h1 className="text-2xl font-semibold text-foreground">
-            {isEditing ? "Edit Approval Template" : "Create Approval Template"}
+            {isEditing ? "Edit Approval Route" : "Create Approval Route"}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isEditing

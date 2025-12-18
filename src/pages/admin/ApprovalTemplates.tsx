@@ -110,11 +110,11 @@ export default function ApprovalTemplates() {
 
       if (updateError) throw updateError;
 
-      toast.success(`Approval template ${action}`);
+      toast.success(`Approval route ${action}`);
       refetch();
     } catch (err) {
       console.error("Error archiving template:", err);
-      toast.error("Failed to update template");
+      toast.error("Failed to update approval route");
     }
   };
 
@@ -128,7 +128,7 @@ export default function ApprovalTemplates() {
 
       if (fetchError) throw fetchError;
       if (!data) {
-        toast.error("Template not found");
+        toast.error("Approval route not found");
         return;
       }
 
@@ -144,11 +144,11 @@ export default function ApprovalTemplates() {
 
       if (insertError) throw insertError;
 
-      toast.success("Approval template duplicated");
+      toast.success("Approval route duplicated");
       refetch();
     } catch (err) {
       console.error("Error duplicating template:", err);
-      toast.error("Failed to duplicate template");
+      toast.error("Failed to duplicate approval route");
     }
   };
 
@@ -158,7 +158,7 @@ export default function ApprovalTemplates() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">
-            Approval Templates
+            Approval Routes
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Define approval workflows for your business processes
@@ -166,7 +166,7 @@ export default function ApprovalTemplates() {
         </div>
         <Button onClick={() => navigate("/play-library/approval-templates/new")}>
           <Plus className="h-4 w-4 mr-2" />
-          Create Approval Template
+          Create Approval Route
         </Button>
       </div>
 
@@ -208,11 +208,11 @@ export default function ApprovalTemplates() {
         <div className="text-center py-12 text-destructive">{error}</div>
       ) : filteredAndSortedTemplates.length === 0 && templates.length === 0 ? (
         <div className="text-center py-16 border rounded-lg bg-muted/30">
-          <p className="text-lg font-medium text-foreground mb-2">No approval templates yet</p>
+          <p className="text-lg font-medium text-foreground mb-2">No approval routes yet</p>
           <p className="text-muted-foreground mb-6">Create your first approval workflow</p>
           <Button onClick={() => navigate("/play-library/approval-templates/new")}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Approval Template
+            Create Approval Route
           </Button>
         </div>
       ) : filteredAndSortedTemplates.length === 0 ? (
