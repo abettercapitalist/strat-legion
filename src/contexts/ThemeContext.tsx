@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type SportsTheme = "baseball" | "basketball" | "football" | "soccer" | "hockey" | "golf";
+export type SportsTheme = "none" | "baseball" | "basketball" | "football" | "soccer" | "hockey" | "golf";
 
 interface ThemeLabels {
   // General labels
@@ -33,6 +33,26 @@ interface ThemeLabels {
 }
 
 const themeLabels: Record<SportsTheme, ThemeLabels> = {
+  none: {
+    workstream: "Workstream",
+    workstreams: "Workstreams",
+    deal: "Deal",
+    deals: "Deals",
+    matter: "Matter",
+    matters: "Matters",
+    stageNames: {
+      draft: "Draft",
+      negotiation: "Negotiation",
+      approval: "Approval",
+      signature: "Signature",
+      closed: "Closed",
+    },
+    actionVerb: "Start",
+    performanceReview: "Performance Review",
+    engagement: "Engagement",
+    atBats: "Opportunities",
+    hits: "Wins",
+  },
   baseball: {
     workstream: "Play",
     workstreams: "Plays",
@@ -166,7 +186,7 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [sportsTheme, setSportsThemeState] = useState<SportsTheme>("baseball");
+  const [sportsTheme, setSportsThemeState] = useState<SportsTheme>("none");
   const [isLoading, setIsLoading] = useState(true);
 
   // Load theme from database on mount
