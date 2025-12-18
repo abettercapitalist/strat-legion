@@ -27,6 +27,7 @@ import { WorkstreamWizardProvider, useWorkstreamWizard } from "@/contexts/Workst
 import { WizardProgress } from "@/components/wizard/WizardProgress";
 import { CounterpartyStep } from "@/components/wizard/CounterpartyStep";
 import { ObjectiveStep } from "@/components/wizard/ObjectiveStep";
+import { OptionsStep } from "@/components/wizard/OptionsStep";
 
 // Module configuration
 const moduleConfig: Record<string, { displayName: string; itemName: string }> = {
@@ -67,11 +68,7 @@ function WizardContent({ module, playName }: { module: string; playName: string 
       case 2:
         return <ObjectiveStep module={module} displayName={config.itemName} />;
       case 3:
-        return (
-          <div className="text-center py-16 text-muted-foreground">
-            Options Step - Coming Soon
-          </div>
-        );
+        return <OptionsStep playId={state.play_id} displayName={config.itemName} />;
       case 4:
         return (
           <div className="text-center py-16 text-muted-foreground">
