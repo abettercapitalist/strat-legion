@@ -92,7 +92,7 @@ export default function MyDeals() {
   
   const { data: dealsData, isLoading: isLoadingDeals } = useDeals();
   const { data: approvalTasks = [], isLoading: isLoadingApprovals } = usePendingApprovals();
-  const { activeFilter, setFilter, clearFilter, filterLabel, userRole } = useNeedsFilter();
+  const { activeFilter, setFilter, clearFilter, filterLabel, userRole, teamRoleFilter, setTeamRoleFilter } = useNeedsFilter();
 
   // Fetch needs for filtering
   const { data: needs, isLoading: isLoadingNeeds } = useQuery({
@@ -168,6 +168,11 @@ export default function MyDeals() {
     } else if (activeFilter === "team-queue") {
       return deals.filter(deal => {
         const dealNeeds = workstreamNeedsMap.get(deal.id) || [];
+        // If a specific role is selected, filter to just that role
+        if (teamRoleFilter) {
+          return dealNeeds.some(n => n.satisfier_role === teamRoleFilter);
+        }
+        // Otherwise, show all team roles except the current user's role
         return dealNeeds.some(n => 
           n.satisfier_role && 
           teamRoles.includes(n.satisfier_role) && 
@@ -185,7 +190,7 @@ export default function MyDeals() {
     }
 
     return deals;
-  }, [deals, needs, activeFilter, userRole]);
+  }, [deals, needs, activeFilter, userRole, teamRoleFilter]);
 
   // Recalculate pipeline stages based on filtered deals
   const filteredPipelineStages = useMemo(() => {
@@ -245,6 +250,8 @@ export default function MyDeals() {
         filterLabel={filterLabel}
         onClearFilter={clearFilter}
         onSetFilter={setFilter}
+        teamRoleFilter={teamRoleFilter}
+        onClearTeamRoleFilter={() => setTeamRoleFilter(null)}
         counts={filterCounts}
       />
 

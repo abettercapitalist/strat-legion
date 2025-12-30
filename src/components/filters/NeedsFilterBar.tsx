@@ -8,6 +8,8 @@ interface NeedsFilterBarProps {
   filterLabel: string | null;
   onClearFilter: () => void;
   onSetFilter: (filter: NeedsFilterType) => void;
+  teamRoleFilter?: string | null;
+  onClearTeamRoleFilter?: () => void;
   counts?: {
     myNeeds?: number;
     teamQueue?: number;
@@ -20,6 +22,8 @@ export function NeedsFilterBar({
   filterLabel,
   onClearFilter,
   onSetFilter,
+  teamRoleFilter,
+  onClearTeamRoleFilter,
   counts,
 }: NeedsFilterBarProps) {
   const filters: { key: NeedsFilterType; label: string; icon: React.ElementType }[] = [
@@ -28,6 +32,14 @@ export function NeedsFilterBar({
     { key: "team-queue", label: "Team Queue", icon: Users },
     { key: "waiting-for", label: "Waiting For", icon: Clock },
   ];
+
+  const handleClear = () => {
+    if (teamRoleFilter && onClearTeamRoleFilter) {
+      onClearTeamRoleFilter();
+    } else {
+      onClearFilter();
+    }
+  };
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -71,13 +83,13 @@ export function NeedsFilterBar({
       {filterLabel && activeFilter !== "all" && (
         <Badge 
           variant="outline" 
-          className="bg-primary/10 text-primary border-primary/20 pl-2 pr-1 py-1 gap-1"
+          className="bg-primary/10 text-primary border-primary/20 pl-2 pr-1 py-1 gap-1 capitalize"
         >
           Showing: {filterLabel}
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClearFilter}
+            onClick={handleClear}
             className="h-4 w-4 p-0 hover:bg-primary/20 rounded-full ml-1"
           >
             <X className="h-3 w-3" />

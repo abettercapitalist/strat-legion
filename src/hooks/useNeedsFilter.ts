@@ -12,6 +12,8 @@ export interface NeedsFilterState {
   filterLabel: string | null;
   userRole: AppRole | null;
   satisfierRoleForFilter: string | null;
+  teamRoleFilter: string | null;
+  setTeamRoleFilter: (role: string | null) => void;
 }
 
 // Team roles that are "your team" for each user role
@@ -36,12 +38,32 @@ export function useNeedsFilter(): NeedsFilterState {
     return "all";
   }, [searchParams]);
 
+  const teamRoleFilter = useMemo(() => {
+    return searchParams.get("teamRole");
+  }, [searchParams]);
+
   const setFilter = useCallback((filter: NeedsFilterType) => {
     const newParams = new URLSearchParams(searchParams);
     if (filter === "all") {
       newParams.delete("filter");
+      newParams.delete("teamRole");
     } else {
       newParams.set("filter", filter);
+      // Clear team role filter when switching away from team-queue
+      if (filter !== "team-queue") {
+        newParams.delete("teamRole");
+      }
+    }
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const setTeamRoleFilter = useCallback((teamRole: string | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (teamRole) {
+      newParams.set("filter", "team-queue");
+      newParams.set("teamRole", teamRole);
+    } else {
+      newParams.delete("teamRole");
     }
     setSearchParams(newParams, { replace: true });
   }, [searchParams, setSearchParams]);
@@ -49,10 +71,14 @@ export function useNeedsFilter(): NeedsFilterState {
   const clearFilter = useCallback(() => {
     const newParams = new URLSearchParams(searchParams);
     newParams.delete("filter");
+    newParams.delete("teamRole");
     setSearchParams(newParams, { replace: true });
   }, [searchParams, setSearchParams]);
 
   const filterLabel = useMemo(() => {
+    if (teamRoleFilter) {
+      return `Team Queue: ${teamRoleFilter.replace(/_/g, " ")}`;
+    }
     switch (activeFilter) {
       case "my-needs":
         return "My Actions";
@@ -63,7 +89,7 @@ export function useNeedsFilter(): NeedsFilterState {
       default:
         return null;
     }
-  }, [activeFilter]);
+  }, [activeFilter, teamRoleFilter]);
 
   // Database roles already match satisfier_role values
   const satisfierRoleForFilter = useMemo(() => {
@@ -77,6 +103,8 @@ export function useNeedsFilter(): NeedsFilterState {
     filterLabel,
     userRole: role as AppRole | null,
     satisfierRoleForFilter,
+    teamRoleFilter,
+    setTeamRoleFilter,
   };
 }
 
