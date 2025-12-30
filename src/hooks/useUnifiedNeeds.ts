@@ -45,6 +45,8 @@ export interface UnifiedNeedsData {
   teamQueue: TeamLaneData;
   waitingFor: LaneData;
   isLoading: boolean;
+  isRefreshing: boolean;
+  lastUpdated: Date | null;
 }
 
 export interface NeedTypeBreakdown {
@@ -125,9 +127,16 @@ export function useUnifiedNeeds(
     teamQueue: { groups: [], totalCount: 0, overdueCount: 0, healthPercentage: 100 },
     waitingFor: { items: [], totalCount: 0, overdueCount: 0, healthPercentage: 100 },
     isLoading: true,
+    isRefreshing: false,
+    lastUpdated: null,
   });
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const fetchUnifiedNeeds = useCallback(async () => {
+  const fetchUnifiedNeeds = useCallback(async (isRefresh: boolean = false) => {
+    // Set refreshing state for non-initial loads
+    if (isRefresh) {
+      setData(prev => ({ ...prev, isRefreshing: true }));
+    }
     try {
       // Fetch needs assigned to my role
       const { data: myNeedsRaw } = await supabase
@@ -283,15 +292,18 @@ export function useUnifiedNeeds(
           healthPercentage: calculateHealthPercentage(waitingNeeds.length, waitingOverdueCount),
         },
         isLoading: false,
+        isRefreshing: false,
+        lastUpdated: new Date(),
       });
+      setIsInitialLoad(false);
     } catch (error) {
       console.error("Error fetching unified needs:", error);
-      setData(prev => ({ ...prev, isLoading: false }));
+      setData(prev => ({ ...prev, isLoading: false, isRefreshing: false }));
     }
   }, [userRole, teamRoles]);
 
   useEffect(() => {
-    fetchUnifiedNeeds();
+    fetchUnifiedNeeds(false);
 
     // Set up realtime subscription for live updates
     const channel: RealtimeChannel = supabase
@@ -304,8 +316,8 @@ export function useUnifiedNeeds(
           table: 'needs',
         },
         () => {
-          // Refetch when any need changes
-          fetchUnifiedNeeds();
+          // Refetch when any need changes (mark as refresh)
+          fetchUnifiedNeeds(true);
         }
       )
       .subscribe();
