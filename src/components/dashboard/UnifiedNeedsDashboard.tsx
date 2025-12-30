@@ -154,7 +154,7 @@ export function UnifiedNeedsDashboard({
             overdueCount={teamQueue.overdueCount}
             icon={Users}
             clickable={true}
-            onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=team-needs`)}
+            onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=team-queue`)}
           />
 
           {/* Grouped by role */}
@@ -167,7 +167,7 @@ export function UnifiedNeedsDashboard({
               teamQueue.groups.slice(0, 5).map((group) => (
                 <button
                   key={group.role}
-                  onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=role-${group.role}`)}
+                  onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=team-queue`)}
                   className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center justify-between">
@@ -203,7 +203,7 @@ export function UnifiedNeedsDashboard({
 
           {/* View all link */}
           {teamQueue.groups.length > 5 && (
-            <Link to={`/${modulePrefix}/${mattersPath}?filter=team-needs`}>
+            <Link to={`/${modulePrefix}/${mattersPath}?filter=team-queue`}>
               <Button variant="ghost" size="sm" className="w-full justify-between mt-3">
                 View All ({teamQueue.totalCount})
                 <ArrowRight className="h-4 w-4" />
