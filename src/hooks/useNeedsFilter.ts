@@ -1,7 +1,8 @@
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useCallback, useMemo } from "react";
-import { useUser, type UserRole } from "@/contexts/UserContext";
+import { useAuth } from "@/contexts/AuthContext";
 
+export type AppRole = 'general_counsel' | 'legal_ops' | 'contract_counsel' | 'account_executive' | 'sales_manager' | 'finance_reviewer';
 export type NeedsFilterType = "all" | "my-needs" | "team-queue" | "waiting-for";
 
 export interface NeedsFilterState {
@@ -9,32 +10,23 @@ export interface NeedsFilterState {
   setFilter: (filter: NeedsFilterType) => void;
   clearFilter: () => void;
   filterLabel: string | null;
-  userRole: UserRole | null;
+  userRole: AppRole | null;
   satisfierRoleForFilter: string | null;
 }
 
-// Map user roles to satisfier_role values used in the needs table
-const roleToSatisfierRole: Record<UserRole, string> = {
-  law: "contract_counsel",
-  "legal-ops": "legal_ops",
-  sales: "account_executive",
-  manager: "sales_manager",
-  finance: "finance_reviewer",
-};
-
 // Team roles that are "your team" for each user role
-const teamRolesForUser: Record<UserRole, string[]> = {
-  law: ["contract_counsel", "legal_ops", "general_counsel"],
-  "legal-ops": ["contract_counsel", "legal_ops", "general_counsel"],
-  sales: ["account_executive", "sales_manager"],
-  manager: ["account_executive", "sales_manager"],
-  finance: ["finance_reviewer"],
+const teamRolesForRole: Record<AppRole, string[]> = {
+  general_counsel: ["contract_counsel", "legal_ops", "general_counsel"],
+  legal_ops: ["contract_counsel", "legal_ops", "general_counsel"],
+  contract_counsel: ["contract_counsel", "legal_ops", "general_counsel"],
+  account_executive: ["account_executive", "sales_manager"],
+  sales_manager: ["account_executive", "sales_manager"],
+  finance_reviewer: ["finance_reviewer"],
 };
 
 export function useNeedsFilter(): NeedsFilterState {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { user } = useUser();
+  const { role } = useAuth();
 
   const activeFilter = useMemo(() => {
     const filterParam = searchParams.get("filter");
@@ -73,27 +65,27 @@ export function useNeedsFilter(): NeedsFilterState {
     }
   }, [activeFilter]);
 
+  // Database roles already match satisfier_role values
   const satisfierRoleForFilter = useMemo(() => {
-    if (!user) return null;
-    return roleToSatisfierRole[user.role] || null;
-  }, [user]);
+    return role || null;
+  }, [role]);
 
   return {
     activeFilter,
     setFilter,
     clearFilter,
     filterLabel,
-    userRole: user?.role || null,
+    userRole: role as AppRole | null,
     satisfierRoleForFilter,
   };
 }
 
 // Helper to get team roles for a given user role
-export function getTeamRolesForUser(userRole: UserRole): string[] {
-  return teamRolesForUser[userRole] || [];
+export function getTeamRolesForRole(role: AppRole): string[] {
+  return teamRolesForRole[role] || [];
 }
 
-// Helper to get satisfier role from user role
-export function getSatisfierRole(userRole: UserRole): string {
-  return roleToSatisfierRole[userRole] || userRole;
+// Helper to get satisfier role from user role (identity function since they match)
+export function getSatisfierRole(role: AppRole): string {
+  return role;
 }

@@ -33,9 +33,8 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useDeals, usePendingApprovals, type Deal } from "@/hooks/useDeals";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useNeedsFilter, getSatisfierRole, getTeamRolesForUser } from "@/hooks/useNeedsFilter";
+import { useNeedsFilter, getSatisfierRole, getTeamRolesForRole } from "@/hooks/useNeedsFilter";
 import { NeedsFilterBar } from "@/components/filters/NeedsFilterBar";
-import { useUser } from "@/contexts/UserContext";
 
 // Static targets (could be fetched from settings/targets table in future)
 const teamTarget = { current: 420000, goal: 500000 };
@@ -90,7 +89,6 @@ export default function MyDeals() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const navigate = useNavigate();
   const { labels } = useTheme();
-  const { user } = useUser();
   
   const { data: dealsData, isLoading: isLoadingDeals } = useDeals();
   const { data: approvalTasks = [], isLoading: isLoadingApprovals } = usePendingApprovals();
@@ -119,7 +117,7 @@ export default function MyDeals() {
     if (!needs || !deals || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0 };
 
     const userSatisfierRole = getSatisfierRole(userRole);
-    const teamRoles = getTeamRolesForUser(userRole);
+    const teamRoles = getTeamRolesForRole(userRole);
     const workstreamIds = new Set(deals.map(d => d.id));
 
     // Only count needs for workstreams in our list
@@ -152,7 +150,7 @@ export default function MyDeals() {
     if (!needs || !userRole || activeFilter === "all") return deals;
 
     const userSatisfierRole = getSatisfierRole(userRole);
-    const teamRoles = getTeamRolesForUser(userRole);
+    const teamRoles = getTeamRolesForRole(userRole);
 
     // Build a map of workstream IDs to their needs
     const workstreamNeedsMap = new Map<string, Need[]>();
