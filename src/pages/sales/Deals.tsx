@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,16 +28,26 @@ import {
   Clock,
   Users,
   Target,
-  ChevronRight,
   Loader2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDeals, usePendingApprovals, type Deal } from "@/hooks/useDeals";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useNeedsFilter, getSatisfierRole, getTeamRolesForUser } from "@/hooks/useNeedsFilter";
+import { NeedsFilterBar } from "@/components/filters/NeedsFilterBar";
+import { useUser } from "@/contexts/UserContext";
 
 // Static targets (could be fetched from settings/targets table in future)
 const teamTarget = { current: 420000, goal: 500000 };
 const personalTarget = { current: 287000, goal: 350000 };
+
+type Need = {
+  id: string;
+  workstream_id: string;
+  satisfier_role: string | null;
+  status: string;
+  source_type: string;
+};
 
 function getStageColor(stage: string) {
   switch (stage) {
@@ -78,15 +90,121 @@ export default function MyDeals() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const navigate = useNavigate();
   const { labels } = useTheme();
+  const { user } = useUser();
   
   const { data: dealsData, isLoading: isLoadingDeals } = useDeals();
   const { data: approvalTasks = [], isLoading: isLoadingApprovals } = usePendingApprovals();
+  const { activeFilter, setFilter, clearFilter, filterLabel, userRole } = useNeedsFilter();
+
+  // Fetch needs for filtering
+  const { data: needs, isLoading: isLoadingNeeds } = useQuery({
+    queryKey: ["needs-for-filter-sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("needs")
+        .select("id, workstream_id, satisfier_role, status, source_type")
+        .eq("status", "open");
+
+      if (error) throw error;
+      return data as Need[];
+    },
+  });
 
   const deals = dealsData?.deals || [];
   const pipelineStages = dealsData?.pipelineStages || [];
   const totalPipeline = pipelineStages.reduce((acc, s) => acc + s.value, 0);
 
-  if (isLoadingDeals) {
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    if (!needs || !deals || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0 };
+
+    const userSatisfierRole = getSatisfierRole(userRole);
+    const teamRoles = getTeamRolesForUser(userRole);
+    const workstreamIds = new Set(deals.map(d => d.id));
+
+    // Only count needs for workstreams in our list
+    const relevantNeeds = needs.filter(n => workstreamIds.has(n.workstream_id));
+
+    const myNeeds = new Set(
+      relevantNeeds
+        .filter(n => n.satisfier_role === userSatisfierRole)
+        .map(n => n.workstream_id)
+    ).size;
+
+    const teamQueue = new Set(
+      relevantNeeds
+        .filter(n => n.satisfier_role && teamRoles.includes(n.satisfier_role) && n.satisfier_role !== userSatisfierRole)
+        .map(n => n.workstream_id)
+    ).size;
+
+    const waitingFor = new Set(
+      relevantNeeds
+        .filter(n => n.satisfier_role && !teamRoles.includes(n.satisfier_role))
+        .map(n => n.workstream_id)
+    ).size;
+
+    return { myNeeds, teamQueue, waitingFor };
+  }, [needs, deals, userRole]);
+
+  // Filter deals based on needs filter
+  const filteredDeals = useMemo(() => {
+    if (!deals) return [];
+    if (!needs || !userRole || activeFilter === "all") return deals;
+
+    const userSatisfierRole = getSatisfierRole(userRole);
+    const teamRoles = getTeamRolesForUser(userRole);
+
+    // Build a map of workstream IDs to their needs
+    const workstreamNeedsMap = new Map<string, Need[]>();
+    needs.forEach(need => {
+      const existing = workstreamNeedsMap.get(need.workstream_id) || [];
+      existing.push(need);
+      workstreamNeedsMap.set(need.workstream_id, existing);
+    });
+
+    if (activeFilter === "my-needs") {
+      return deals.filter(deal => {
+        const dealNeeds = workstreamNeedsMap.get(deal.id) || [];
+        return dealNeeds.some(n => n.satisfier_role === userSatisfierRole);
+      });
+    } else if (activeFilter === "team-queue") {
+      return deals.filter(deal => {
+        const dealNeeds = workstreamNeedsMap.get(deal.id) || [];
+        return dealNeeds.some(n => 
+          n.satisfier_role && 
+          teamRoles.includes(n.satisfier_role) && 
+          n.satisfier_role !== userSatisfierRole
+        );
+      });
+    } else if (activeFilter === "waiting-for") {
+      return deals.filter(deal => {
+        const dealNeeds = workstreamNeedsMap.get(deal.id) || [];
+        return dealNeeds.some(n => 
+          n.satisfier_role && 
+          !teamRoles.includes(n.satisfier_role)
+        );
+      });
+    }
+
+    return deals;
+  }, [deals, needs, activeFilter, userRole]);
+
+  // Recalculate pipeline stages based on filtered deals
+  const filteredPipelineStages = useMemo(() => {
+    const stages = ["Draft", "Negotiation", "Approval", "Signature"];
+    return stages.map(stageName => {
+      const stageDeals = filteredDeals.filter(d => d.stage === stageName);
+      const value = stageDeals.reduce((sum, d) => {
+        const arrValue = parseInt(d.arr.replace(/[^0-9]/g, '')) || 0;
+        return sum + arrValue;
+      }, 0);
+      return { name: stageName, count: stageDeals.length, value };
+    });
+  }, [filteredDeals]);
+
+  const filteredTotalPipeline = filteredPipelineStages.reduce((acc, s) => acc + s.value, 0);
+
+  if (isLoadingDeals || isLoadingNeeds) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -123,25 +241,34 @@ export default function MyDeals() {
         </DropdownMenu>
       </div>
 
+      {/* Needs Filter Bar */}
+      <NeedsFilterBar
+        activeFilter={activeFilter}
+        filterLabel={filterLabel}
+        onClearFilter={clearFilter}
+        onSetFilter={setFilter}
+        counts={filterCounts}
+      />
+
       {/* Pipeline Visualization - Monochrome with Deal Cards */}
       <Card className="border-border">
         <CardContent className="pt-6 pb-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              {labels.deal} Pipeline
+              {labels.deal} Pipeline {activeFilter !== "all" && `(${filterLabel})`}
             </span>
-            <span className="text-2xl font-semibold">${totalPipeline}K</span>
+            <span className="text-2xl font-semibold">${filteredTotalPipeline}K</span>
           </div>
           
           {/* Simple Monochrome Stacked Bar */}
           <div className="h-8 flex rounded-md overflow-hidden bg-border/50">
-            {totalPipeline > 0 ? pipelineStages.map((stage, index) => (
+            {filteredTotalPipeline > 0 ? filteredPipelineStages.map((stage, index) => (
               <Tooltip key={stage.name}>
                 <TooltipTrigger asChild>
                   <div 
                     className="h-full transition-all hover:brightness-110 cursor-pointer"
                     style={{ 
-                      width: `${(stage.value / totalPipeline) * 100}%`,
+                      width: `${(stage.value / filteredTotalPipeline) * 100}%`,
                       backgroundColor: `hsl(var(--primary) / ${0.3 + (index * 0.2)})`,
                     }}
                   />
@@ -160,7 +287,7 @@ export default function MyDeals() {
 
           {/* Stage Columns with Deal Cards */}
           <div className="flex mt-6">
-            {pipelineStages.map((stage, index) => (
+            {filteredPipelineStages.map((stage, index) => (
               <div key={stage.name} className="flex flex-1">
                 <div className="flex-1 space-y-3 px-3 first:pl-0 last:pr-0">
                   <div className="flex items-center justify-between">
@@ -175,7 +302,7 @@ export default function MyDeals() {
                   </div>
                   {/* Deal Cards */}
                   <div className="space-y-2">
-                    {deals
+                    {filteredDeals
                       .filter((d) => d.stage === stage.name)
                       .slice(0, 2)
                       .map((deal) => (
@@ -191,7 +318,7 @@ export default function MyDeals() {
                   </div>
                 </div>
                 {/* Vertical divider between columns */}
-                {index < pipelineStages.length - 1 && (
+                {index < filteredPipelineStages.length - 1 && (
                   <div className="w-px bg-border self-stretch mx-1" />
                 )}
               </div>
@@ -330,13 +457,16 @@ export default function MyDeals() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {deals.length === 0 ? (
+            {filteredDeals.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                  No {labels.deals.toLowerCase()} yet. Create your first {labels.deal.toLowerCase()} to get started.
+                  {activeFilter !== "all" 
+                    ? `No ${labels.deals.toLowerCase()} match the "${filterLabel}" filter`
+                    : `No ${labels.deals.toLowerCase()} yet. Create your first ${labels.deal.toLowerCase()} to get started.`
+                  }
                 </td>
               </tr>
-            ) : deals.slice(0, 7).map((deal) => (
+            ) : filteredDeals.slice(0, 7).map((deal) => (
               <tr 
                 key={deal.id} 
                 className="hover:bg-muted/20 transition-colors cursor-pointer group"
