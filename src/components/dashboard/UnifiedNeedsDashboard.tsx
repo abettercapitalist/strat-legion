@@ -167,7 +167,7 @@ export function UnifiedNeedsDashboard({
               teamQueue.groups.slice(0, 5).map((group) => (
                 <button
                   key={group.role}
-                  onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=team-queue`)}
+                  onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=team-queue&teamRole=${group.role}`)}
                   className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center justify-between">

@@ -130,7 +130,7 @@ export default function ActiveMatters() {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
 
-  const { activeFilter, setFilter, clearFilter, filterLabel, userRole } = useNeedsFilter();
+  const { activeFilter, setFilter, clearFilter, filterLabel, userRole, teamRoleFilter, setTeamRoleFilter } = useNeedsFilter();
 
   // Fetch workstreams
   const { data: workstreams, isLoading: isLoadingWorkstreams } = useQuery({
@@ -234,6 +234,11 @@ export default function ActiveMatters() {
     } else if (activeFilter === "team-queue") {
       filtered = workstreams.filter(ws => {
         const wsNeeds = workstreamNeedsMap.get(ws.id) || [];
+        // If a specific role is selected, filter to just that role
+        if (teamRoleFilter) {
+          return wsNeeds.some(n => n.satisfier_role === teamRoleFilter);
+        }
+        // Otherwise, show all team roles except the current user's role
         return wsNeeds.some(n => 
           n.satisfier_role && 
           teamRoles.includes(n.satisfier_role) && 
@@ -276,7 +281,7 @@ export default function ActiveMatters() {
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       }
     });
-  }, [workstreams, needs, activeFilter, userRole, searchQuery, stageFilter, sortBy]);
+  }, [workstreams, needs, activeFilter, userRole, teamRoleFilter, searchQuery, stageFilter, sortBy]);
 
   const getOwnerInitials = (workstream: Workstream) => {
     return "JD";
@@ -308,6 +313,8 @@ export default function ActiveMatters() {
         filterLabel={filterLabel}
         onClearFilter={clearFilter}
         onSetFilter={setFilter}
+        teamRoleFilter={teamRoleFilter}
+        onClearTeamRoleFilter={() => setTeamRoleFilter(null)}
         counts={filterCounts}
       />
 
