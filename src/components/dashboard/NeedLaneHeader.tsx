@@ -8,6 +8,8 @@ interface NeedLaneHeaderProps {
   overdueCount?: number;
   icon: LucideIcon;
   className?: string;
+  onClick?: () => void;
+  clickable?: boolean;
 }
 
 function getHealthColor(count: number, overdueCount: number, maxExpected: number): string {
@@ -29,6 +31,8 @@ export function NeedLaneHeader({
   overdueCount = 0,
   icon: Icon,
   className,
+  onClick,
+  clickable = false,
 }: NeedLaneHeaderProps) {
   const healthColor = getHealthColor(count, overdueCount, maxExpected);
   const percentage = Math.min(100, (count / maxExpected) * 100);
@@ -40,8 +44,8 @@ export function NeedLaneHeader({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
-  return (
-    <div className={cn("flex items-center gap-3 mb-4", className)}>
+  const content = (
+    <>
       {/* Metric Ring */}
       <div className="relative">
         <svg width={size} height={size} className="transform -rotate-90">
@@ -94,6 +98,26 @@ export function NeedLaneHeader({
           </p>
         )}
       </div>
+    </>
+  );
+
+  if (clickable && onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className={cn(
+          "flex items-center gap-3 mb-4 w-full text-left rounded-lg p-2 -ml-2 transition-colors hover:bg-muted/50",
+          className
+        )}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={cn("flex items-center gap-3 mb-4", className)}>
+      {content}
     </div>
   );
 }

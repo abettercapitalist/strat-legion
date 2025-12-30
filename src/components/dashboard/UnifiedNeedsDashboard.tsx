@@ -76,6 +76,8 @@ export function UnifiedNeedsDashboard({
             count={myActions.totalCount}
             overdueCount={myActions.overdueCount}
             icon={Hand}
+            clickable={true}
+            onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=my-needs`)}
           />
 
           {/* Kanban cards */}
@@ -123,6 +125,8 @@ export function UnifiedNeedsDashboard({
             count={teamQueue.totalCount}
             overdueCount={teamQueue.overdueCount}
             icon={Users}
+            clickable={true}
+            onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=team-needs`)}
           />
 
           {/* Grouped by role */}
@@ -189,6 +193,8 @@ export function UnifiedNeedsDashboard({
             count={waitingFor.totalCount}
             overdueCount={waitingFor.overdueCount}
             icon={Hourglass}
+            clickable={true}
+            onClick={() => navigate(`/${modulePrefix}/${mattersPath}?filter=waiting-for`)}
           />
 
           {/* Kanban cards */}
