@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Hand, Users, Hourglass, ArrowRight } from "lucide-react";
+import { Hand, Users, Hourglass, ArrowRight, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { 
   useUnifiedNeeds, 
   getNeedTypeBreakdown, 
@@ -24,9 +26,21 @@ export function UnifiedNeedsDashboard({
   userRole = "legal_ops",
   teamRoles = ["legal_ops", "contract_counsel", "general_counsel"],
 }: UnifiedNeedsDashboardProps) {
-  const { myActions, teamQueue, waitingFor, isLoading } = useUnifiedNeeds(userRole, teamRoles);
+  const { myActions, teamQueue, waitingFor, isLoading, isRefreshing, lastUpdated } = useUnifiedNeeds(userRole, teamRoles);
   const navigate = useNavigate();
   const mattersPath = modulePrefix === "sales" ? "deals" : "matters";
+  
+  // Track when a refresh just completed for animation
+  const [showRefreshPulse, setShowRefreshPulse] = useState(false);
+  
+  useEffect(() => {
+    if (lastUpdated && !isRefreshing) {
+      // Trigger pulse animation when refresh completes
+      setShowRefreshPulse(true);
+      const timer = setTimeout(() => setShowRefreshPulse(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastUpdated, isRefreshing]);
 
   if (isLoading) {
     return (
@@ -67,9 +81,20 @@ export function UnifiedNeedsDashboard({
   }));
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+      {/* Refresh indicator */}
+      {isRefreshing && (
+        <div className="absolute -top-6 right-0 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="h-3 w-3 animate-spin" />
+          <span>Updating...</span>
+        </div>
+      )}
+      
       {/* Lane 1: My Actions */}
-      <Card className="border-border">
+      <Card className={cn(
+        "border-border transition-all duration-500",
+        showRefreshPulse && "ring-2 ring-primary/20 animate-pulse"
+      )}>
         <CardContent className="pt-6">
           <NeedLaneHeader
             title="My Actions"
@@ -118,7 +143,10 @@ export function UnifiedNeedsDashboard({
       </Card>
 
       {/* Lane 2: Team Queue */}
-      <Card className="border-border">
+      <Card className={cn(
+        "border-border transition-all duration-500",
+        showRefreshPulse && "ring-2 ring-primary/20 animate-pulse"
+      )}>
         <CardContent className="pt-6">
           <NeedLaneHeader
             title="Team Queue"
@@ -186,7 +214,10 @@ export function UnifiedNeedsDashboard({
       </Card>
 
       {/* Lane 3: Waiting For */}
-      <Card className="border-border">
+      <Card className={cn(
+        "border-border transition-all duration-500",
+        showRefreshPulse && "ring-2 ring-primary/20 animate-pulse"
+      )}>
         <CardContent className="pt-6">
           <NeedLaneHeader
             title="Waiting For"
