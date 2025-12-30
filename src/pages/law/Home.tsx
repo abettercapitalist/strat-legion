@@ -1,27 +1,19 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Library, Inbox, Clock, AlertCircle, CheckCircle2, ArrowRight, Plus } from "lucide-react";
+import { FileText, Library, Clock, AlertCircle, CheckCircle2, ArrowRight, Plus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useFlowVisibility } from "@/hooks/useFlowVisibility";
 import { useTheme } from "@/contexts/ThemeContext";
 import { 
   MetricRing, 
-  SummaryCard, 
-  ActionCard, 
   StatusBadge, 
   VisualBreakdown,
   WorkloadHistoryMini,
-  NeedsDashboard
+  UnifiedNeedsDashboard
 } from "@/components/dashboard";
 
-// Mock data for tasks and reminders
-const pendingChangeRequests = [
-  { id: 1, template: "SaaS Agreement", requestedBy: "Sales", date: "Dec 2, 2024", type: "Clause modification" },
-  { id: 2, template: "NDA - Mutual", requestedBy: "Sales", date: "Dec 1, 2024", type: "New alternative" },
-  { id: 3, template: "Services Agreement", requestedBy: "Finance", date: "Nov 30, 2024", type: "Term change" },
-];
-
+// Mock data for draft templates and clauses
 const draftTemplates = [
   { id: 1, name: "Untitled Draft - Dec 03 2024", lastModified: "2 hours ago" },
   { id: 2, name: "Partnership Agreement v2", lastModified: "Yesterday" },
@@ -67,7 +59,7 @@ const pipelineDistribution = [
 ];
 
 export default function LawHome() {
-  const { waitingOnMe, waitingOnOthers, atRiskItems, userLoad, teamAverage, isLoading } = useFlowVisibility("law");
+  const { waitingOnMe, atRiskItems } = useFlowVisibility("law");
   const { labels } = useTheme();
 
   // Calculate engagement percentage (mock: based on completed vs pending)
@@ -130,97 +122,26 @@ export default function LawHome() {
         </div>
       </div>
 
-      {/* Needs Dashboard - What needs to happen */}
+      {/* Unified Needs Dashboard - Kanban-style lanes */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Needs Overview</h2>
-        <NeedsDashboard 
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">What Needs Attention</h2>
+          <Card className="px-4 py-2 border-0 bg-muted/50">
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-muted-foreground">Pipeline</p>
+              <VisualBreakdown segments={pipelineDistribution} className="w-32" />
+            </div>
+          </Card>
+        </div>
+        <UnifiedNeedsDashboard 
           modulePrefix="law" 
           userRole="legal_ops"
           teamRoles={["legal_ops", "contract_counsel", "general_counsel"]}
         />
       </div>
 
-      {/* Flow Visibility - Compact Status Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <SummaryCard
-          title="Waiting on Me"
-          value={waitingOnMe.length}
-          trend={{ value: "+2", direction: "up" }}
-        />
-        <SummaryCard
-          title="Waiting on Others"
-          value={waitingOnOthers.length}
-        />
-        <SummaryCard
-          title="At Risk"
-          value={atRiskItems.length}
-        />
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground mb-2">Pipeline Distribution</p>
-            <VisualBreakdown segments={pipelineDistribution} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Priority Actions Section */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4">Priority Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {pendingChangeRequests.slice(0, 3).map((request) => (
-            <ActionCard
-              key={request.id}
-              title={request.template}
-              subtitle={`${request.type} • ${request.requestedBy}`}
-              urgency={request.id === 1 ? "high" : "medium"}
-              actionLabel="Review"
-              metadata={request.date}
-              onAction={() => console.log("Navigate to request", request.id)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pending Change Requests */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Inbox className="h-5 w-5" />
-                  Pending Change Requests
-                </CardTitle>
-                <CardDescription>Requests awaiting your review</CardDescription>
-              </div>
-              <StatusBadge 
-                status="warning" 
-                label={String(pendingChangeRequests.length)} 
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingChangeRequests.map((request) => (
-              <div key={request.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <div>
-                  <p className="font-medium text-sm">{request.template}</p>
-                  <p className="text-sm text-muted-foreground">{request.type} • {request.requestedBy}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{request.date}</span>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
-            ))}
-            <NavLink to="/law/requests">
-              <Button variant="outline" className="w-full mt-2">
-                View All Requests
-              </Button>
-            </NavLink>
-          </CardContent>
-        </Card>
-
+      {/* Main Content Grid - Secondary info */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Draft Templates */}
         <Card>
           <CardHeader className="pb-3">

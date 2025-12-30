@@ -5,3 +5,6 @@ export { StatusBadge } from "./StatusBadge";
 export { VisualBreakdown } from "./VisualBreakdown";
 export { WorkloadHistoryMini } from "./WorkloadHistoryMini";
 export { NeedsDashboard } from "./NeedsDashboard";
+export { UnifiedNeedsDashboard } from "./UnifiedNeedsDashboard";
+export { NeedLaneHeader } from "./NeedLaneHeader";
+export { NeedKanbanCard } from "./NeedKanbanCard";
