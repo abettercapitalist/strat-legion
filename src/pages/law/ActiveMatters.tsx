@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -35,11 +34,13 @@ import {
   Archive,
   AlertTriangle,
   Clock,
-  User
 } from "lucide-react";
-import { format, formatDistanceToNow, isPast, isWithinInterval, addDays } from "date-fns";
+import { format, isPast, isWithinInterval, addDays } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useNeedsFilter, getSatisfierRole, getTeamRolesForUser } from "@/hooks/useNeedsFilter";
+import { NeedsFilterBar } from "@/components/filters/NeedsFilterBar";
+import { useUser } from "@/contexts/UserContext";
 
 type Workstream = {
   id: string;
@@ -59,6 +60,14 @@ type Workstream = {
     display_name: string | null;
     name: string;
   } | null;
+};
+
+type Need = {
+  id: string;
+  workstream_id: string;
+  satisfier_role: string | null;
+  status: string;
+  source_type: string;
 };
 
 const stageColors: Record<string, string> = {
@@ -118,12 +127,15 @@ function getDueUrgency(dueDate: string | null): "overdue" | "urgent" | "normal" 
 export default function ActiveMatters() {
   const navigate = useNavigate();
   const { labels } = useTheme();
+  const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("my");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
 
-  const { data: workstreams, isLoading } = useQuery({
+  const { activeFilter, setFilter, clearFilter, filterLabel, userRole } = useNeedsFilter();
+
+  // Fetch workstreams
+  const { data: workstreams, isLoading: isLoadingWorkstreams } = useQuery({
     queryKey: ["law-workstreams"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -149,36 +161,130 @@ export default function ActiveMatters() {
     },
   });
 
-  const filteredWorkstreams = workstreams?.filter((ws) => {
-    const matchesSearch = 
-      ws.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ws.counterparty?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ws.business_objective?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStage = stageFilter === "all" || ws.stage === stageFilter;
-    
-    return matchesSearch && matchesStage;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "due_soon":
-        if (!a.expected_close_date) return 1;
-        if (!b.expected_close_date) return -1;
-        return new Date(a.expected_close_date).getTime() - new Date(b.expected_close_date).getTime();
-      case "oldest":
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      case "recent":
-      default:
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    }
+  // Fetch needs for filtering
+  const { data: needs, isLoading: isLoadingNeeds } = useQuery({
+    queryKey: ["needs-for-filter"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("needs")
+        .select("id, workstream_id, satisfier_role, status, source_type")
+        .eq("status", "open");
+
+      if (error) throw error;
+      return data as Need[];
+    },
   });
 
+  const isLoading = isLoadingWorkstreams || isLoadingNeeds;
+
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    if (!needs || !workstreams || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0 };
+
+    const userSatisfierRole = getSatisfierRole(userRole);
+    const teamRoles = getTeamRolesForUser(userRole);
+    const workstreamIds = new Set(workstreams.map(ws => ws.id));
+
+    // Only count needs for workstreams in our list
+    const relevantNeeds = needs.filter(n => workstreamIds.has(n.workstream_id));
+
+    const myNeeds = new Set(
+      relevantNeeds
+        .filter(n => n.satisfier_role === userSatisfierRole)
+        .map(n => n.workstream_id)
+    ).size;
+
+    const teamQueue = new Set(
+      relevantNeeds
+        .filter(n => n.satisfier_role && teamRoles.includes(n.satisfier_role) && n.satisfier_role !== userSatisfierRole)
+        .map(n => n.workstream_id)
+    ).size;
+
+    const waitingFor = new Set(
+      relevantNeeds
+        .filter(n => n.satisfier_role && !teamRoles.includes(n.satisfier_role))
+        .map(n => n.workstream_id)
+    ).size;
+
+    return { myNeeds, teamQueue, waitingFor };
+  }, [needs, workstreams, userRole]);
+
+  // Filter workstreams based on needs filter
+  const filteredWorkstreams = useMemo(() => {
+    if (!workstreams) return [];
+    if (!needs || !userRole) return workstreams;
+
+    const userSatisfierRole = getSatisfierRole(userRole);
+    const teamRoles = getTeamRolesForUser(userRole);
+
+    // Build a map of workstream IDs to their needs
+    const workstreamNeedsMap = new Map<string, Need[]>();
+    needs.forEach(need => {
+      const existing = workstreamNeedsMap.get(need.workstream_id) || [];
+      existing.push(need);
+      workstreamNeedsMap.set(need.workstream_id, existing);
+    });
+
+    let filtered = workstreams;
+
+    // Apply needs-based filter
+    if (activeFilter === "my-needs") {
+      filtered = workstreams.filter(ws => {
+        const wsNeeds = workstreamNeedsMap.get(ws.id) || [];
+        return wsNeeds.some(n => n.satisfier_role === userSatisfierRole);
+      });
+    } else if (activeFilter === "team-queue") {
+      filtered = workstreams.filter(ws => {
+        const wsNeeds = workstreamNeedsMap.get(ws.id) || [];
+        return wsNeeds.some(n => 
+          n.satisfier_role && 
+          teamRoles.includes(n.satisfier_role) && 
+          n.satisfier_role !== userSatisfierRole
+        );
+      });
+    } else if (activeFilter === "waiting-for") {
+      filtered = workstreams.filter(ws => {
+        const wsNeeds = workstreamNeedsMap.get(ws.id) || [];
+        return wsNeeds.some(n => 
+          n.satisfier_role && 
+          !teamRoles.includes(n.satisfier_role)
+        );
+      });
+    }
+
+    // Apply search filter
+    filtered = filtered.filter((ws) => {
+      const matchesSearch = 
+        ws.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ws.counterparty?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ws.business_objective?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStage = stageFilter === "all" || ws.stage === stageFilter;
+      
+      return matchesSearch && matchesStage;
+    });
+
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "due_soon":
+          if (!a.expected_close_date) return 1;
+          if (!b.expected_close_date) return -1;
+          return new Date(a.expected_close_date).getTime() - new Date(b.expected_close_date).getTime();
+        case "oldest":
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case "recent":
+        default:
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      }
+    });
+  }, [workstreams, needs, activeFilter, userRole, searchQuery, stageFilter, sortBy]);
+
   const getOwnerInitials = (workstream: Workstream) => {
-    // In production, this would come from a joined profiles table
     return "JD";
   };
 
   const getOwnerName = (workstream: Workstream) => {
-    // In production, this would come from a joined profiles table
     return "Jane Doe";
   };
 
@@ -198,14 +304,14 @@ export default function ActiveMatters() {
         </Button>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="my">My {labels.matters}</TabsTrigger>
-          <TabsTrigger value="team">Team {labels.matters}</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Needs Filter Bar */}
+      <NeedsFilterBar
+        activeFilter={activeFilter}
+        filterLabel={filterLabel}
+        onClearFilter={clearFilter}
+        onSetFilter={setFilter}
+        counts={filterCounts}
+      />
 
       {/* Filters */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
@@ -380,16 +486,16 @@ export default function ActiveMatters() {
         <div className="border rounded-lg p-12 text-center bg-muted/20">
           <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-2">
-            {searchQuery || stageFilter !== "all" 
+            {searchQuery || stageFilter !== "all" || activeFilter !== "all"
               ? `No ${labels.matters.toLowerCase()} match your filters`
               : `No active ${labels.matters.toLowerCase()} yet`}
           </h3>
           <p className="text-muted-foreground mb-4">
-            {searchQuery || stageFilter !== "all" 
+            {searchQuery || stageFilter !== "all" || activeFilter !== "all"
               ? "Try adjusting your search or filter criteria"
               : `Get started by creating your first ${labels.matter.toLowerCase()}`}
           </p>
-          {!searchQuery && stageFilter === "all" && (
+          {!searchQuery && stageFilter === "all" && activeFilter === "all" && (
             <Button onClick={() => navigate("/law/new")}>
               <Plus className="h-4 w-4 mr-2" />
               Create your first {labels.matter.toLowerCase()}
