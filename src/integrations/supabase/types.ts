@@ -329,6 +329,69 @@ export type Database = {
           },
         ]
       }
+      needs: {
+        Row: {
+          created_at: string
+          description: string
+          due_at: string | null
+          id: string
+          need_type: string
+          required_before: string | null
+          satisfaction_reference_id: string | null
+          satisfaction_reference_type: string | null
+          satisfied_at: string | null
+          satisfied_by: string | null
+          satisfier_role: string | null
+          satisfier_type: string | null
+          source_id: string | null
+          source_reason: string | null
+          source_type: string
+          status: string
+          updated_at: string
+          workstream_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          due_at?: string | null
+          id?: string
+          need_type: string
+          required_before?: string | null
+          satisfaction_reference_id?: string | null
+          satisfaction_reference_type?: string | null
+          satisfied_at?: string | null
+          satisfied_by?: string | null
+          satisfier_role?: string | null
+          satisfier_type?: string | null
+          source_id?: string | null
+          source_reason?: string | null
+          source_type: string
+          status?: string
+          updated_at?: string
+          workstream_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          due_at?: string | null
+          id?: string
+          need_type?: string
+          required_before?: string | null
+          satisfaction_reference_id?: string | null
+          satisfaction_reference_type?: string | null
+          satisfied_at?: string | null
+          satisfied_by?: string | null
+          satisfier_role?: string | null
+          satisfier_type?: string | null
+          source_id?: string | null
+          source_reason?: string | null
+          source_type?: string
+          status?: string
+          updated_at?: string
+          workstream_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -819,6 +882,7 @@ export type Database = {
           approval_template_id: string | null
           created_at: string
           created_by: string | null
+          default_needs: Json | null
           default_workflow: string | null
           description: string | null
           display_name: string | null
@@ -833,6 +897,7 @@ export type Database = {
           approval_template_id?: string | null
           created_at?: string
           created_by?: string | null
+          default_needs?: Json | null
           default_workflow?: string | null
           description?: string | null
           display_name?: string | null
@@ -847,6 +912,7 @@ export type Database = {
           approval_template_id?: string | null
           created_at?: string
           created_by?: string | null
+          default_needs?: Json | null
           default_workflow?: string | null
           description?: string | null
           display_name?: string | null

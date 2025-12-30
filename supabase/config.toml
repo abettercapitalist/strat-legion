@@ -20,3 +20,6 @@ verify_jwt = true
 
 [functions.create-approvals-from-template]
 verify_jwt = true
+
+[functions.create-needs-from-template]
+verify_jwt = true
