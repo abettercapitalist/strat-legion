@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { 
   Clock, 
   AlertCircle, 
-  TrendingUp, 
   FileText, 
   Users,
   ArrowRight,
@@ -23,9 +22,7 @@ import {
   YAxis,
   Tooltip
 } from "recharts";
-import { FlowVisibilityWidgets } from "@/components/home/FlowVisibilityWidgets";
-import { WorkloadBalance } from "@/components/home/WorkloadBalance";
-import { useFlowVisibility } from "@/hooks/useFlowVisibility";
+import { UnifiedNeedsDashboard } from "@/components/dashboard";
 import { useTheme } from "@/contexts/ThemeContext";
 
 interface PriorityTask {
@@ -137,7 +134,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function SalesHome() {
   const { labels } = useTheme();
-  const { waitingOnMe, waitingOnOthers, atRiskItems, userLoad, teamAverage } = useFlowVisibility("sales");
   const totalPipeline = pipelineData.reduce((acc, item) => acc + item.value, 0);
 
   return (
@@ -296,70 +292,15 @@ export default function SalesHome() {
         </div>
       </div>
 
-      {/* Flow Visibility Section */}
+      {/* Unified Needs Dashboard */}
       <div className="space-y-2">
-        <h2 className="text-lg font-medium text-foreground">Flow Visibility</h2>
-        <FlowVisibilityWidgets
+        <h2 className="text-lg font-medium text-foreground">Your Needs Dashboard</h2>
+        <UnifiedNeedsDashboard
           modulePrefix="sales"
-          waitingOnMe={waitingOnMe}
-          waitingOnOthers={waitingOnOthers}
-          atRiskItems={atRiskItems}
+          userRole="account_executive"
+          teamRoles={["account_executive", "sales_manager", "finance_reviewer"]}
         />
       </div>
-
-      {/* Workload Balance */}
-      <WorkloadBalance userLoad={userLoad} teamAverage={teamAverage} />
-
-      {/* Priority Tasks */}
-      <Card className="border-border">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-status-error/10">
-                <AlertCircle className="h-4 w-4 text-status-error" />
-              </div>
-              <CardTitle className="text-lg font-medium">Priority Actions</CardTitle>
-              <Badge variant="outline" className="bg-status-error/10 text-status-error border-status-error/20">
-                {priorityTasks.filter(t => t.urgency === "high").length} urgent
-              </Badge>
-            </div>
-            <Link to="/sales/approvals">
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                View all tasks
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {priorityTasks.map((task) => (
-            <Link key={task.id} to={task.route}>
-              <div className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/30 hover:border-primary/20 transition-all cursor-pointer group">
-                <div className="flex items-center gap-4">
-                  <div className={`p-2.5 rounded-full ${getUrgencyStyles(task.urgency)}`}>
-                    {getTypeIcon(task.type)}
-                  </div>
-                  <div>
-                    <p className="font-medium group-hover:text-primary transition-colors">{task.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {task.dealName} · {task.dealValue}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <Badge 
-                    variant="outline" 
-                    className={getUrgencyStyles(task.urgency)}
-                  >
-                    {task.dueDate}
-                  </Badge>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

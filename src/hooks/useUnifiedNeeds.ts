@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, isPast, differenceInDays } from "date-fns";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export interface UnifiedNeed {
   id: string;
@@ -126,172 +127,193 @@ export function useUnifiedNeeds(
     isLoading: true,
   });
 
-  useEffect(() => {
-    async function fetchUnifiedNeeds() {
-      try {
-        // Fetch needs assigned to my role
-        const { data: myNeedsRaw } = await supabase
-          .from("needs")
-          .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
-          .eq("satisfier_role", userRole)
-          .in("status", ["open", "expressed", "committed"])
-          .order("due_at", { ascending: true, nullsFirst: false })
-          .limit(20);
+  const fetchUnifiedNeeds = useCallback(async () => {
+    try {
+      // Fetch needs assigned to my role
+      const { data: myNeedsRaw } = await supabase
+        .from("needs")
+        .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
+        .eq("satisfier_role", userRole)
+        .in("status", ["open", "expressed", "committed"])
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .limit(20);
 
-        // Fetch team needs (grouped by role)
-        const { data: teamNeedsRaw } = await supabase
-          .from("needs")
-          .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
-          .in("satisfier_role", teamRoles)
-          .in("status", ["open", "expressed"])
-          .order("created_at", { ascending: false })
-          .limit(100);
+      // Fetch team needs (grouped by role)
+      const { data: teamNeedsRaw } = await supabase
+        .from("needs")
+        .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
+        .in("satisfier_role", teamRoles)
+        .in("status", ["open", "expressed"])
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-        // Get current user for waiting-for query
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        let waitingNeedsRaw: any[] = [];
-        let myWorkstreamMap = new Map<string, string>();
-        
-        if (user) {
-          const { data: myWorkstreams } = await supabase
-            .from("workstreams")
-            .select("id, name")
-            .eq("owner_id", user.id);
-
-          if (myWorkstreams && myWorkstreams.length > 0) {
-            myWorkstreamMap = new Map(myWorkstreams.map(w => [w.id, w.name]));
-            const workstreamIds = myWorkstreams.map(w => w.id);
-
-            const { data: waitingData } = await supabase
-              .from("needs")
-              .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
-              .in("workstream_id", workstreamIds)
-              .neq("status", "satisfied")
-              .neq("satisfier_role", userRole)
-              .order("due_at", { ascending: true, nullsFirst: false })
-              .limit(20);
-
-            waitingNeedsRaw = waitingData || [];
-          }
-        }
-
-        // Enrich with workstream names
-        const allWorkstreamIds = new Set([
-          ...(myNeedsRaw || []).map(n => n.workstream_id),
-          ...(teamNeedsRaw || []).map(n => n.workstream_id),
-        ]);
-
-        const { data: workstreams } = await supabase
+      // Get current user for waiting-for query
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      let waitingNeedsRaw: any[] = [];
+      let myWorkstreamMap = new Map<string, string>();
+      
+      if (user) {
+        const { data: myWorkstreams } = await supabase
           .from("workstreams")
           .select("id, name")
-          .in("id", Array.from(allWorkstreamIds));
+          .eq("owner_id", user.id);
 
-        const workstreamMap = new Map((workstreams || []).map(w => [w.id, w.name]));
-        
-        // Merge with user's workstream map for waiting-for
-        for (const [id, name] of myWorkstreamMap) {
-          workstreamMap.set(id, name);
+        if (myWorkstreams && myWorkstreams.length > 0) {
+          myWorkstreamMap = new Map(myWorkstreams.map(w => [w.id, w.name]));
+          const workstreamIds = myWorkstreams.map(w => w.id);
+
+          const { data: waitingData } = await supabase
+            .from("needs")
+            .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
+            .in("workstream_id", workstreamIds)
+            .neq("status", "satisfied")
+            .neq("satisfier_role", userRole)
+            .order("due_at", { ascending: true, nullsFirst: false })
+            .limit(20);
+
+          waitingNeedsRaw = waitingData || [];
         }
-
-        // Transform my needs
-        const myNeeds: UnifiedNeed[] = (myNeedsRaw || []).map(need => {
-          const dueInfo = formatDueDate(need.due_at);
-          const isOverdue = dueInfo?.isOverdue || false;
-          return {
-            id: need.id,
-            workstream_id: need.workstream_id,
-            need_type: need.need_type as UnifiedNeed['need_type'],
-            description: need.description,
-            satisfier_role: need.satisfier_role,
-            status: need.status,
-            due_at: need.due_at,
-            created_at: need.created_at,
-            workstreamName: workstreamMap.get(need.workstream_id) || "Unknown",
-            dueText: dueInfo?.text || null,
-            isOverdue,
-            urgency: calculateUrgency(need.due_at, isOverdue),
-          };
-        });
-
-        const myOverdueCount = myNeeds.filter(n => n.isOverdue).length;
-
-        // Transform team needs into groups
-        const roleGroups: Record<string, { needs: any[]; overdueCount: number }> = {};
-        for (const need of teamNeedsRaw || []) {
-          const role = need.satisfier_role || "unassigned";
-          if (!roleGroups[role]) {
-            roleGroups[role] = { needs: [], overdueCount: 0 };
-          }
-          roleGroups[role].needs.push(need);
-          const dueInfo = formatDueDate(need.due_at);
-          if (dueInfo?.isOverdue) {
-            roleGroups[role].overdueCount++;
-          }
-        }
-
-        const teamGroups: TeamQueueGroup[] = Object.entries(roleGroups).map(([role, data]) => ({
-          role,
-          roleDisplay: role.replace(/_/g, " "),
-          count: data.needs.length,
-          exampleDescription: data.needs[0]?.description || "",
-          overdueCount: data.overdueCount,
-        }));
-
-        const teamTotalCount = teamGroups.reduce((acc, g) => acc + g.count, 0);
-        const teamOverdueCount = teamGroups.reduce((acc, g) => acc + g.overdueCount, 0);
-
-        // Transform waiting-for needs
-        const waitingNeeds: UnifiedNeed[] = waitingNeedsRaw.map(need => {
-          const dueInfo = formatDueDate(need.due_at);
-          const isOverdue = dueInfo?.isOverdue || false;
-          return {
-            id: need.id,
-            workstream_id: need.workstream_id,
-            need_type: need.need_type as UnifiedNeed['need_type'],
-            description: need.description,
-            satisfier_role: need.satisfier_role,
-            status: need.status,
-            due_at: need.due_at,
-            created_at: need.created_at,
-            workstreamName: workstreamMap.get(need.workstream_id) || "Unknown",
-            dueText: dueInfo?.text || null,
-            isOverdue,
-            urgency: calculateUrgency(need.due_at, isOverdue),
-          };
-        });
-
-        const waitingOverdueCount = waitingNeeds.filter(n => n.isOverdue).length;
-
-        setData({
-          myActions: {
-            items: myNeeds,
-            totalCount: myNeeds.length,
-            overdueCount: myOverdueCount,
-            healthPercentage: calculateHealthPercentage(myNeeds.length, myOverdueCount),
-          },
-          teamQueue: {
-            groups: teamGroups,
-            totalCount: teamTotalCount,
-            overdueCount: teamOverdueCount,
-            healthPercentage: calculateHealthPercentage(teamTotalCount, teamOverdueCount),
-          },
-          waitingFor: {
-            items: waitingNeeds,
-            totalCount: waitingNeeds.length,
-            overdueCount: waitingOverdueCount,
-            healthPercentage: calculateHealthPercentage(waitingNeeds.length, waitingOverdueCount),
-          },
-          isLoading: false,
-        });
-      } catch (error) {
-        console.error("Error fetching unified needs:", error);
-        setData(prev => ({ ...prev, isLoading: false }));
       }
-    }
 
-    fetchUnifiedNeeds();
+      // Enrich with workstream names
+      const allWorkstreamIds = new Set([
+        ...(myNeedsRaw || []).map(n => n.workstream_id),
+        ...(teamNeedsRaw || []).map(n => n.workstream_id),
+      ]);
+
+      const { data: workstreams } = await supabase
+        .from("workstreams")
+        .select("id, name")
+        .in("id", Array.from(allWorkstreamIds));
+
+      const workstreamMap = new Map((workstreams || []).map(w => [w.id, w.name]));
+      
+      // Merge with user's workstream map for waiting-for
+      for (const [id, name] of myWorkstreamMap) {
+        workstreamMap.set(id, name);
+      }
+
+      // Transform my needs
+      const myNeeds: UnifiedNeed[] = (myNeedsRaw || []).map(need => {
+        const dueInfo = formatDueDate(need.due_at);
+        const isOverdue = dueInfo?.isOverdue || false;
+        return {
+          id: need.id,
+          workstream_id: need.workstream_id,
+          need_type: need.need_type as UnifiedNeed['need_type'],
+          description: need.description,
+          satisfier_role: need.satisfier_role,
+          status: need.status,
+          due_at: need.due_at,
+          created_at: need.created_at,
+          workstreamName: workstreamMap.get(need.workstream_id) || "Unknown",
+          dueText: dueInfo?.text || null,
+          isOverdue,
+          urgency: calculateUrgency(need.due_at, isOverdue),
+        };
+      });
+
+      const myOverdueCount = myNeeds.filter(n => n.isOverdue).length;
+
+      // Transform team needs into groups
+      const roleGroups: Record<string, { needs: any[]; overdueCount: number }> = {};
+      for (const need of teamNeedsRaw || []) {
+        const role = need.satisfier_role || "unassigned";
+        if (!roleGroups[role]) {
+          roleGroups[role] = { needs: [], overdueCount: 0 };
+        }
+        roleGroups[role].needs.push(need);
+        const dueInfo = formatDueDate(need.due_at);
+        if (dueInfo?.isOverdue) {
+          roleGroups[role].overdueCount++;
+        }
+      }
+
+      const teamGroups: TeamQueueGroup[] = Object.entries(roleGroups).map(([role, data]) => ({
+        role,
+        roleDisplay: role.replace(/_/g, " "),
+        count: data.needs.length,
+        exampleDescription: data.needs[0]?.description || "",
+        overdueCount: data.overdueCount,
+      }));
+
+      const teamTotalCount = teamGroups.reduce((acc, g) => acc + g.count, 0);
+      const teamOverdueCount = teamGroups.reduce((acc, g) => acc + g.overdueCount, 0);
+
+      // Transform waiting-for needs
+      const waitingNeeds: UnifiedNeed[] = waitingNeedsRaw.map(need => {
+        const dueInfo = formatDueDate(need.due_at);
+        const isOverdue = dueInfo?.isOverdue || false;
+        return {
+          id: need.id,
+          workstream_id: need.workstream_id,
+          need_type: need.need_type as UnifiedNeed['need_type'],
+          description: need.description,
+          satisfier_role: need.satisfier_role,
+          status: need.status,
+          due_at: need.due_at,
+          created_at: need.created_at,
+          workstreamName: workstreamMap.get(need.workstream_id) || "Unknown",
+          dueText: dueInfo?.text || null,
+          isOverdue,
+          urgency: calculateUrgency(need.due_at, isOverdue),
+        };
+      });
+
+      const waitingOverdueCount = waitingNeeds.filter(n => n.isOverdue).length;
+
+      setData({
+        myActions: {
+          items: myNeeds,
+          totalCount: myNeeds.length,
+          overdueCount: myOverdueCount,
+          healthPercentage: calculateHealthPercentage(myNeeds.length, myOverdueCount),
+        },
+        teamQueue: {
+          groups: teamGroups,
+          totalCount: teamTotalCount,
+          overdueCount: teamOverdueCount,
+          healthPercentage: calculateHealthPercentage(teamTotalCount, teamOverdueCount),
+        },
+        waitingFor: {
+          items: waitingNeeds,
+          totalCount: waitingNeeds.length,
+          overdueCount: waitingOverdueCount,
+          healthPercentage: calculateHealthPercentage(waitingNeeds.length, waitingOverdueCount),
+        },
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error("Error fetching unified needs:", error);
+      setData(prev => ({ ...prev, isLoading: false }));
+    }
   }, [userRole, teamRoles]);
+
+  useEffect(() => {
+    fetchUnifiedNeeds();
+
+    // Set up realtime subscription for live updates
+    const channel: RealtimeChannel = supabase
+      .channel('unified-needs-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'needs',
+        },
+        () => {
+          // Refetch when any need changes
+          fetchUnifiedNeeds();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchUnifiedNeeds]);
 
   return data;
 }
