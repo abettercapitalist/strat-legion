@@ -38,9 +38,8 @@ import {
 import { format, isPast, isWithinInterval, addDays } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useNeedsFilter, getSatisfierRole, getTeamRolesForUser } from "@/hooks/useNeedsFilter";
+import { useNeedsFilter, getSatisfierRole, getTeamRolesForRole } from "@/hooks/useNeedsFilter";
 import { NeedsFilterBar } from "@/components/filters/NeedsFilterBar";
-import { useUser } from "@/contexts/UserContext";
 
 type Workstream = {
   id: string;
@@ -127,7 +126,6 @@ function getDueUrgency(dueDate: string | null): "overdue" | "urgent" | "normal" 
 export default function ActiveMatters() {
   const navigate = useNavigate();
   const { labels } = useTheme();
-  const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
@@ -182,7 +180,7 @@ export default function ActiveMatters() {
     if (!needs || !workstreams || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0 };
 
     const userSatisfierRole = getSatisfierRole(userRole);
-    const teamRoles = getTeamRolesForUser(userRole);
+    const teamRoles = getTeamRolesForRole(userRole);
     const workstreamIds = new Set(workstreams.map(ws => ws.id));
 
     // Only count needs for workstreams in our list
@@ -215,7 +213,7 @@ export default function ActiveMatters() {
     if (!needs || !userRole) return workstreams;
 
     const userSatisfierRole = getSatisfierRole(userRole);
-    const teamRoles = getTeamRolesForUser(userRole);
+    const teamRoles = getTeamRolesForRole(userRole);
 
     // Build a map of workstream IDs to their needs
     const workstreamNeedsMap = new Map<string, Need[]>();
