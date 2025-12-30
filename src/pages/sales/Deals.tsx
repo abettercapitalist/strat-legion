@@ -112,12 +112,14 @@ export default function MyDeals() {
   const pipelineStages = dealsData?.pipelineStages || [];
   const totalPipeline = pipelineStages.reduce((acc, s) => acc + s.value, 0);
 
-  // Calculate filter counts
+  const teamRoles = userRole ? getTeamRolesForRole(userRole) : [];
+
+  // Calculate filter counts including role breakdown
   const filterCounts = useMemo(() => {
-    if (!needs || !deals || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0 };
+    if (!needs || !deals || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0, roleBreakdown: {} };
 
     const userSatisfierRole = getSatisfierRole(userRole);
-    const teamRoles = getTeamRolesForRole(userRole);
+    const roles = getTeamRolesForRole(userRole);
     const workstreamIds = new Set(deals.map(d => d.id));
 
     // Only count needs for workstreams in our list
@@ -131,17 +133,29 @@ export default function MyDeals() {
 
     const teamQueue = new Set(
       relevantNeeds
-        .filter(n => n.satisfier_role && teamRoles.includes(n.satisfier_role) && n.satisfier_role !== userSatisfierRole)
+        .filter(n => n.satisfier_role && roles.includes(n.satisfier_role) && n.satisfier_role !== userSatisfierRole)
         .map(n => n.workstream_id)
     ).size;
 
     const waitingFor = new Set(
       relevantNeeds
-        .filter(n => n.satisfier_role && !teamRoles.includes(n.satisfier_role))
+        .filter(n => n.satisfier_role && !roles.includes(n.satisfier_role))
         .map(n => n.workstream_id)
     ).size;
 
-    return { myNeeds, teamQueue, waitingFor };
+    // Calculate counts per role for Team Queue chips
+    const roleBreakdown: Record<string, number> = {};
+    roles.forEach(role => {
+      if (role !== userSatisfierRole) {
+        roleBreakdown[role] = new Set(
+          relevantNeeds
+            .filter(n => n.satisfier_role === role)
+            .map(n => n.workstream_id)
+        ).size;
+      }
+    });
+
+    return { myNeeds, teamQueue, waitingFor, roleBreakdown };
   }, [needs, deals, userRole]);
 
   // Filter deals based on needs filter
@@ -253,6 +267,9 @@ export default function MyDeals() {
         teamRoleFilter={teamRoleFilter}
         onClearTeamRoleFilter={() => setTeamRoleFilter(null)}
         counts={filterCounts}
+        availableTeamRoles={teamRoles.filter(r => r !== getSatisfierRole(userRole!))}
+        roleCounts={filterCounts.roleBreakdown}
+        onSetTeamRoleFilter={setTeamRoleFilter}
       />
 
       {/* Pipeline Visualization - Monochrome with Deal Cards */}

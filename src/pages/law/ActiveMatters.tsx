@@ -175,12 +175,14 @@ export default function ActiveMatters() {
 
   const isLoading = isLoadingWorkstreams || isLoadingNeeds;
 
-  // Calculate filter counts
+  const teamRoles = userRole ? getTeamRolesForRole(userRole) : [];
+
+  // Calculate filter counts including role breakdown
   const filterCounts = useMemo(() => {
-    if (!needs || !workstreams || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0 };
+    if (!needs || !workstreams || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0, roleBreakdown: {} };
 
     const userSatisfierRole = getSatisfierRole(userRole);
-    const teamRoles = getTeamRolesForRole(userRole);
+    const roles = getTeamRolesForRole(userRole);
     const workstreamIds = new Set(workstreams.map(ws => ws.id));
 
     // Only count needs for workstreams in our list
@@ -194,17 +196,29 @@ export default function ActiveMatters() {
 
     const teamQueue = new Set(
       relevantNeeds
-        .filter(n => n.satisfier_role && teamRoles.includes(n.satisfier_role) && n.satisfier_role !== userSatisfierRole)
+        .filter(n => n.satisfier_role && roles.includes(n.satisfier_role) && n.satisfier_role !== userSatisfierRole)
         .map(n => n.workstream_id)
     ).size;
 
     const waitingFor = new Set(
       relevantNeeds
-        .filter(n => n.satisfier_role && !teamRoles.includes(n.satisfier_role))
+        .filter(n => n.satisfier_role && !roles.includes(n.satisfier_role))
         .map(n => n.workstream_id)
     ).size;
 
-    return { myNeeds, teamQueue, waitingFor };
+    // Calculate counts per role for Team Queue chips
+    const roleBreakdown: Record<string, number> = {};
+    roles.forEach(role => {
+      if (role !== userSatisfierRole) {
+        roleBreakdown[role] = new Set(
+          relevantNeeds
+            .filter(n => n.satisfier_role === role)
+            .map(n => n.workstream_id)
+        ).size;
+      }
+    });
+
+    return { myNeeds, teamQueue, waitingFor, roleBreakdown };
   }, [needs, workstreams, userRole]);
 
   // Filter workstreams based on needs filter
@@ -316,6 +330,9 @@ export default function ActiveMatters() {
         teamRoleFilter={teamRoleFilter}
         onClearTeamRoleFilter={() => setTeamRoleFilter(null)}
         counts={filterCounts}
+        availableTeamRoles={teamRoles.filter(r => r !== getSatisfierRole(userRole!))}
+        roleCounts={filterCounts.roleBreakdown}
+        onSetTeamRoleFilter={setTeamRoleFilter}
       />
 
       {/* Filters */}

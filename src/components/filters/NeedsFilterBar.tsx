@@ -15,6 +15,10 @@ interface NeedsFilterBarProps {
     teamQueue?: number;
     waitingFor?: number;
   };
+  // New props for role chips
+  availableTeamRoles?: string[];
+  roleCounts?: Record<string, number>;
+  onSetTeamRoleFilter?: (role: string | null) => void;
 }
 
 export function NeedsFilterBar({
@@ -25,6 +29,9 @@ export function NeedsFilterBar({
   teamRoleFilter,
   onClearTeamRoleFilter,
   counts,
+  availableTeamRoles,
+  roleCounts,
+  onSetTeamRoleFilter,
 }: NeedsFilterBarProps) {
   const filters: { key: NeedsFilterType; label: string; icon: React.ElementType }[] = [
     { key: "all", label: "All", icon: Filter },
@@ -39,6 +46,10 @@ export function NeedsFilterBar({
     } else {
       onClearFilter();
     }
+  };
+
+  const formatRoleName = (role: string) => {
+    return role.replace(/_/g, " ");
   };
 
   return (
@@ -78,6 +89,48 @@ export function NeedsFilterBar({
           );
         })}
       </div>
+
+      {/* Role Chips - shown when Team Queue is active */}
+      {activeFilter === "team-queue" && availableTeamRoles && availableTeamRoles.length > 0 && (
+        <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-border">
+          <Button
+            variant={!teamRoleFilter ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => onSetTeamRoleFilter?.(null)}
+            className={`h-7 text-xs ${!teamRoleFilter ? "bg-background shadow-sm" : "hover:bg-background/50"}`}
+          >
+            All Roles
+          </Button>
+          {availableTeamRoles.map((role) => {
+            const isActive = teamRoleFilter === role;
+            const count = roleCounts?.[role] || 0;
+            
+            return (
+              <Button
+                key={role}
+                variant={isActive ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => onSetTeamRoleFilter?.(role)}
+                className={`h-7 text-xs gap-1 capitalize ${isActive ? "bg-background shadow-sm" : "hover:bg-background/50"}`}
+              >
+                {formatRoleName(role)}
+                {count > 0 && (
+                  <Badge 
+                    variant="outline" 
+                    className={`h-4 px-1 text-[10px] ${
+                      isActive 
+                        ? "bg-primary/10 text-primary border-primary/20" 
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {count}
+                  </Badge>
+                )}
+              </Button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Active Filter Indicator */}
       {filterLabel && activeFilter !== "all" && (
