@@ -11,7 +11,8 @@ import {
   ActionCard, 
   StatusBadge, 
   VisualBreakdown,
-  WorkloadHistoryMini 
+  WorkloadHistoryMini,
+  NeedsDashboard
 } from "@/components/dashboard";
 
 // Mock data for tasks and reminders
@@ -127,6 +128,16 @@ export default function LawHome() {
             title="30-Day Workload"
           />
         </div>
+      </div>
+
+      {/* Needs Dashboard - What needs to happen */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Needs Overview</h2>
+        <NeedsDashboard 
+          modulePrefix="law" 
+          userRole="legal_ops"
+          teamRoles={["legal_ops", "contract_counsel", "general_counsel"]}
+        />
       </div>
 
       {/* Flow Visibility - Compact Status Row */}
