@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, differenceInDays, isPast } from "date-fns";
+import { getRouteName, getRouteApproverRole } from "@/lib/approvalUtils";
 
 interface WaitingItem {
   id: string;
@@ -118,11 +119,10 @@ export function useFlowVisibility(teamCategory?: string): FlowVisibilityData {
               : `due ${formatDistanceToNow(expectedClose, { addSuffix: true })}`
             : "no due date";
 
-          // Get current gate role from approval sequence
+          // Get current route info from approval sequence
           const sequence = template?.approval_sequence || [];
           const currentGate = approval.current_gate || 1;
-          const currentStep = sequence.find((s: any) => s.gate === currentGate);
-          const roleName = currentStep?.role || "Approver";
+          const roleName = getRouteApproverRole(sequence, currentGate);
 
           // For demo, show first few as "waiting on me"
           if (waitingOnMe.length < 3) {
