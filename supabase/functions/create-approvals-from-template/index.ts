@@ -451,6 +451,33 @@ Deno.serve(async (req) => {
     console.log(`Auto-approved ${autoApprovalLogs.length} routes`);
     console.log(`Skipped ${skippedRoutes.length} routes`);
 
+    // Log activity for approval workflow creation
+    if (approvalsCreated.length > 0 || autoApprovalLogs.length > 0) {
+      const activityDescription = approvalsCreated.length > 0
+        ? `Approval workflow initiated: ${approvalsCreated.length} approval${approvalsCreated.length > 1 ? 's' : ''} pending${autoApprovalLogs.length > 0 ? `, ${autoApprovalLogs.length} auto-approved` : ''}`
+        : `Approval workflow completed: ${autoApprovalLogs.length} route${autoApprovalLogs.length > 1 ? 's' : ''} auto-approved`;
+
+      await supabaseAdmin
+        .from("workstream_activity")
+        .insert({
+          workstream_id,
+          activity_type: "approval_submitted",
+          description: activityDescription,
+          metadata: {
+            template_id: template.id,
+            template_name: template.name,
+            approvals_created: approvalsCreated.length,
+            auto_approved: autoApprovalLogs.length,
+            skipped: skippedRoutes.length,
+            routes: approvalsCreated.map(a => ({
+              gate: a.current_gate,
+              route_type: a.route_metadata?.route_type,
+            })),
+          },
+        });
+      console.log("Logged approval workflow activity");
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

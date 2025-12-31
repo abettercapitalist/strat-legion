@@ -382,6 +382,17 @@ Deno.serve(async (req) => {
 
     console.log(`Created decision record: ${decisionRecord.id}`);
 
+    // Fetch user profile for activity logging
+    let actorName = "User";
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.full_name) {
+      actorName = profile.full_name;
+    }
+
     // Get the current route from template
     const routes = (approval.approval_template?.approval_sequence as ApprovalRoute[]) || [];
     const currentGate = approval.current_gate || 1;
@@ -535,6 +546,64 @@ Deno.serve(async (req) => {
         updated_at: now.toISOString(),
       })
       .eq("id", approval_id);
+
+    // Log activity for the approval decision
+    if (approval.workstream_id) {
+      const activityTypeMap: Record<string, string> = {
+        approved: "approval_approved",
+        rejected: "approval_rejected",
+        request_changes: "approval_changes_requested",
+      };
+      
+      const activityDescriptionMap: Record<string, string> = {
+        approved: `${actorName} approved gate ${currentGate}${currentRoute?.route_type ? ` (${currentRoute.route_type.replace(/_/g, ' ')})` : ''}`,
+        rejected: `${actorName} rejected gate ${currentGate}${currentRoute?.route_type ? ` (${currentRoute.route_type.replace(/_/g, ' ')})` : ''}`,
+        request_changes: `${actorName} requested changes on gate ${currentGate}${currentRoute?.route_type ? ` (${currentRoute.route_type.replace(/_/g, ' ')})` : ''}`,
+      };
+
+      await supabaseAdmin
+        .from("workstream_activity")
+        .insert({
+          workstream_id: approval.workstream_id,
+          activity_type: activityTypeMap[decision] || "updated",
+          description: activityDescriptionMap[decision] || `Approval decision: ${decision}`,
+          actor_id: user.id,
+          metadata: {
+            approval_id,
+            decision,
+            gate: currentGate,
+            route_type: currentRoute?.route_type || null,
+            route_status: routeStatus,
+            reasoning_provided: !!(reasoning && reasoning.trim()),
+            next_route_created: nextRouteCreated,
+            workstream_completed: workstreamCompleted,
+          },
+        });
+      console.log(`Logged activity: ${activityTypeMap[decision]}`);
+
+      // Also log stage change if workstream was completed or rejected
+      if (workstreamCompleted) {
+        await supabaseAdmin
+          .from("workstream_activity")
+          .insert({
+            workstream_id: approval.workstream_id,
+            activity_type: "stage_changed",
+            description: `Workstream approved - all approval gates complete`,
+            actor_id: user.id,
+            metadata: { new_stage: "approved", triggered_by: "approval_workflow" },
+          });
+      } else if (routeStatus === "failed") {
+        await supabaseAdmin
+          .from("workstream_activity")
+          .insert({
+            workstream_id: approval.workstream_id,
+            activity_type: "stage_changed",
+            description: `Workstream rejected at gate ${currentGate}`,
+            actor_id: user.id,
+            metadata: { new_stage: "rejected", triggered_by: "approval_workflow", gate: currentGate },
+          });
+      }
+    }
 
     // Infer tags from workstream data (auto-tagging)
     const inferredTags = workstream
