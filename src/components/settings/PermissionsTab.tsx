@@ -14,10 +14,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Scale, TrendingUp, Settings, Check } from "lucide-react";
+import { Scale, TrendingUp, Settings, Check, Loader2 } from "lucide-react";
 
 export function PermissionsTab() {
-  const { permissions, roles } = useRBAC();
+  const { permissions, roles, isLoading } = useRBAC();
 
   const groupedPermissions = {
     law: permissions.filter((p) => p.module === "law"),
@@ -40,6 +40,14 @@ export function PermissionsTab() {
   const getRolesWithPermission = (permissionId: string) => {
     return roles.filter((r) => r.permissions.includes(permissionId));
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -22,13 +22,14 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function RolesTab() {
-  const { roles, permissions, users, addRole, updateRole, deleteRole } = useRBAC();
+  const { roles, permissions, users, addRole, updateRole, deleteRole, isLoading } = useRBAC();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -58,23 +59,31 @@ export function RolesTab() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name) {
       toast.error("Role name is required");
       return;
     }
 
-    if (editingRole) {
-      updateRole(editingRole.id, formData);
-      toast.success("Role updated successfully");
-    } else {
-      addRole(formData);
-      toast.success("Role created successfully");
+    setIsSaving(true);
+    try {
+      if (editingRole) {
+        await updateRole(editingRole.id, formData);
+        toast.success("Role updated successfully");
+      } else {
+        await addRole(formData);
+        toast.success("Role created successfully");
+      }
+      setIsDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to save role");
+      console.error(error);
+    } finally {
+      setIsSaving(false);
     }
-    setIsDialogOpen(false);
   };
 
-  const handleDelete = (role: Role) => {
+  const handleDelete = async (role: Role) => {
     const usersWithRole = users.filter((u) => u.roleIds.includes(role.id));
     if (usersWithRole.length > 0) {
       toast.error(
@@ -83,8 +92,13 @@ export function RolesTab() {
       return;
     }
     if (confirm(`Are you sure you want to delete the "${role.name}" role?`)) {
-      deleteRole(role.id);
-      toast.success("Role deleted");
+      try {
+        await deleteRole(role.id);
+        toast.success("Role deleted");
+      } catch (error) {
+        toast.error("Failed to delete role");
+        console.error(error);
+      }
     }
   };
 
@@ -124,6 +138,14 @@ export function RolesTab() {
     sales: permissions.filter((p) => p.module === "sales"),
     system: permissions.filter((p) => p.module === "system"),
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -301,7 +323,8 @@ export function RolesTab() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
+            <Button onClick={handleSubmit} disabled={isSaving}>
+              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {editingRole ? "Save Changes" : "Create Role"}
             </Button>
           </DialogFooter>

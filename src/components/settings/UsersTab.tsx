@@ -19,84 +19,48 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Pencil, Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function UsersTab() {
-  const { users, roles, addUser, updateUser, deleteUser } = useRBAC();
+  const { users, roles, updateUser, isLoading } = useRBAC();
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    department: "",
-    title: "",
     roleIds: [] as string[],
-    isActive: true,
   });
 
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase()) ||
-      user.department.toLowerCase().includes(search.toLowerCase())
+      user.email.toLowerCase().includes(search.toLowerCase())
   );
-
-  const openCreateDialog = () => {
-    setEditingUser(null);
-    setFormData({
-      name: "",
-      email: "",
-      department: "",
-      title: "",
-      roleIds: [],
-      isActive: true,
-    });
-    setIsDialogOpen(true);
-  };
 
   const openEditDialog = (user: SystemUser) => {
     setEditingUser(user);
     setFormData({
-      name: user.name,
-      email: user.email,
-      department: user.department,
-      title: user.title,
       roleIds: user.roleIds,
-      isActive: user.isActive,
     });
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.email) {
-      toast.error("Name and email are required");
-      return;
-    }
+  const handleSubmit = async () => {
+    if (!editingUser) return;
 
-    if (editingUser) {
-      updateUser(editingUser.id, formData);
-      toast.success("User updated successfully");
-    } else {
-      addUser(formData);
-      toast.success("User created successfully");
-    }
-    setIsDialogOpen(false);
-  };
-
-  const handleDelete = (user: SystemUser) => {
-    if (confirm(`Are you sure you want to delete ${user.name}?`)) {
-      deleteUser(user.id);
-      toast.success("User deleted");
+    setIsSaving(true);
+    try {
+      await updateUser(editingUser.id, { roleIds: formData.roleIds });
+      toast.success("User roles updated successfully");
+      setIsDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to update user roles");
+      console.error(error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -108,6 +72,14 @@ export function UsersTab() {
         : [...prev.roleIds, roleId],
     }));
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -121,53 +93,53 @@ export function UsersTab() {
             className="pl-9"
           />
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+        <p className="text-sm text-muted-foreground">
+          Users are created through authentication. Assign roles here.
+        </p>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Roles</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-24">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUsers.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {user.email}
-                </TableCell>
-                <TableCell>{user.department}</TableCell>
-                <TableCell>{user.title}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {user.roleIds.map((roleId) => {
-                      const role = roles.find((r) => r.id === roleId);
-                      return role ? (
-                        <Badge key={roleId} variant="secondary" className="text-xs">
-                          {role.name}
-                        </Badge>
-                      ) : null;
-                    })}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={user.isActive ? "default" : "outline"}>
-                    {user.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
+      {users.length === 0 ? (
+        <div className="border rounded-lg p-8 text-center text-muted-foreground">
+          <p>No users with custom roles yet.</p>
+          <p className="text-sm mt-1">Users will appear here once they sign up and are assigned roles.</p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Roles</TableHead>
+                <TableHead className="w-24">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {user.email}
+                  </TableCell>
+                  <TableCell>{user.title || "-"}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {user.roleIds.length > 0 ? (
+                        user.roleIds.map((roleId) => {
+                          const role = roles.find((r) => r.id === roleId);
+                          return role ? (
+                            <Badge key={roleId} variant="secondary" className="text-xs">
+                              {role.name}
+                            </Badge>
+                          ) : null;
+                        })
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No roles</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -175,110 +147,41 @@ export function UsersTab() {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(user)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingUser ? "Edit User" : "Create New User"}
-            </DialogTitle>
+            <DialogTitle>Edit User Roles</DialogTitle>
             <DialogDescription>
-              {editingUser
-                ? "Update user information and role assignments"
-                : "Add a new user to the system"}
+              Assign roles to {editingUser?.name}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="John Doe"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, email: e.target.value }))
-                }
-                placeholder="john.doe@testco.com"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <Select
-                  value={formData.department}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, department: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Legal">Legal</SelectItem>
-                    <SelectItem value="Sales">Sales</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
-                    <SelectItem value="Operations">Operations</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, title: e.target.value }))
-                  }
-                  placeholder="Job title"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
               <Label>Assign Roles</Label>
-              <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+              <div className="border rounded-md p-3 space-y-2 max-h-64 overflow-y-auto">
                 {roles.map((role) => (
                   <label
                     key={role.id}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
+                    className="flex items-start gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={formData.roleIds.includes(role.id)}
-                      onChange={() => toggleRole(role.id)}
-                      className="rounded border-input"
+                      onCheckedChange={() => toggleRole(role.id)}
                     />
                     <div>
                       <span className="text-sm font-medium">{role.name}</span>
+                      {role.isSystemRole && (
+                        <Badge variant="outline" className="ml-2 text-xs">System</Badge>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {role.description}
                       </p>
@@ -287,35 +190,15 @@ export function UsersTab() {
                 ))}
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={formData.isActive ? "active" : "inactive"}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    isActive: value === "active",
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
-              {editingUser ? "Save Changes" : "Create User"}
+            <Button onClick={handleSubmit} disabled={isSaving}>
+              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
