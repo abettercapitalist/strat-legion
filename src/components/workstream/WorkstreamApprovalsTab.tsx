@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Clock, XCircle, AlertCircle } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { getRouteName } from "@/lib/approvalUtils";
 
 interface WorkstreamApprovalsTabProps {
   workstreamId: string;
@@ -25,7 +26,7 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
         .from("workstream_approvals")
         .select(`
           *,
-          approval_template:approval_templates(name, description)
+          approval_template:approval_templates(name, description, approval_sequence)
         `)
         .eq("workstream_id", workstreamId)
         .order("current_gate", { ascending: true });
@@ -87,13 +88,16 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
         const Icon = config.icon;
         const relatedDecisions = decisions?.filter(d => d.approval_id === approval.id) || [];
 
+        const approvalSequence = (approval.approval_template as any)?.approval_sequence;
+        const routeName = getRouteName(approvalSequence, approval.current_gate || 1);
+
         return (
           <Card key={approval.id}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Icon className="h-5 w-5" />
-                  {approval.approval_template?.name || `Approval Gate ${approval.current_gate}`}
+                  {approval.approval_template?.name || routeName}
                 </CardTitle>
                 <Badge className={config.color}>{config.label}</Badge>
               </div>
@@ -104,8 +108,8 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Gate</p>
-                  <p className="font-medium">{approval.current_gate}</p>
+                  <p className="text-muted-foreground">Route</p>
+                  <p className="font-medium">{routeName}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Submitted</p>
