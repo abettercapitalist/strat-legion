@@ -5,6 +5,7 @@ import { FileText, Library, Clock, AlertCircle, CheckCircle2, ArrowRight, Plus }
 import { NavLink } from "@/components/NavLink";
 import { useFlowVisibility } from "@/hooks/useFlowVisibility";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useCurrentUserRole, getTeamRolesForUser } from "@/hooks/useCurrentUserRole";
 import { 
   MetricRing, 
   StatusBadge, 
@@ -61,9 +62,13 @@ const pipelineDistribution = [
 export default function LawHome() {
   const { waitingOnMe, atRiskItems } = useFlowVisibility("law");
   const { labels } = useTheme();
+  const { role, isLoading: isRoleLoading } = useCurrentUserRole();
 
   // Calculate engagement percentage (mock: based on completed vs pending)
   const engagementScore = 72;
+
+  // Get team roles based on user's role
+  const teamRoles = getTeamRolesForUser(role);
   
   return (
     <div className="space-y-6">
@@ -135,8 +140,8 @@ export default function LawHome() {
         </div>
         <UnifiedNeedsDashboard 
           modulePrefix="law" 
-          userRole="legal_ops"
-          teamRoles={["legal_ops", "contract_counsel", "general_counsel"]}
+          userRole={role || "legal_ops"}
+          teamRoles={teamRoles.length > 0 ? teamRoles : ["legal_ops", "contract_counsel", "general_counsel"]}
         />
       </div>
 

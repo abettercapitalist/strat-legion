@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logWorkstreamActivity } from "@/hooks/useActivityLogger";
 
 export interface Need {
   id: string;
@@ -142,6 +143,13 @@ export function useNeeds() {
     referenceType?: string,
     referenceId?: string
   ): Promise<boolean> => {
+    // First, get the need to retrieve workstream_id and description for logging
+    const { data: needData } = await supabase
+      .from("needs")
+      .select("workstream_id, description, need_type")
+      .eq("id", needId)
+      .single();
+
     const { error } = await supabase
       .from("needs")
       .update({
@@ -156,6 +164,21 @@ export function useNeeds() {
     if (error) {
       console.error("Error satisfying need:", error);
       return false;
+    }
+
+    // Log activity if we have the workstream_id
+    if (needData?.workstream_id) {
+      await logWorkstreamActivity({
+        workstream_id: needData.workstream_id,
+        activity_type: "need_satisfied",
+        description: `Satisfied need: ${needData.description}`,
+        metadata: {
+          need_id: needId,
+          need_type: needData.need_type,
+          reference_type: referenceType || null,
+          reference_id: referenceId || null,
+        },
+      });
     }
 
     return true;
@@ -214,6 +237,19 @@ export function useNeeds() {
       console.error("Error adding manual need:", error);
       return null;
     }
+
+    // Log activity for manual need creation
+    await logWorkstreamActivity({
+      workstream_id: workstreamId,
+      activity_type: "needs_created",
+      description: `Added manual need: ${needData.description}`,
+      metadata: {
+        need_id: data.id,
+        need_type: needData.need_type,
+        satisfier_role: needData.satisfier_role || null,
+        source: "manual",
+      },
+    });
 
     return data as Need;
   }, []);

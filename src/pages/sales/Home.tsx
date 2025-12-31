@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { UnifiedNeedsDashboard } from "@/components/dashboard";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useCurrentUserRole, getTeamRolesForUser } from "@/hooks/useCurrentUserRole";
 
 interface PriorityTask {
   id: string;
@@ -134,7 +135,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function SalesHome() {
   const { labels } = useTheme();
+  const { role, isLoading: isRoleLoading } = useCurrentUserRole();
   const totalPipeline = pipelineData.reduce((acc, item) => acc + item.value, 0);
+  
+  // Get team roles based on user's role
+  const teamRoles = getTeamRolesForUser(role);
 
   return (
     <div className="space-y-8">
@@ -297,8 +302,8 @@ export default function SalesHome() {
         <h2 className="text-lg font-medium text-foreground">Your Needs Dashboard</h2>
         <UnifiedNeedsDashboard
           modulePrefix="sales"
-          userRole="account_executive"
-          teamRoles={["account_executive", "sales_manager", "finance_reviewer"]}
+          userRole={role || "account_executive"}
+          teamRoles={teamRoles.length > 0 ? teamRoles : ["account_executive", "sales_manager", "finance_reviewer"]}
         />
       </div>
 
