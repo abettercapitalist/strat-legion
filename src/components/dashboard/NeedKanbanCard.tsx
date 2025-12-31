@@ -89,7 +89,7 @@ export function NeedKanbanCard({ need, onClick, className }: NeedKanbanCardProps
           {need.dueText && (
             <div className="mt-2 flex items-center gap-1">
               {need.isOverdue && (
-                <AlertTriangle className="h-3 w-3 text-destructive animate-pulse" />
+                <AlertTriangle className="h-3 w-3 text-destructive" />
               )}
               <span
                 className={cn(

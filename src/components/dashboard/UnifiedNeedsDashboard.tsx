@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Hand, Users, Hourglass, ArrowRight, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
+
 import { 
   useUnifiedNeeds, 
   getNeedTypeBreakdown, 
@@ -30,17 +29,6 @@ export function UnifiedNeedsDashboard({
   const navigate = useNavigate();
   const mattersPath = modulePrefix === "sales" ? "deals" : "matters";
   
-  // Track when a refresh just completed for animation
-  const [showRefreshPulse, setShowRefreshPulse] = useState(false);
-  
-  useEffect(() => {
-    if (lastUpdated && !isRefreshing) {
-      // Trigger pulse animation when refresh completes
-      setShowRefreshPulse(true);
-      const timer = setTimeout(() => setShowRefreshPulse(false), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [lastUpdated, isRefreshing]);
 
   if (isLoading) {
     return (
@@ -91,10 +79,7 @@ export function UnifiedNeedsDashboard({
       )}
       
       {/* Lane 1: My Actions */}
-      <Card className={cn(
-        "border-border transition-all duration-500",
-        showRefreshPulse && "ring-2 ring-primary/20 animate-pulse"
-      )}>
+      <Card className="border-border">
         <CardContent className="pt-6">
           <NeedLaneHeader
             title="My Actions"
@@ -143,10 +128,7 @@ export function UnifiedNeedsDashboard({
       </Card>
 
       {/* Lane 2: Team Queue */}
-      <Card className={cn(
-        "border-border transition-all duration-500",
-        showRefreshPulse && "ring-2 ring-primary/20 animate-pulse"
-      )}>
+      <Card className="border-border">
         <CardContent className="pt-6">
           <NeedLaneHeader
             title="Team Queue"
@@ -214,10 +196,7 @@ export function UnifiedNeedsDashboard({
       </Card>
 
       {/* Lane 3: Waiting For */}
-      <Card className={cn(
-        "border-border transition-all duration-500",
-        showRefreshPulse && "ring-2 ring-primary/20 animate-pulse"
-      )}>
+      <Card className="border-border">
         <CardContent className="pt-6">
           <NeedLaneHeader
             title="Waiting For"
