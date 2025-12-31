@@ -3,9 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Library, Clock, AlertCircle, CheckCircle2, ArrowRight, Plus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useFlowVisibility } from "@/hooks/useFlowVisibility";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrentUserRole, getTeamRolesForUser } from "@/hooks/useCurrentUserRole";
+import { useUnifiedNeeds } from "@/hooks/useUnifiedNeeds";
 import { 
   MetricRing, 
   StatusBadge, 
@@ -60,15 +60,20 @@ const pipelineDistribution = [
 ];
 
 export default function LawHome() {
-  const { waitingOnMe, atRiskItems } = useFlowVisibility("law");
   const { labels } = useTheme();
   const { role, isLoading: isRoleLoading } = useCurrentUserRole();
 
-  // Calculate engagement percentage (mock: based on completed vs pending)
-  const engagementScore = 72;
-
   // Get team roles based on user's role
   const teamRoles = getTeamRolesForUser(role);
+
+  // Use the same data source as the UnifiedNeedsDashboard for consistent counts
+  const { myActions } = useUnifiedNeeds(
+    role || "legal_ops",
+    teamRoles.length > 0 ? teamRoles : ["legal_ops", "contract_counsel", "general_counsel"]
+  );
+
+  // Calculate engagement percentage (mock: based on completed vs pending)
+  const engagementScore = 72;
   
   return (
     <div className="space-y-6">
@@ -94,9 +99,9 @@ export default function LawHome() {
                   Good morning
                 </h1>
                 <p className="text-lg text-muted-foreground mt-2">
-                  You have <span className="font-semibold text-foreground">{waitingOnMe.length}</span> items waiting for your action
-                  {atRiskItems.length > 0 && (
-                    <span>, including <span className="text-destructive font-semibold">{atRiskItems.length} at risk</span></span>
+                  You have <span className="font-semibold text-foreground">{myActions.totalCount}</span> items waiting for your action
+                  {myActions.overdueCount > 0 && (
+                    <span>, including <span className="text-destructive font-semibold">{myActions.overdueCount} overdue</span></span>
                   )}
                 </p>
               </div>
