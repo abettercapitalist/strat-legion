@@ -406,6 +406,31 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Create corresponding need in the needs table
+      const needDescription = route.custom_route_name || 
+        `${route.route_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} approval required`;
+      
+      const { error: needError } = await supabaseAdmin
+        .from("needs")
+        .insert({
+          workstream_id,
+          need_type: "approval",
+          description: needDescription,
+          satisfier_role: approvers[0]?.role || "general_counsel",
+          satisfier_type: "role",
+          status: "open",
+          due_at: dueAt.toISOString(),
+          source_type: "approval",
+          source_id: approval.id,
+          source_reason: `Created from approval template: ${template.name}`,
+        });
+
+      if (needError) {
+        console.error("Error creating need record:", needError);
+      } else {
+        console.log(`Created need for approval ${approval.id}`);
+      }
+
       approvalsCreated.push({
         ...approval,
         route_metadata: routeMetadata,

@@ -407,13 +407,31 @@ Deno.serve(async (req) => {
 
     // Determine new approval status
     let newStatus: string;
+    let newNeedId: string | null = null;
+    
     if (routeStatus === "complete") {
+      // Mark the current need as satisfied
+      if (approval.workstream_id) {
+        await supabaseAdmin
+          .from("needs")
+          .update({
+            status: "satisfied",
+            satisfied_at: now.toISOString(),
+            satisfied_by: user.id,
+            satisfaction_reference_type: "approval_decision",
+            satisfaction_reference_id: decisionRecord.id,
+          })
+          .eq("source_id", approval_id)
+          .eq("source_type", "approval");
+        console.log("Marked current need as satisfied");
+      }
+
       // Check if there's a next route
       const nextRoute = routes.find(r => r.position === currentGate + 1);
       
       if (nextRoute) {
         // Create next approval record
-        const { error: nextApprovalError } = await supabaseAdmin
+        const { data: nextApproval, error: nextApprovalError } = await supabaseAdmin
           .from("workstream_approvals")
           .insert({
             workstream_id: approval.workstream_id,
@@ -421,11 +439,41 @@ Deno.serve(async (req) => {
             status: "pending",
             current_gate: nextRoute.position,
             submitted_at: now.toISOString(),
-          });
+          })
+          .select()
+          .single();
 
-        if (!nextApprovalError) {
+        if (!nextApprovalError && nextApproval) {
           nextRouteCreated = true;
           console.log(`Created next approval for route ${nextRoute.position}`);
+          
+          // Create corresponding need for the next gate
+          const nextApprovers = nextRoute.approvers || [];
+          const nextRole = nextApprovers[0]?.role || "general_counsel";
+          const nextDescription = `${nextRoute.route_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Approval'} required (Gate ${nextRoute.position})`;
+          
+          const { data: newNeed, error: needError } = await supabaseAdmin
+            .from("needs")
+            .insert({
+              workstream_id: approval.workstream_id,
+              need_type: "approval",
+              description: nextDescription,
+              satisfier_role: nextRole,
+              satisfier_type: "role",
+              status: "open",
+              source_type: "approval",
+              source_id: nextApproval.id,
+              source_reason: `Next gate in approval workflow`,
+            })
+            .select()
+            .single();
+
+          if (needError) {
+            console.error("Error creating next need:", needError);
+          } else {
+            newNeedId = newNeed.id;
+            console.log(`Created need for next gate: ${newNeed.id}`);
+          }
         }
         
         newStatus = "approved"; // This gate approved, workflow continues
@@ -447,6 +495,21 @@ Deno.serve(async (req) => {
       }
     } else if (routeStatus === "failed") {
       newStatus = "rejected";
+      
+      // Mark the current need as satisfied (rejection is still a resolution)
+      if (approval.workstream_id) {
+        await supabaseAdmin
+          .from("needs")
+          .update({
+            status: "satisfied",
+            satisfied_at: now.toISOString(),
+            satisfied_by: user.id,
+            satisfaction_reference_type: "approval_decision",
+            satisfaction_reference_id: decisionRecord.id,
+          })
+          .eq("source_id", approval_id)
+          .eq("source_type", "approval");
+      }
       
       // Update workstream stage to rejected
       if (approval.workstream_id) {
