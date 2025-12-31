@@ -144,11 +144,33 @@ export function useFlowVisibility(teamCategory?: string): FlowVisibilityData {
           waitingOnOthersMap.entries()
         ).map(([role, count]) => ({ role, count }));
 
-        // Find at-risk items (no activity for 7+ days or overdue close date)
+        // Find at-risk items - only include items that are actionable by the user
+        // An item is at-risk if it's waiting on the user AND (stale or overdue)
         const atRiskItems: AtRiskItem[] = [];
         const now = new Date();
+        
+        // Create a set of workstream IDs that are waiting on the user
+        const waitingOnMeIds = new Set(waitingOnMe.map(item => item.id));
 
+        // Check items waiting on me for risk factors
+        waitingOnMe.forEach((item) => {
+          if (item.isOverdue) {
+            atRiskItems.push({
+              id: item.id,
+              name: item.name,
+              reason: `overdue - ${item.dueText}`,
+            });
+          }
+        });
+
+        // Also check workstreams owned by user for staleness (if not already in waiting list)
         allWorkstreams?.forEach((workstream) => {
+          // Skip if already flagged via waiting-on-me
+          if (waitingOnMeIds.has(workstream.id)) return;
+          
+          // Only check workstreams owned by current user
+          if (workstream.owner_id !== currentUserId) return;
+          
           const lastActivity = activityMap.get(workstream.id);
           const daysSinceActivity = lastActivity 
             ? differenceInDays(now, lastActivity)
@@ -161,17 +183,17 @@ export function useFlowVisibility(teamCategory?: string): FlowVisibilityData {
             ? differenceInDays(now, expectedClose)
             : 0;
 
-          if (daysSinceActivity >= 7) {
-            atRiskItems.push({
-              id: workstream.id,
-              name: (workstream.counterparty as any)?.name || workstream.name,
-              reason: `no activity ${daysSinceActivity} days`,
-            });
-          } else if (daysOverdue >= 3) {
+          if (daysOverdue >= 3) {
             atRiskItems.push({
               id: workstream.id,
               name: (workstream.counterparty as any)?.name || workstream.name,
               reason: `overdue ${daysOverdue} days`,
+            });
+          } else if (daysSinceActivity >= 7) {
+            atRiskItems.push({
+              id: workstream.id,
+              name: (workstream.counterparty as any)?.name || workstream.name,
+              reason: `stale ${daysSinceActivity} days`,
             });
           }
         });
