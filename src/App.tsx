@@ -12,6 +12,7 @@ import { SalesLayout } from "./components/SalesLayout";
 import { AdminLayout } from "./components/AdminLayout";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
 
 // Law Module Pages
 import LawTemplates from "./pages/law/Templates";
@@ -58,7 +59,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-            <Route path="/" element={<Navigate to="/auth" replace />} />
+            <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Navigate to="/auth" replace />} />
             
