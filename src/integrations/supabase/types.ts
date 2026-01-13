@@ -1134,6 +1134,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      has_business_role: { Args: { _user_id?: string }; Returns: boolean }
       has_permission: {
         Args: { _permission_id: string; _user_id: string }
         Returns: boolean
@@ -1145,6 +1146,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_workstream_access: {
+        Args: { _user_id?: string; ws_id: string }
+        Returns: boolean
+      }
+      is_manager: { Args: { _user_id?: string }; Returns: boolean }
     }
     Enums: {
       app_role:
