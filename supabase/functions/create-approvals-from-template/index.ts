@@ -202,12 +202,40 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validate user identity
+    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !user) {
+      console.error("Error getting user:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { workstream_id } = await req.json();
     
     if (!workstream_id) {
       return new Response(
         JSON.stringify({ error: "workstream_id is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify user has access to this workstream
+    const { data: hasAccess, error: accessError } = await supabaseAdmin.rpc(
+      "has_workstream_access",
+      { ws_id: workstream_id, _user_id: user.id }
+    );
+
+    if (accessError || !hasAccess) {
+      console.error("Access denied to workstream:", accessError);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: No access to this workstream" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
