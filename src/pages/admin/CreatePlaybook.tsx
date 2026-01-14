@@ -3,16 +3,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkstreamTypes } from "@/hooks/useWorkstreamTypes";
-import { useTeams, type Team } from "@/hooks/useTeams";
+import { useTeams } from "@/hooks/useTeams";
 import { supabase } from "@/integrations/supabase/client";
 import {
   WorkflowStepsSection,
@@ -23,7 +22,7 @@ import { ApprovalWorkflowSection } from "@/components/admin/ApprovalWorkflowSect
 import { AutoApprovalSection } from "@/components/admin/AutoApprovalSection";
 import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
 import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
-import { CreateTeamModal } from "@/components/admin/CreateTeamModal";
+import { TeamCombobox } from "@/components/admin/TeamCombobox";
 import { AutoApprovalConfig } from "@/types/autoApproval";
 
 const playbookSchema = z.object({
@@ -53,7 +52,7 @@ export default function CreatePlaybook() {
   const { id } = useParams();
   const { toast } = useToast();
   const { createWorkstreamType, updateWorkstreamType } = useWorkstreamTypes();
-  const { teams, isLoading: isLoadingTeams } = useTeams();
+  const { hasSubgroups, getTeamById } = useTeams();
   const isEditing = Boolean(id);
   
   const [currentStep, setCurrentStep] = useState<FormStep>("basics");
@@ -62,7 +61,6 @@ export default function CreatePlaybook() {
   const [selectedApprovalTemplateId, setSelectedApprovalTemplateId] = useState<string | null>(null);
   const [autoApprovalConfig, setAutoApprovalConfig] = useState<AutoApprovalConfig | null>(null);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
-  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
 
   const {
     register,
@@ -181,6 +179,17 @@ export default function CreatePlaybook() {
   const validateForActivation = useCallback((): boolean => {
     const errors: ValidationError[] = [];
     const stepErrs: StepValidationError[] = [];
+
+    // Validate team category - check if a parent with sub-groups was selected
+    const selectedTeam = teamCategory ? getTeamById(teamCategory) : null;
+    if (selectedTeam && hasSubgroups(selectedTeam.id)) {
+      errors.push({
+        id: "team-subgroup",
+        section: "basics",
+        field: "team_category",
+        message: "This team has sub-groups. Please select a specific group.",
+      });
+    }
 
     // Validate workflow steps have at least one immediate step
     const hasImmediateStep = workflowSteps.some((step) => step.requirement_type === "required_immediate");
@@ -301,7 +310,7 @@ export default function CreatePlaybook() {
     setValidationErrors(errors);
     setStepErrors(stepErrs);
     return errors.length === 0;
-  }, [workflowSteps, selectedApprovalTemplateId, autoApprovalConfig]);
+  }, [workflowSteps, selectedApprovalTemplateId, autoApprovalConfig, teamCategory, getTeamById, hasSubgroups]);
 
   const handleErrorClick = (error: ValidationError) => {
     setCurrentStep(error.section);
@@ -529,65 +538,14 @@ export default function CreatePlaybook() {
               <p className="text-xs text-muted-foreground italic">
                 Primary team where this play will be used
               </p>
-              {isLoadingTeams ? (
-                <div className="flex flex-wrap gap-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <Skeleton key={i} className="h-5 w-20" />
-                  ))}
-                </div>
-              ) : (
-                <RadioGroup
-                  value={teamCategory}
-                  onValueChange={(value) => {
-                    if (value === "__add_new__") {
-                      setShowCreateTeamModal(true);
-                    } else {
-                      setValue("team_category", value);
-                    }
-                  }}
-                  className="flex flex-wrap gap-4"
-                >
-                  {teams.map((team) => (
-                    <div key={team.id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={team.name} id={team.name} />
-                      <Label
-                        htmlFor={team.name}
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {team.display_name}
-                      </Label>
-                    </div>
-                  ))}
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="__add_new__" id="__add_new__" className="sr-only" />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowCreateTeamModal(true)}
-                      className="h-6 px-2 text-xs gap-1"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add Team
-                    </Button>
-                  </div>
-                </RadioGroup>
-              )}
-              {errors.team_category && (
-                <p className="text-xs text-destructive">
-                  {errors.team_category.message}
-                </p>
-              )}
+              <TeamCombobox
+                value={teamCategory}
+                onValueChange={(value) => setValue("team_category", value)}
+                placeholder="Select a team..."
+                error={errors.team_category?.message}
+                requireSubgroupWhenAvailable={true}
+              />
             </div>
-
-            {/* Create Team Modal */}
-            <CreateTeamModal
-              open={showCreateTeamModal}
-              onOpenChange={setShowCreateTeamModal}
-              onTeamCreated={(newTeam: Team) => {
-                setValue("team_category", newTeam.name);
-              }}
-            />
           </div>
         )}
 

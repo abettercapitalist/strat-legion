@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, ChevronDown, MoreHorizontal, Pencil, Copy, Archive, Download, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkstreamTypes, type WorkstreamTypeFilters } from "@/hooks/useWorkstreamTypes";
 import { useTeams } from "@/hooks/useTeams";
+import { TeamCombobox } from "@/components/admin/TeamCombobox";
 
 const STATUS_OPTIONS = ["All", "Active", "Draft", "Archived"];
 
@@ -26,16 +27,7 @@ export default function WorkstreamTypes() {
     archiveWorkstreamType,
     deleteWorkstreamType
   } = useWorkstreamTypes(filters);
-  const { teams } = useTeams();
-
-  // Build dynamic team category options from teams data
-  const teamCategoryOptions = useMemo(() => {
-    const options = ["All"];
-    teams.forEach((team) => {
-      options.push(team.name);
-    });
-    return options;
-  }, [teams]);
+  const { getTeamById, getTeamPath } = useTeams();
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -136,19 +128,27 @@ export default function WorkstreamTypes() {
           </SelectContent>
         </Select>
 
-        <Select value={filters.team_category} onValueChange={value => setFilters(prev => ({
-        ...prev,
-        team_category: value
-      }))}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Team" />
-          </SelectTrigger>
-          <SelectContent>
-            {teamCategoryOptions.map(category => <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="w-[240px]">
+          <TeamCombobox
+            value={filters.team_category === "All" ? undefined : filters.team_category}
+            onValueChange={(value) => setFilters(prev => ({
+              ...prev,
+              team_category: value || "All"
+            }))}
+            placeholder="Filter by team..."
+            requireSubgroupWhenAvailable={false}
+          />
+        </div>
+        
+        {filters.team_category !== "All" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFilters(prev => ({ ...prev, team_category: "All" }))}
+          >
+            Clear team filter
+          </Button>
+        )}
       </div>
 
       {/* Table or Empty State */}
