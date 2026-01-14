@@ -346,16 +346,26 @@ export default function CreatePlaybook() {
       if (isEditing && id) {
         await updateWorkstreamType.mutateAsync({ id, ...payload });
         toast({
-          title: "Play updated",
+          title: status === "Active" ? "Play activated" : "Draft saved",
           description: `${data.name} has been updated successfully.`,
         });
+        // Only navigate to library when activating
+        if (status === "Active") {
+          navigate("/admin/workstream-types");
+        }
       } else {
-        await createWorkstreamType.mutateAsync(payload);
+        const result = await createWorkstreamType.mutateAsync(payload);
         toast({
-          title: status === "Active" ? "New play activated successfully" : "Play saved as draft",
+          title: status === "Active" ? "New play activated successfully" : "Draft saved",
         });
+        
+        if (status === "Active") {
+          navigate("/admin/workstream-types");
+        } else if (result?.id) {
+          // Navigate to edit URL so subsequent saves update this draft
+          navigate(`/admin/workstream-types/${result.id}/edit`, { replace: true });
+        }
       }
-      navigate("/admin/workstream-types");
     } catch (error) {
       toast({
         title: "Error",
