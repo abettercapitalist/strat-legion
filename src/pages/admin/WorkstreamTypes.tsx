@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, ChevronDown, MoreHorizontal, Pencil, Copy, Archive, Download, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -9,9 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkstreamTypes, type WorkstreamTypeFilters } from "@/hooks/useWorkstreamTypes";
+import { useTeams } from "@/hooks/useTeams";
 
 const STATUS_OPTIONS = ["All", "Active", "Draft", "Archived"];
-const TEAM_CATEGORY_OPTIONS = ["All", "Sales", "Law", "Finance", "Pro Services"];
 
 export default function WorkstreamTypes() {
   const navigate = useNavigate();
@@ -26,6 +26,16 @@ export default function WorkstreamTypes() {
     archiveWorkstreamType,
     deleteWorkstreamType
   } = useWorkstreamTypes(filters);
+  const { teams } = useTeams();
+
+  // Build dynamic team category options from teams data
+  const teamCategoryOptions = useMemo(() => {
+    const options = ["All"];
+    teams.forEach((team) => {
+      options.push(team.name);
+    });
+    return options;
+  }, [teams]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -134,7 +144,7 @@ export default function WorkstreamTypes() {
             <SelectValue placeholder="Team" />
           </SelectTrigger>
           <SelectContent>
-            {TEAM_CATEGORY_OPTIONS.map(category => <SelectItem key={category} value={category}>
+            {teamCategoryOptions.map(category => <SelectItem key={category} value={category}>
                 {category}
               </SelectItem>)}
           </SelectContent>
