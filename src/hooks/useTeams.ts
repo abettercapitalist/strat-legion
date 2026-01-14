@@ -15,10 +15,36 @@ export interface Team {
 }
 
 export interface CreateTeamInput {
-  name: string;
   display_name: string;
   description?: string;
   parent_id?: string | null;
+}
+
+// Slugify a display name to create URL-safe internal name
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .substring(0, 50);
+}
+
+// Generate unique slug by checking existing names
+function generateUniqueSlug(displayName: string, existingNames: string[]): string {
+  const baseSlug = slugify(displayName);
+  if (!existingNames.includes(baseSlug)) {
+    return baseSlug;
+  }
+  
+  let counter = 2;
+  while (existingNames.includes(`${baseSlug}-${counter}`)) {
+    counter++;
+  }
+  return `${baseSlug}-${counter}`;
 }
 
 export function useTeams() {
@@ -41,10 +67,18 @@ export function useTeams() {
 
   const createTeam = useMutation({
     mutationFn: async (input: CreateTeamInput) => {
+      // Get existing team names to check for collisions
+      const { data: existingTeams } = await supabase
+        .from("teams")
+        .select("name");
+      
+      const existingNames = (existingTeams || []).map((t) => t.name);
+      const uniqueName = generateUniqueSlug(input.display_name, existingNames);
+
       const { data, error } = await supabase
         .from("teams")
         .insert({
-          name: input.name,
+          name: uniqueName,
           display_name: input.display_name,
           description: input.description || null,
           is_default: false,
