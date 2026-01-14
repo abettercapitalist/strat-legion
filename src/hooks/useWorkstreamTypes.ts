@@ -181,6 +181,24 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
     },
   });
 
+  const deleteWorkstreamType = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("workstream_types")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workstream-types"] });
+      toast({ title: "Play deleted successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to delete play", description: error.message, variant: "destructive" });
+    },
+  });
+
   return {
     workstreamTypes: workstreamTypes || [],
     isLoading,
@@ -189,5 +207,6 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
     updateWorkstreamType,
     duplicateWorkstreamType,
     archiveWorkstreamType,
+    deleteWorkstreamType,
   };
 }

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, ChevronDown, MoreHorizontal, Pencil, Copy, Archive, Download } from "lucide-react";
+import { Plus, ChevronDown, MoreHorizontal, Pencil, Copy, Archive, Download, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkstreamTypes, type WorkstreamTypeFilters } from "@/hooks/useWorkstreamTypes";
 
@@ -23,7 +23,8 @@ export default function WorkstreamTypes() {
     workstreamTypes,
     isLoading,
     duplicateWorkstreamType,
-    archiveWorkstreamType
+    archiveWorkstreamType,
+    deleteWorkstreamType
   } = useWorkstreamTypes(filters);
 
   const getStatusBadgeVariant = (status: string) => {
@@ -49,6 +50,12 @@ export default function WorkstreamTypes() {
 
   const handleArchive = (id: string) => {
     archiveWorkstreamType.mutate(id);
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this play? This action cannot be undone.")) {
+      deleteWorkstreamType.mutate(id);
+    }
   };
   if (isLoading) {
     return <div className="space-y-6">
@@ -197,6 +204,15 @@ export default function WorkstreamTypes() {
                         <DropdownMenuItem onClick={() => handleArchive(type.id)} disabled={type.status === "Archived"}>
                           <Archive className="h-4 w-4 mr-2" />
                           Archive
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(type.id)} 
+                          className="text-destructive focus:text-destructive"
+                          disabled={type.active_workstreams_count && type.active_workstreams_count > 0}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
