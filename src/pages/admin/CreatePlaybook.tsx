@@ -35,7 +35,7 @@ const playbookSchema = z.object({
   display_name: z
     .string()
     .min(1, "Display name is required")
-    .max(30, "Display name must be 30 characters or less"),
+    .max(50, "Display name must be 50 characters or less"),
   description: z
     .string()
     .max(500, "Description must be 500 characters or less")
@@ -488,9 +488,9 @@ export default function CreatePlaybook() {
                 {...register("display_name")}
                 className={errors.display_name ? "border-destructive" : ""}
               />
-              {displayNameValue.length > 20 && (
+              {displayNameValue.length > 30 && (
                 <p className="text-xs text-amber-600">
-                  Display names longer than 20 characters may be truncated
+                  Display names longer than 30 characters may be truncated
                 </p>
               )}
               {errors.display_name && (
