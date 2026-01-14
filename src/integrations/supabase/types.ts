@@ -664,6 +664,7 @@ export type Database = {
           id: string
           is_default: boolean | null
           name: string
+          parent_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -673,6 +674,7 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name: string
+          parent_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -682,8 +684,17 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name?: string
+          parent_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       template_clauses: {
         Row: {
