@@ -101,7 +101,8 @@ export default function SelectPlay() {
     if (!workflow || typeof workflow !== "object") return 0;
     const w = workflow as { steps?: Array<{ step_type?: string }> };
     if (!Array.isArray(w.steps)) return 0;
-    return w.steps.filter((s) => s.step_type === "approval_gate").length;
+    // Support both new "approval" and legacy "approval_gate" step types
+    return w.steps.filter((s) => s.step_type === "approval" || s.step_type === "approval_gate").length;
   };
 
   const handleStartPlay = (playId: string) => {

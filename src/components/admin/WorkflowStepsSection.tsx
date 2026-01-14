@@ -39,7 +39,7 @@ import { StepDocumentsSection, StepDocument } from "./StepDocumentsSection";
 
 export type StepType =
   | "generate_document"
-  | "approval_gate"
+  | "approval"
   | "send_notification"
   | "assign_task"
   | "request_information"
@@ -98,7 +98,7 @@ const STEP_TYPES: {
   emoji: string;
 }[] = [
   { type: "generate_document", label: "Generate Document", icon: FileText, emoji: "📄" },
-  { type: "approval_gate", label: "Approval Gate", icon: CheckCircle, emoji: "✓" },
+  { type: "approval", label: "Approval", icon: CheckCircle, emoji: "✓" },
   { type: "send_notification", label: "Send Notification", icon: Bell, emoji: "🔔" },
   { type: "assign_task", label: "Assign Task", icon: User, emoji: "👤" },
   { type: "request_information", label: "Request Information", icon: HelpCircle, emoji: "❓" },
@@ -589,7 +589,7 @@ function StepTypeFields({
         </div>
       );
 
-    case "approval_gate":
+    case "approval":
       return (
         <div className="space-y-4">
           <div className="space-y-2">

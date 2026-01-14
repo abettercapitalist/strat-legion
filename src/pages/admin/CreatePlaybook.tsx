@@ -147,7 +147,7 @@ export default function CreatePlaybook() {
 
   const STEP_VALIDATION_RULES: Record<string, { field: string; label: string; conditional?: (config: Record<string, unknown>) => boolean }[]> = {
     generate_document: [{ field: "template_id", label: "Template" }],
-    approval_gate: [{ field: "gate_type", label: "Gate Type" }],
+    approval: [{ field: "gate_type", label: "Gate Type" }],
     send_notification: [{ field: "notify_team", label: "Recipient" }],
     assign_task: [
       { field: "assign_to", label: "Assignee" },
@@ -167,7 +167,7 @@ export default function CreatePlaybook() {
   const getStepLabel = (type: string) => {
     const labels: Record<string, string> = {
       generate_document: "Generate Document",
-      approval_gate: "Approval Gate",
+      approval: "Approval",
       send_notification: "Send Notification",
       assign_task: "Assign Task",
       request_information: "Request Information",
