@@ -24,18 +24,10 @@ import {
 import { useTeams, type Team } from "@/hooks/useTeams";
 
 const createTeamSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Team name is required")
-    .max(50, "Team name must be 50 characters or less")
-    .regex(
-      /^[a-zA-Z0-9\s\-_]+$/,
-      "Name can only contain letters, numbers, spaces, hyphens, and underscores"
-    ),
   display_name: z
     .string()
-    .min(1, "Display name is required")
-    .max(50, "Display name must be 50 characters or less"),
+    .min(1, "Team name is required")
+    .max(50, "Team name must be 50 characters or less"),
   description: z
     .string()
     .max(200, "Description must be 200 characters or less")
@@ -73,7 +65,6 @@ export function CreateTeamModal({
   } = useForm<CreateTeamFormData>({
     resolver: zodResolver(createTeamSchema),
     defaultValues: {
-      name: "",
       display_name: "",
       description: "",
       parent_id: parentTeam?.id || undefined,
@@ -97,7 +88,6 @@ export function CreateTeamModal({
     setIsSubmitting(true);
     try {
       const newTeam = await createTeam.mutateAsync({
-        name: data.name,
         display_name: data.display_name,
         description: data.description,
         parent_id: data.parent_id || null,
@@ -166,29 +156,14 @@ export function CreateTeamModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="team-name" className="text-sm font-semibold">
+            <Label htmlFor="team-display-name" className="text-sm font-semibold">
               {isCreatingSubgroup ? "Sub-Group Name" : "Team Name"}{" "}
               <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="team-name"
-              placeholder={isCreatingSubgroup ? "e.g., Inside Sales" : "e.g., Marketing"}
-              {...register("name")}
-              className={errors.name ? "border-destructive" : ""}
-            />
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="team-display-name" className="text-sm font-semibold">
-              Display Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
               id="team-display-name"
               placeholder={
-                isCreatingSubgroup ? "e.g., Inside Sales Team" : "e.g., Marketing Team"
+                isCreatingSubgroup ? "e.g., Inside Sales" : "e.g., Marketing"
               }
               {...register("display_name")}
               className={errors.display_name ? "border-destructive" : ""}
