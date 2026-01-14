@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import type { AutoApprovalConfig } from "@/types/autoApproval";
 import type { Json } from "@/integrations/supabase/types";
 
+
 export interface WorkstreamType {
   id: string;
   name: string;
