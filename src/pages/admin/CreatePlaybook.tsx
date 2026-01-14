@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkstreamTypes } from "@/hooks/useWorkstreamTypes";
+import { useTeams, type Team } from "@/hooks/useTeams";
 import { supabase } from "@/integrations/supabase/client";
 import {
   WorkflowStepsSection,
@@ -22,7 +23,9 @@ import { ApprovalWorkflowSection } from "@/components/admin/ApprovalWorkflowSect
 import { AutoApprovalSection } from "@/components/admin/AutoApprovalSection";
 import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
 import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
+import { CreateTeamModal } from "@/components/admin/CreateTeamModal";
 import { AutoApprovalConfig } from "@/types/autoApproval";
+
 const playbookSchema = z.object({
   name: z
     .string()
@@ -40,26 +43,17 @@ const playbookSchema = z.object({
     .string()
     .max(500, "Description must be 500 characters or less")
     .optional(),
-  team_category: z.enum(["Sales", "Law", "Finance", "Pro Services", "Other"], {
-    required_error: "Assigned team is required",
-  }),
+  team_category: z.string().min(1, "Assigned team is required"),
 });
 
 type PlaybookFormData = z.infer<typeof playbookSchema>;
-
-const TEAM_OPTIONS = [
-  { value: "Sales", label: "Sales" },
-  { value: "Law", label: "Law" },
-  { value: "Finance", label: "Finance" },
-  { value: "Pro Services", label: "Pro Services" },
-  { value: "Other", label: "Other" },
-] as const;
 
 export default function CreatePlaybook() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
   const { createWorkstreamType, updateWorkstreamType } = useWorkstreamTypes();
+  const { teams, isLoading: isLoadingTeams } = useTeams();
   const isEditing = Boolean(id);
   
   const [currentStep, setCurrentStep] = useState<FormStep>("basics");
@@ -68,6 +62,7 @@ export default function CreatePlaybook() {
   const [selectedApprovalTemplateId, setSelectedApprovalTemplateId] = useState<string | null>(null);
   const [autoApprovalConfig, setAutoApprovalConfig] = useState<AutoApprovalConfig | null>(null);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
+  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
 
   const {
     register,
@@ -534,31 +529,65 @@ export default function CreatePlaybook() {
               <p className="text-xs text-muted-foreground italic">
                 Primary team where this play will be used
               </p>
-              <RadioGroup
-                value={teamCategory}
-                onValueChange={(value) =>
-                  setValue("team_category", value as PlaybookFormData["team_category"])
-                }
-                className="flex flex-wrap gap-4"
-              >
-                {TEAM_OPTIONS.map((option) => (
-                  <div key={option.value} className="flex items-center space-x-2">
-                    <RadioGroupItem value={option.value} id={option.value} />
-                    <Label
-                      htmlFor={option.value}
-                      className="text-sm font-normal cursor-pointer"
+              {isLoadingTeams ? (
+                <div className="flex flex-wrap gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-5 w-20" />
+                  ))}
+                </div>
+              ) : (
+                <RadioGroup
+                  value={teamCategory}
+                  onValueChange={(value) => {
+                    if (value === "__add_new__") {
+                      setShowCreateTeamModal(true);
+                    } else {
+                      setValue("team_category", value);
+                    }
+                  }}
+                  className="flex flex-wrap gap-4"
+                >
+                  {teams.map((team) => (
+                    <div key={team.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={team.name} id={team.name} />
+                      <Label
+                        htmlFor={team.name}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {team.display_name}
+                      </Label>
+                    </div>
+                  ))}
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="__add_new__" id="__add_new__" className="sr-only" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCreateTeamModal(true)}
+                      className="h-6 px-2 text-xs gap-1"
                     >
-                      {option.label}
-                    </Label>
+                      <Plus className="h-3 w-3" />
+                      Add Team
+                    </Button>
                   </div>
-                ))}
-              </RadioGroup>
+                </RadioGroup>
+              )}
               {errors.team_category && (
                 <p className="text-xs text-destructive">
                   {errors.team_category.message}
                 </p>
               )}
             </div>
+
+            {/* Create Team Modal */}
+            <CreateTeamModal
+              open={showCreateTeamModal}
+              onOpenChange={setShowCreateTeamModal}
+              onTeamCreated={(newTeam: Team) => {
+                setValue("team_category", newTeam.name);
+              }}
+            />
           </div>
         )}
 
