@@ -19,9 +19,10 @@ import {
   StepValidationError,
 } from "@/components/admin/WorkflowStepsSection";
 import { ApprovalWorkflowSection } from "@/components/admin/ApprovalWorkflowSection";
+import { AutoApprovalSection } from "@/components/admin/AutoApprovalSection";
 import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
 import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
-
+import { AutoApprovalConfig } from "@/types/autoApproval";
 const playbookSchema = z.object({
   name: z
     .string()
@@ -65,6 +66,7 @@ export default function CreatePlaybook() {
   const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set());
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
   const [selectedApprovalTemplateId, setSelectedApprovalTemplateId] = useState<string | null>(null);
+  const [autoApprovalConfig, setAutoApprovalConfig] = useState<AutoApprovalConfig | null>(null);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
 
   const {
@@ -124,6 +126,11 @@ export default function CreatePlaybook() {
             } catch (e) {
               console.error("Failed to parse workflow:", e);
             }
+          }
+
+          // Load auto-approval config
+          if (data.auto_approval_config) {
+            setAutoApprovalConfig(data.auto_approval_config as unknown as AutoApprovalConfig);
           }
         }
       } catch (error) {
@@ -236,10 +243,70 @@ export default function CreatePlaybook() {
       });
     }
 
+    // Validate auto-approval config if configured
+    if (autoApprovalConfig) {
+      const standards = autoApprovalConfig.auto_approval_standards;
+      const tiers = Object.entries(standards);
+
+      // At least one tier must be defined if using auto-approval
+      if (tiers.length === 0) {
+        errors.push({
+          id: "auto-approval-tiers",
+          section: "approval",
+          field: "auto_approval_standards",
+          message: "At least one tier must be defined if using auto-approval",
+        });
+      }
+
+      tiers.forEach(([tierName, tierConfig]) => {
+        if (!tierConfig) return;
+
+        // Maximum discount must be > 0 and < 100
+        if (tierConfig.discount_max <= 0 || tierConfig.discount_max >= 100) {
+          errors.push({
+            id: `auto-approval-${tierName}-discount`,
+            section: "approval",
+            field: "discount_max",
+            message: `${tierName} tier: Discount must be between 1 and 99%`,
+          });
+        }
+
+        // Minimum liability cap must be > 0
+        if (tierConfig.liability_cap_min <= 0) {
+          errors.push({
+            id: `auto-approval-${tierName}-liability`,
+            section: "approval",
+            field: "liability_cap_min",
+            message: `${tierName} tier: Liability cap must be greater than 0`,
+          });
+        }
+
+        // Duration min must be < duration max
+        if (tierConfig.contract_duration_min >= tierConfig.contract_duration_max) {
+          errors.push({
+            id: `auto-approval-${tierName}-duration`,
+            section: "approval",
+            field: "contract_duration",
+            message: `${tierName} tier: Minimum duration must be less than maximum`,
+          });
+        }
+
+        // At least one payment term must be selected
+        if (tierConfig.payment_terms.length === 0) {
+          errors.push({
+            id: `auto-approval-${tierName}-payment`,
+            section: "approval",
+            field: "payment_terms",
+            message: `${tierName} tier: At least one payment term must be selected`,
+          });
+        }
+      });
+    }
+
     setValidationErrors(errors);
     setStepErrors(stepErrs);
     return errors.length === 0;
-  }, [workflowSteps, selectedApprovalTemplateId]);
+  }, [workflowSteps, selectedApprovalTemplateId, autoApprovalConfig]);
 
   const handleErrorClick = (error: ValidationError) => {
     setCurrentStep(error.section);
@@ -269,6 +336,7 @@ export default function CreatePlaybook() {
         default_workflow: JSON.stringify({
           steps: workflowSteps,
         }),
+        auto_approval_config: autoApprovalConfig,
       };
 
       if (isEditing && id) {
@@ -507,16 +575,28 @@ export default function CreatePlaybook() {
 
         {/* Step 3: Approval Workflow */}
         {currentStep === "approval" && (
-          <div className="space-y-2">
+          <div className="space-y-6">
             <ApprovalWorkflowSection
               selectedTemplateId={selectedApprovalTemplateId}
               onTemplateChange={setSelectedApprovalTemplateId}
             />
-            {validationErrors.some(e => e.section === "approval") && (
+            {validationErrors.some(e => e.section === "approval" && e.field === "approval_template_id") && (
               <p className="text-xs text-destructive">
-                {validationErrors.find(e => e.section === "approval")?.message}
+                {validationErrors.find(e => e.section === "approval" && e.field === "approval_template_id")?.message}
               </p>
             )}
+
+            {/* Auto-Approval Standards Section */}
+            <AutoApprovalSection
+              config={autoApprovalConfig}
+              onConfigChange={setAutoApprovalConfig}
+              isEditing={isEditing}
+            />
+            {validationErrors.filter(e => e.section === "approval" && e.field !== "approval_template_id").map((err) => (
+              <p key={err.id} className="text-xs text-destructive">
+                {err.message}
+              </p>
+            ))}
           </div>
         )}
 

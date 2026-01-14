@@ -1,0 +1,63 @@
+export type CounterpartyTier = 'enterprise' | 'mid_market' | 'smb';
+
+export type PaymentTerm = 'net_30' | 'net_60' | 'net_90' | 'net_120';
+
+export const TIER_LABELS: Record<CounterpartyTier, string> = {
+  enterprise: 'Enterprise',
+  mid_market: 'Mid-Market',
+  smb: 'SMB',
+};
+
+export const PAYMENT_TERM_LABELS: Record<PaymentTerm, string> = {
+  net_30: 'Net 30',
+  net_60: 'Net 60',
+  net_90: 'Net 90',
+  net_120: 'Net 120',
+};
+
+export interface TierStandards {
+  payment_terms: PaymentTerm[];
+  discount_max: number;          // 0-100 percentage
+  liability_cap_min: number;     // minimum $ amount
+  contract_duration_min: number; // years
+  contract_duration_max: number; // years
+}
+
+export type DeviationType = 
+  | 'payment_terms' 
+  | 'liability_cap' 
+  | 'discount' 
+  | 'contract_duration';
+
+export const DEVIATION_LABELS: Record<DeviationType, string> = {
+  payment_terms: 'Payment Terms',
+  liability_cap: 'Liability Cap',
+  discount: 'Discount',
+  contract_duration: 'Contract Duration',
+};
+
+export interface DeviationRoute {
+  approver_role: string;
+}
+
+export interface AutoApprovalConfig {
+  auto_approval_standards: Partial<Record<CounterpartyTier, TierStandards>>;
+  deviation_routing: Partial<Record<DeviationType, DeviationRoute>>;
+}
+
+export const DEFAULT_TIER_STANDARDS: TierStandards = {
+  payment_terms: ['net_30'],
+  discount_max: 10,
+  liability_cap_min: 500000,
+  contract_duration_min: 1,
+  contract_duration_max: 3,
+};
+
+export const APPROVER_ROLE_OPTIONS = [
+  { value: 'finance', label: 'Finance' },
+  { value: 'commercial_counsel', label: 'Commercial Counsel' },
+  { value: 'sales_manager', label: 'Sales Manager' },
+  { value: 'general_counsel', label: 'General Counsel' },
+  { value: 'legal_ops', label: 'Legal Ops' },
+  { value: 'contract_counsel', label: 'Contract Counsel' },
+];
