@@ -35,7 +35,7 @@ const playbookSchema = z.object({
   display_name: z
     .string()
     .min(1, "Display name is required")
-    .max(50, "Display name must be 50 characters or less"),
+    .max(30, "Display name must be 30 characters or less"),
   description: z
     .string()
     .max(500, "Description must be 500 characters or less")
