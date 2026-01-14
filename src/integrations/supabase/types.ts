@@ -996,6 +996,7 @@ export type Database = {
       workstream_types: {
         Row: {
           approval_template_id: string | null
+          auto_approval_config: Json | null
           created_at: string
           created_by: string | null
           default_needs: Json | null
@@ -1011,6 +1012,7 @@ export type Database = {
         }
         Insert: {
           approval_template_id?: string | null
+          auto_approval_config?: Json | null
           created_at?: string
           created_by?: string | null
           default_needs?: Json | null
@@ -1026,6 +1028,7 @@ export type Database = {
         }
         Update: {
           approval_template_id?: string | null
+          auto_approval_config?: Json | null
           created_at?: string
           created_by?: string | null
           default_needs?: Json | null

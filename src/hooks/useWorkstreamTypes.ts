@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import type { AutoApprovalConfig } from "@/types/autoApproval";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface WorkstreamType {
   id: string;
@@ -11,6 +13,7 @@ export interface WorkstreamType {
   team_category: string | null;
   required_documents: string[] | null;
   default_workflow: string | null;
+  auto_approval_config: AutoApprovalConfig | null;
   created_at: string;
   updated_at: string;
   active_workstreams_count?: number;
@@ -52,6 +55,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
           
           return {
             ...type,
+            auto_approval_config: type.auto_approval_config as unknown as AutoApprovalConfig | null,
             active_workstreams_count: count || 0,
           };
         })
@@ -74,6 +78,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
           required_documents: data.required_documents || [],
           default_workflow: data.default_workflow,
           approval_template_id: data.approval_template_id || null,
+          auto_approval_config: data.auto_approval_config as unknown as Json,
         })
         .select()
         .single();
@@ -81,7 +86,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
       if (error) throw error;
       return result;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workstream-types"] });
     },
     onError: (error) => {
@@ -90,10 +95,23 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
   });
 
   const updateWorkstreamType = useMutation({
-    mutationFn: async ({ id, ...data }: Partial<WorkstreamType> & { id: string }) => {
+    mutationFn: async ({ id, ...data }: Partial<WorkstreamType> & { id: string; approval_template_id?: string | null }) => {
+      // Build the update payload, converting auto_approval_config to Json type
+      const updatePayload: Record<string, unknown> = {};
+      
+      if (data.name !== undefined) updatePayload.name = data.name;
+      if (data.display_name !== undefined) updatePayload.display_name = data.display_name;
+      if (data.description !== undefined) updatePayload.description = data.description;
+      if (data.status !== undefined) updatePayload.status = data.status;
+      if (data.team_category !== undefined) updatePayload.team_category = data.team_category;
+      if (data.required_documents !== undefined) updatePayload.required_documents = data.required_documents;
+      if (data.default_workflow !== undefined) updatePayload.default_workflow = data.default_workflow;
+      if (data.approval_template_id !== undefined) updatePayload.approval_template_id = data.approval_template_id;
+      if (data.auto_approval_config !== undefined) updatePayload.auto_approval_config = data.auto_approval_config as unknown as Json;
+
       const { data: result, error } = await supabase
         .from("workstream_types")
-        .update(data)
+        .update(updatePayload)
         .eq("id", id)
         .select()
         .single();
@@ -125,6 +143,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
           team_category: original.team_category,
           required_documents: original.required_documents,
           default_workflow: original.default_workflow,
+          auto_approval_config: original.auto_approval_config as unknown as Json,
         })
         .select()
         .single();
