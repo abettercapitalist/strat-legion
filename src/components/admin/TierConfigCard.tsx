@@ -8,9 +8,11 @@ import {
   CounterpartyTier,
   PaymentTerm,
   TierStandards,
+  DynamicThreshold,
   TIER_LABELS,
   PAYMENT_TERM_LABELS,
 } from "@/types/autoApproval";
+import { DynamicThresholdsSection } from "./DynamicThresholdsSection";
 
 interface TierConfigCardProps {
   tier: CounterpartyTier;
@@ -193,6 +195,14 @@ export function TierConfigCard({
             </div>
           </div>
         </div>
+
+        {/* Dynamic Thresholds */}
+        <DynamicThresholdsSection
+          thresholds={standards.dynamic_thresholds || []}
+          onThresholdsChange={(thresholds: DynamicThreshold[]) =>
+            onUpdate({ ...standards, dynamic_thresholds: thresholds })
+          }
+        />
       </CardContent>
     </Card>
   );
