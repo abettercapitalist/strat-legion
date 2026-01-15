@@ -939,10 +939,14 @@ function StepTypeFields({
               <TeamCombobox
                 value={(step.config.assign_to as string) || undefined}
                 onValueChange={(value) => {
-                  updateConfig("assign_to", value || "");
+                  // Update both fields atomically to avoid race condition
+                  const updates: Record<string, unknown> = {
+                    assign_to: value || ""
+                  };
                   if (value !== "counterparty") {
-                    updateConfig("internal_owner", "");
+                    updates.internal_owner = "";
                   }
+                  onUpdate({ config: { ...step.config, ...updates } });
                 }}
                 placeholder="Select team/role..."
                 error={getFieldError("assign_to")}
