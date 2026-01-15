@@ -5,38 +5,46 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface RouteCondition {
-  id: string;
-  field: string;
-  operator: string;
-  value: string;
-}
-
-interface ApprovalRoute {
-  id: string;
+interface WorkflowStep {
+  step_id: string;
   position: number;
-  route_type: string;
-  custom_route_name?: string;
-  is_conditional: boolean;
-  conditions: RouteCondition[];
-  condition_logic: "AND" | "OR";
-  auto_approval_enabled: boolean;
-  auto_approval_conditions: RouteCondition[];
-  auto_approval_fallback_role?: string;
-  notification_message?: string;
-  approval_mode: "serial" | "parallel";
-  approval_threshold: "unanimous" | "minimum" | "percentage" | "any_one";
-  minimum_approvals?: number;
-  percentage_required?: number;
-  approvers_count?: number;
-  approvers?: Array<{
-    role: string;
-    sla_hours?: number;
+  step_type: string;
+  requirement_type: string;
+  required_before: string | null;
+  trigger_timing: string | null;
+  trigger_step_id: string | null;
+  config: {
+    gate_type?: string;
+    approvers?: string;
+    approver_roles?: string[];
+    sla_hours?: string | number;
     sla_value?: number;
     sla_unit?: string;
-    is_required?: boolean;
-    condition?: RouteCondition;
+    approval_mode?: string;
+    approval_threshold?: string;
+    custom_name?: string;
+    auto_approval_config?: {
+      enabled: boolean;
+      conditions?: Array<{
+        id: string;
+        field: string;
+        operator: string;
+        value: string;
+      }>;
+    };
+  };
+  icon?: string;
+  documents?: Array<{
+    id: string;
+    document_type: string;
+    template_id?: string;
+    template_name?: string;
+    is_mandatory?: boolean;
   }>;
+}
+
+interface DefaultWorkflow {
+  steps?: WorkflowStep[];
 }
 
 interface WorkstreamData {
@@ -48,6 +56,8 @@ interface WorkstreamData {
   business_objective?: string;
   counterparty_id?: string;
   workstream_type_id?: string;
+  owner_id?: string;
+  expected_close_date?: string;
   counterparty?: {
     counterparty_type?: string;
     relationship_status?: string;
@@ -55,93 +65,16 @@ interface WorkstreamData {
   };
 }
 
-// Evaluate a single condition against workstream data
-function evaluateCondition(condition: RouteCondition, workstream: WorkstreamData): boolean {
-  const { field, operator, value } = condition;
-  
-  // Get the actual value from workstream
-  let actualValue: string | number | boolean | undefined;
-  
-  switch (field) {
-    case "deal_value":
-    case "annual_value":
-      actualValue = workstream.annual_value;
-      break;
-    case "customer_type":
-      actualValue = workstream.counterparty?.counterparty_type;
-      break;
-    case "tier":
-      actualValue = workstream.tier;
-      break;
-    case "stage":
-      actualValue = workstream.stage;
-      break;
-    case "has_custom_clauses":
-      // Would need to check workstream_clauses table
-      actualValue = false;
-      break;
-    case "contract_duration":
-      // Would need template metadata
-      actualValue = 12; // Default to 12 months
-      break;
-    case "region":
-    case "industry":
-      // These would come from counterparty or custom fields
-      actualValue = undefined;
-      break;
-    default:
-      actualValue = undefined;
-  }
-  
-  if (actualValue === undefined) {
-    console.log(`Field "${field}" not found in workstream data, defaulting to false`);
-    return false;
-  }
-  
-  // Parse comparison value
-  const compValue = parseFloat(value) || value;
-  const actValue = typeof actualValue === "number" ? actualValue : actualValue;
-  
-  console.log(`Evaluating: ${field} ${operator} ${value} (actual: ${actValue})`);
-  
-  switch (operator) {
-    case "=":
-      return actValue == compValue;
-    case "!=":
-      return actValue != compValue;
-    case ">":
-      return typeof actValue === "number" && typeof compValue === "number" && actValue > compValue;
-    case "<":
-      return typeof actValue === "number" && typeof compValue === "number" && actValue < compValue;
-    case ">=":
-      return typeof actValue === "number" && typeof compValue === "number" && actValue >= compValue;
-    case "<=":
-      return typeof actValue === "number" && typeof compValue === "number" && actValue <= compValue;
-    case "contains":
-      return String(actValue).toLowerCase().includes(String(compValue).toLowerCase());
-    default:
-      return false;
-  }
+interface WorkstreamTypeData {
+  id: string;
+  name: string;
+  display_name?: string;
+  default_workflow?: DefaultWorkflow | string;
+  approval_template_id?: string;
+  auto_approval_config?: unknown;
 }
 
-// Evaluate multiple conditions with logic (AND/OR)
-function evaluateConditions(
-  conditions: RouteCondition[],
-  logic: "AND" | "OR",
-  workstream: WorkstreamData
-): boolean {
-  if (!conditions || conditions.length === 0) {
-    return true; // No conditions means always true
-  }
-  
-  if (logic === "AND") {
-    return conditions.every((c) => evaluateCondition(c, workstream));
-  } else {
-    return conditions.some((c) => evaluateCondition(c, workstream));
-  }
-}
-
-// Calculate due date based on SLA (handles business days)
+// Calculate due date based on SLA
 function calculateDueDate(
   startDate: Date,
   slaValue: number,
@@ -150,7 +83,6 @@ function calculateDueDate(
   const dueDate = new Date(startDate);
   
   if (slaUnit === "business_days") {
-    // Add business days (skip weekends)
     let daysAdded = 0;
     while (daysAdded < slaValue) {
       dueDate.setDate(dueDate.getDate() + 1);
@@ -162,27 +94,112 @@ function calculateDueDate(
   } else if (slaUnit === "days") {
     dueDate.setDate(dueDate.getDate() + slaValue);
   } else {
-    // Default to hours
     dueDate.setHours(dueDate.getHours() + slaValue);
   }
   
   return dueDate;
 }
 
-// Convert SLA to hours for storage
-function convertToHours(value: number, unit: string = "hours"): number {
-  switch (unit) {
-    case "days":
-    case "business_days":
-      return value * 8; // 8 hour workday
-    case "hours":
-    default:
-      return value;
+// Get SLA hours from step config
+function getSlaHours(config: WorkflowStep["config"]): number {
+  if (config.sla_hours) {
+    return typeof config.sla_hours === "string" 
+      ? parseInt(config.sla_hours, 10) || 24 
+      : config.sla_hours;
   }
+  if (config.sla_value) {
+    const unit = config.sla_unit || "hours";
+    if (unit === "days" || unit === "business_days") {
+      return config.sla_value * 8;
+    }
+    return config.sla_value;
+  }
+  return 24; // Default 24 hours
+}
+
+// Humanize gate type to display name
+function humanizeGateType(gateType: string): string {
+  const gateTypeMap: Record<string, string> = {
+    pre_deal: "Pre-Deal Review",
+    proposal: "Proposal Review",
+    closing: "Closing Review",
+    legal: "Legal Review",
+    finance: "Finance Review",
+    executive: "Executive Review",
+    compliance: "Compliance Review",
+    security: "Security Review",
+    custom: "Custom Review",
+  };
+  return gateTypeMap[gateType] || gateType
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+// Get approver roles from step config
+function getApproverRoles(config: WorkflowStep["config"]): string[] {
+  // New format: approver_roles array
+  if (config.approver_roles && Array.isArray(config.approver_roles)) {
+    return config.approver_roles;
+  }
+  // Legacy format: single approvers string
+  if (config.approvers && typeof config.approvers === "string") {
+    return [config.approvers];
+  }
+  return [];
+}
+
+// Evaluate auto-approval conditions
+function evaluateAutoApprovalConditions(
+  conditions: Array<{ field: string; operator: string; value: string }>,
+  workstream: WorkstreamData
+): boolean {
+  if (!conditions || conditions.length === 0) return false;
+  
+  return conditions.every(condition => {
+    const { field, operator, value } = condition;
+    let actualValue: unknown;
+    
+    switch (field) {
+      case "annual_value":
+      case "deal_value":
+        actualValue = workstream.annual_value;
+        break;
+      case "tier":
+        actualValue = workstream.tier;
+        break;
+      case "stage":
+        actualValue = workstream.stage;
+        break;
+      default:
+        return false;
+    }
+    
+    if (actualValue === undefined || actualValue === null) return false;
+    
+    const numActual = typeof actualValue === "number" ? actualValue : parseFloat(String(actualValue));
+    const numValue = parseFloat(value);
+    
+    switch (operator) {
+      case "=":
+        return actualValue == value;
+      case "!=":
+        return actualValue != value;
+      case ">":
+        return !isNaN(numActual) && !isNaN(numValue) && numActual > numValue;
+      case "<":
+        return !isNaN(numActual) && !isNaN(numValue) && numActual < numValue;
+      case ">=":
+        return !isNaN(numActual) && !isNaN(numValue) && numActual >= numValue;
+      case "<=":
+        return !isNaN(numActual) && !isNaN(numValue) && numActual <= numValue;
+      default:
+        return false;
+    }
+  });
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -193,7 +210,6 @@ Deno.serve(async (req) => {
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get auth header for user context
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
@@ -202,7 +218,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate user identity
     const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -225,7 +240,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify user has access to this workstream
+    // Verify user has access
     const { data: hasAccess, error: accessError } = await supabaseAdmin.rpc(
       "has_workstream_access",
       { ws_id: workstream_id, _user_id: user.id }
@@ -241,13 +256,10 @@ Deno.serve(async (req) => {
 
     console.log(`Creating approvals for workstream: ${workstream_id}`);
 
-    // 1. Fetch workstream with counterparty data
+    // Fetch workstream with counterparty
     const { data: workstream, error: wsError } = await supabaseAdmin
       .from("workstreams")
-      .select(`
-        *,
-        counterparty:counterparties(*)
-      `)
+      .select(`*, counterparty:counterparties(*)`)
       .eq("id", workstream_id)
       .maybeSingle();
 
@@ -259,19 +271,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Get workstream_type to find approval_template_id
     if (!workstream.workstream_type_id) {
       console.log("No workstream_type_id, skipping approval creation");
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "No workstream type configured, no approvals needed",
+          message: "No workstream type configured",
           approvals_created: 0 
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Fetch workstream type
     const { data: workstreamType, error: wtError } = await supabaseAdmin
       .from("workstream_types")
       .select("*")
@@ -286,113 +298,70 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!workstreamType.approval_template_id) {
-      console.log("No approval template configured for this workstream type");
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "No approval template configured",
-          approvals_created: 0 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Parse default_workflow to get steps
+    let workflowSteps: WorkflowStep[] = [];
+    
+    if (workstreamType.default_workflow) {
+      if (typeof workstreamType.default_workflow === "object") {
+        const workflow = workstreamType.default_workflow as DefaultWorkflow;
+        workflowSteps = workflow.steps || [];
+      } else if (typeof workstreamType.default_workflow === "string") {
+        // Legacy string format - no steps to process
+        console.log("Legacy workflow format, checking for approval_template_id");
+      }
     }
 
-    // 3. Fetch approval template
-    const { data: template, error: templateError } = await supabaseAdmin
-      .from("approval_templates")
-      .select("*")
-      .eq("id", workstreamType.approval_template_id)
-      .maybeSingle();
+    // Filter to only approval/approval_gate steps
+    const approvalSteps = workflowSteps.filter(
+      step => step.step_type === "approval" || step.step_type === "approval_gate"
+    );
 
-    if (templateError || !template) {
-      console.error("Error fetching approval template:", templateError);
-      return new Response(
-        JSON.stringify({ error: "Approval template not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check if template is active
-    if (template.status !== "active") {
-      console.log("Approval template is not active, skipping");
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "Approval template is not active",
-          approvals_created: 0 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 4. Parse routes from approval_sequence
-    const routes = (template.approval_sequence as unknown as ApprovalRoute[]) || [];
-    console.log(`Found ${routes.length} routes in template`);
+    console.log(`Found ${approvalSteps.length} approval steps in workflow configuration`);
 
     const now = new Date();
-    const approvalsCreated: any[] = [];
-    const autoApprovalLogs: any[] = [];
-    const skippedRoutes: any[] = [];
+    const approvalsCreated: unknown[] = [];
+    const autoApprovalLogs: unknown[] = [];
+    const skippedSteps: unknown[] = [];
 
-    // 5. Process each route
-    for (const route of routes.sort((a, b) => a.position - b.position)) {
-      console.log(`Processing route ${route.position}: ${route.route_type}`);
+    // User to exclude from approvers (self-approval prevention)
+    const excludeUserId = workstream.owner_id || user.id;
 
-      // Check if route is conditional
-      if (route.is_conditional && route.conditions && route.conditions.length > 0) {
-        const shouldTrigger = evaluateConditions(
-          route.conditions,
-          route.condition_logic,
-          workstream
-        );
-        
-        if (!shouldTrigger) {
-          console.log(`Route ${route.position} conditions not met, skipping`);
-          skippedRoutes.push({
-            route_id: route.id,
-            route_position: route.position,
-            reason: "Conditions not met"
-          });
-          continue;
-        }
+    // Process each approval step
+    for (const step of approvalSteps.sort((a, b) => a.position - b.position)) {
+      console.log(`Processing approval step ${step.position}: ${step.step_type}`);
+
+      const approverRoles = getApproverRoles(step.config);
+      
+      if (approverRoles.length === 0) {
+        console.log(`Step ${step.step_id} has no approver roles configured, skipping`);
+        skippedSteps.push({
+          step_id: step.step_id,
+          position: step.position,
+          reason: "No approver roles configured"
+        });
+        continue;
       }
 
-      // Check auto-approval
-      if (route.auto_approval_enabled && route.auto_approval_conditions && route.auto_approval_conditions.length > 0) {
-        const meetsAutoApproval = evaluateConditions(
-          route.auto_approval_conditions,
-          "AND", // Auto-approval always uses AND logic
-          workstream
+      // Check auto-approval conditions
+      const autoApprovalConfig = step.config.auto_approval_config;
+      if (autoApprovalConfig?.enabled && autoApprovalConfig.conditions) {
+        const meetsAutoApproval = evaluateAutoApprovalConditions(
+          autoApprovalConfig.conditions,
+          workstream as WorkstreamData
         );
         
         if (meetsAutoApproval) {
-          console.log(`Route ${route.position} auto-approved`);
+          console.log(`Step ${step.step_id} auto-approved based on conditions`);
           autoApprovalLogs.push({
-            route_id: route.id,
-            route_position: route.position,
+            step_id: step.step_id,
+            position: step.position,
             reason: "Auto-approval conditions met"
           });
           continue;
         }
       }
 
-// Get approvers for this route
-      const approvers = route.approvers || [];
-      
-      // If no specific approvers, use fallback role
-      if (approvers.length === 0 && route.auto_approval_fallback_role) {
-        approvers.push({
-          role: route.auto_approval_fallback_role,
-          sla_hours: 24,
-          is_required: true
-        });
-      }
-
-      // Resolve roles to actual user IDs, excluding the workstream owner (self-approval prevention)
-      const excludeUserId = workstream.owner_id || user.id;
-      const approverRoles = approvers.map(a => a.role);
-      
+      // Resolve roles to user IDs, excluding workstream owner
       const { data: roleUsers } = await supabaseAdmin
         .from("user_roles")
         .select("user_id, role")
@@ -402,53 +371,35 @@ Deno.serve(async (req) => {
         .map(u => u.user_id)
         .filter(id => id !== excludeUserId);
       
-      // If no approvers remain after excluding self, auto-approve this route
-      if (resolvedApproverIds.length === 0 && approverRoles.length > 0) {
-        console.log(`Route ${route.position} auto-approved: creator has authority (no other approvers available)`);
+      // If no approvers remain after excluding self, auto-approve
+      if (resolvedApproverIds.length === 0) {
+        console.log(`Step ${step.step_id} auto-approved: creator has authority (no other approvers)`);
         autoApprovalLogs.push({
-          route_id: route.id,
-          route_position: route.position,
+          step_id: step.step_id,
+          position: step.position,
           reason: "Self-approval: creator has required role, no other approvers needed"
         });
         continue;
       }
 
-      // Create approval record for this route
-      const slaHours = approvers[0]?.sla_hours || 
-        convertToHours(approvers[0]?.sla_value || 24, approvers[0]?.sla_unit || "hours");
-      
-      const dueAt = calculateDueDate(
-        now, 
-        approvers[0]?.sla_value || slaHours,
-        approvers[0]?.sla_unit || "hours"
-      );
+      // Calculate SLA
+      const slaHours = getSlaHours(step.config);
+      const dueAt = calculateDueDate(now, slaHours, step.config.sla_unit || "hours");
 
-      // Store route metadata in a structured way
-      const routeMetadata = {
-        route_id: route.id,
-        route_position: route.position,
-        route_type: route.route_type,
-        approval_mode: route.approval_mode,
-        approval_threshold: route.approval_threshold,
-        minimum_approvals: route.minimum_approvals,
-        percentage_required: route.percentage_required,
-        approvers: approvers.map(a => ({
-          role: a.role,
-          sla_hours: a.sla_hours || convertToHours(a.sla_value || 24, a.sla_unit || "hours"),
-          is_required: a.is_required !== false
-        })),
-        notification_message: route.notification_message
-      };
+      // Get display name for this approval
+      const gateType = step.config.gate_type || "custom";
+      const approvalName = step.config.custom_name || humanizeGateType(gateType);
 
-      // Create the workstream_approval record
+      // Create workstream_approval record
       const { data: approval, error: approvalError } = await supabaseAdmin
         .from("workstream_approvals")
         .insert({
           workstream_id,
-          approval_template_id: template.id,
+          approval_template_id: null, // We're using workflow steps, not templates
           status: "pending",
-          current_gate: route.position,
+          current_gate: step.position,
           submitted_at: now.toISOString(),
+          approves_step_ids: [step.step_id],
         })
         .select()
         .single();
@@ -458,56 +409,69 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Create corresponding need in the needs table
-      const needDescription = route.custom_route_name || 
-        `${route.route_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} approval required`;
-      
+      // Create corresponding need
+      const needDescription = `${approvalName} required`;
+      const primaryRole = approverRoles[0];
+
       const { error: needError } = await supabaseAdmin
         .from("needs")
         .insert({
           workstream_id,
           need_type: "approval",
           description: needDescription,
-          satisfier_role: approvers[0]?.role || "general_counsel",
+          satisfier_role: primaryRole,
           satisfier_type: "role",
           status: "open",
           due_at: dueAt.toISOString(),
-          source_type: "approval",
+          source_type: "workflow_step",
           source_id: approval.id,
-          source_reason: `Created from approval template: ${template.name}`,
+          source_reason: `Required by ${workstreamType.display_name || workstreamType.name} workflow`,
         });
 
       if (needError) {
         console.error("Error creating need record:", needError);
-      } else {
-        console.log(`Created need for approval ${approval.id}`);
+      }
+
+      // Also create workstream_step record to track completion
+      const { error: stepError } = await supabaseAdmin
+        .from("workstream_steps")
+        .insert({
+          workstream_id,
+          step_id: step.step_id,
+          step_type: step.step_type,
+          position: step.position,
+          requirement_type: step.requirement_type,
+          required_before: step.required_before,
+          trigger_timing: step.trigger_timing,
+          status: "pending",
+          config: step.config,
+        });
+
+      if (stepError) {
+        console.error("Error creating workstream_step record:", stepError);
       }
 
       approvalsCreated.push({
-        ...approval,
-        route_metadata: routeMetadata,
-        due_at: dueAt.toISOString()
+        id: approval.id,
+        step_id: step.step_id,
+        position: step.position,
+        gate_type: gateType,
+        approval_name: approvalName,
+        approver_roles: approverRoles,
+        due_at: dueAt.toISOString(),
+        resolved_approver_count: resolvedApproverIds.length,
       });
 
-      console.log(`Created approval record: ${approval.id} for route ${route.position}`);
-
-      // For serial mode, we only create the first approval
-      // Additional approvals are created when previous ones are approved
-      if (route.approval_mode === "serial") {
-        console.log("Serial mode: Only first approval created, others will be created on approval");
-        break;
-      }
+      console.log(`Created approval ${approval.id} for step ${step.step_id}`);
     }
 
-    console.log(`Created ${approvalsCreated.length} approval records`);
-    console.log(`Auto-approved ${autoApprovalLogs.length} routes`);
-    console.log(`Skipped ${skippedRoutes.length} routes`);
+    console.log(`Created ${approvalsCreated.length} approvals, auto-approved ${autoApprovalLogs.length}, skipped ${skippedSteps.length}`);
 
-    // Log activity for approval workflow creation
+    // Log activity
     if (approvalsCreated.length > 0 || autoApprovalLogs.length > 0) {
       const activityDescription = approvalsCreated.length > 0
         ? `Approval workflow initiated: ${approvalsCreated.length} approval${approvalsCreated.length > 1 ? 's' : ''} pending${autoApprovalLogs.length > 0 ? `, ${autoApprovalLogs.length} auto-approved` : ''}`
-        : `Approval workflow completed: ${autoApprovalLogs.length} route${autoApprovalLogs.length > 1 ? 's' : ''} auto-approved`;
+        : `Approval workflow completed: ${autoApprovalLogs.length} step${autoApprovalLogs.length > 1 ? 's' : ''} auto-approved`;
 
       await supabaseAdmin
         .from("workstream_activity")
@@ -516,31 +480,26 @@ Deno.serve(async (req) => {
           activity_type: "approval_submitted",
           description: activityDescription,
           metadata: {
-            template_id: template.id,
-            template_name: template.name,
+            workstream_type_id: workstreamType.id,
+            workstream_type_name: workstreamType.name,
             approvals_created: approvalsCreated.length,
             auto_approved: autoApprovalLogs.length,
-            skipped: skippedRoutes.length,
-            routes: approvalsCreated.map(a => ({
-              gate: a.current_gate,
-              route_type: a.route_metadata?.route_type,
-            })),
+            skipped: skippedSteps.length,
           },
         });
-      console.log("Logged approval workflow activity");
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         workstream_id,
-        template_id: template.id,
+        workstream_type_id: workstreamType.id,
         approvals_created: approvalsCreated.length,
         auto_approved: autoApprovalLogs.length,
-        skipped: skippedRoutes.length,
+        skipped: skippedSteps.length,
         approvals: approvalsCreated,
         auto_approval_logs: autoApprovalLogs,
-        skipped_routes: skippedRoutes
+        skipped_steps: skippedSteps,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
