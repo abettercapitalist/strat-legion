@@ -17,6 +17,7 @@ interface WorkflowStep {
     gate_type?: string;
     approvers?: string;
     approver_roles?: string[];
+    approver_teams?: string[]; // New: team UUIDs
     sla_hours?: string | number;
     sla_value?: number;
     sla_unit?: string;
@@ -157,24 +158,64 @@ function mapApproverToRole(approver: string): string[] {
   return roleMapping[approver.toLowerCase()] || [approver];
 }
 
-// Get approver roles from step config
-function getApproverRoles(config: WorkflowStep["config"]): string[] {
-  let roles: string[] = [];
+// Get approver config - supports both team-based (new) and role-based (legacy)
+interface ApproverConfig {
+  type: 'teams' | 'roles';
+  values: string[];
+}
+
+function getApproverConfig(config: WorkflowStep["config"]): ApproverConfig {
+  // New format: team UUIDs (preferred)
+  if (config.approver_teams && Array.isArray(config.approver_teams) && config.approver_teams.length > 0) {
+    return { type: 'teams', values: config.approver_teams };
+  }
   
-  // New format: approver_roles array
+  // Legacy format: approver_roles array
   if (config.approver_roles && Array.isArray(config.approver_roles)) {
-    roles = config.approver_roles;
-  }
-  // Legacy format: single approvers string
-  else if (config.approvers && typeof config.approvers === "string") {
-    roles = [config.approvers];
+    const mappedRoles = config.approver_roles.flatMap(role => mapApproverToRole(role));
+    return { type: 'roles', values: [...new Set(mappedRoles)] };
   }
   
-  // Map all roles to actual database roles
-  const mappedRoles = roles.flatMap(role => mapApproverToRole(role));
+  // Legacy format: single approvers string
+  if (config.approvers && typeof config.approvers === "string") {
+    const mappedRoles = mapApproverToRole(config.approvers);
+    return { type: 'roles', values: mappedRoles };
+  }
+  
+  return { type: 'roles', values: [] };
+}
+
+// Resolve team UUIDs to member user IDs
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getTeamMemberUserIds(
+  supabase: any,
+  teamIds: string[],
+  excludeUserId?: string
+): Promise<string[]> {
+  if (teamIds.length === 0) return [];
+  
+  const { data: members, error } = await supabase
+    .from("team_members")
+    .select("user_id")
+    .in("team_id", teamIds);
+  
+  if (error) {
+    console.error("Error fetching team members:", error);
+    return [];
+  }
+  
+  const userIds = ((members || []) as Array<{ user_id: string }>)
+    .map(m => m.user_id)
+    .filter(id => id !== excludeUserId);
   
   // Remove duplicates
-  return [...new Set(mappedRoles)];
+  return [...new Set(userIds)];
+}
+
+// Legacy: Get approver roles from step config (for backward compatibility)
+function getApproverRoles(config: WorkflowStep["config"]): string[] {
+  const approverConfig = getApproverConfig(config);
+  return approverConfig.type === 'roles' ? approverConfig.values : [];
 }
 
 // Evaluate auto-approval conditions
@@ -376,14 +417,14 @@ Deno.serve(async (req) => {
     for (const step of approvalSteps.sort((a, b) => a.position - b.position)) {
       console.log(`Processing approval step ${step.position}: ${step.step_type}`);
 
-      const approverRoles = getApproverRoles(step.config);
+      const approverConfig = getApproverConfig(step.config);
       
-      if (approverRoles.length === 0) {
-        console.log(`Step ${step.step_id} has no approver roles configured, skipping`);
+      if (approverConfig.values.length === 0) {
+        console.log(`Step ${step.step_id} has no approvers configured, skipping`);
         skippedSteps.push({
           step_id: step.step_id,
           position: step.position,
-          reason: "No approver roles configured"
+          reason: "No approvers configured"
         });
         continue;
       }
@@ -407,15 +448,32 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Resolve roles to user IDs, excluding workstream owner
-      const { data: roleUsers } = await supabaseAdmin
-        .from("user_roles")
-        .select("user_id, role")
-        .in("role", approverRoles);
-      
-      const resolvedApproverIds = (roleUsers || [])
-        .map(u => u.user_id)
-        .filter(id => id !== excludeUserId);
+      // Resolve approvers based on config type
+      let resolvedApproverIds: string[];
+      let primaryRole: string;
+
+      if (approverConfig.type === 'teams') {
+        // New: Resolve from team_members table
+        console.log(`Resolving approvers from ${approverConfig.values.length} team(s)`);
+        resolvedApproverIds = await getTeamMemberUserIds(
+          supabaseAdmin,
+          approverConfig.values,
+          excludeUserId
+        );
+        primaryRole = 'team_member'; // Generic role for team-based approvals
+      } else {
+        // Legacy: Resolve from user_roles table
+        const { data: roleUsers } = await supabaseAdmin
+          .from("user_roles")
+          .select("user_id, role")
+          .in("role", approverConfig.values);
+        
+        resolvedApproverIds = (roleUsers || [])
+          .map(u => u.user_id)
+          .filter(id => id !== excludeUserId);
+        
+        primaryRole = approverConfig.values[0] || 'approver';
+      }
       
       // If no approvers remain after excluding self, auto-approve
       if (resolvedApproverIds.length === 0) {
@@ -457,7 +515,6 @@ Deno.serve(async (req) => {
 
       // Create corresponding need
       const needDescription = `${approvalName} required`;
-      const primaryRole = approverRoles[0];
 
       const { error: needError } = await supabaseAdmin
         .from("needs")
@@ -503,7 +560,7 @@ Deno.serve(async (req) => {
         position: step.position,
         gate_type: gateType,
         approval_name: approvalName,
-        approver_roles: approverRoles,
+        approver_config: approverConfig,
         due_at: dueAt.toISOString(),
         resolved_approver_count: resolvedApproverIds.length,
       });
