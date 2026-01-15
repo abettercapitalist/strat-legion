@@ -51,10 +51,21 @@ export function TeamCombobox({
     getTeamById,
   } = useTeams();
 
-  // Get the selected team
+  // Get the selected team - also match by display_name for legacy data
   const selectedTeam = useMemo(() => {
     if (!value) return null;
-    return teams.find((t) => t.id === value || t.name === value);
+    // Try exact id match first
+    const byId = teams.find((t) => t.id === value);
+    if (byId) return byId;
+    // Try name match (internal slug)
+    const byName = teams.find((t) => t.name === value);
+    if (byName) return byName;
+    // Try display_name match (for legacy or user-entered values)
+    const byDisplayName = teams.find((t) => 
+      t.display_name.toLowerCase() === value.toLowerCase()
+    );
+    if (byDisplayName) return byDisplayName;
+    return null;
   }, [value, teams]);
 
   // Check if selected team needs a sub-group
@@ -63,11 +74,18 @@ export function TeamCombobox({
     return hasSubgroups(selectedTeam.id);
   }, [selectedTeam, requireSubgroupWhenAvailable, hasSubgroups]);
 
-  // Display value
+  // Display value - show stored value as fallback if no team match
   const displayValue = useMemo(() => {
-    if (!selectedTeam) return "";
-    return getTeamPath(selectedTeam.id);
-  }, [selectedTeam, getTeamPath]);
+    if (selectedTeam) {
+      return getTeamPath(selectedTeam.id);
+    }
+    // If we have a value but no matching team, show the raw value
+    // This helps debug cases where the value isn't matching
+    if (value && !isLoading) {
+      return value;
+    }
+    return "";
+  }, [selectedTeam, getTeamPath, value, isLoading]);
 
   const handleSelect = (teamId: string) => {
     const team = getTeamById(teamId);
@@ -109,18 +127,23 @@ export function TeamCombobox({
               disabled={disabled || isLoading}
               className={cn(
                 "w-full justify-between",
-                !selectedTeam && "text-muted-foreground",
+                !displayValue && "text-muted-foreground",
                 (error || needsSubgroupSelection) && "border-destructive"
               )}
             >
               {isLoading ? (
                 "Loading teams..."
-              ) : selectedTeam ? (
+              ) : displayValue ? (
                 <span className="flex items-center gap-2">
                   {displayValue}
                   {needsSubgroupSelection && (
                     <Badge variant="destructive" className="text-xs px-1.5 py-0">
                       Select sub-group
+                    </Badge>
+                  )}
+                  {!selectedTeam && value && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0">
+                      Unknown
                     </Badge>
                   )}
                 </span>
