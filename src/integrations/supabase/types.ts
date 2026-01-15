@@ -288,28 +288,48 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          display_name: string | null
           id: string
+          is_manager_role: boolean
           is_system_role: boolean
+          is_work_routing: boolean
           name: string
+          parent_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           description?: string | null
+          display_name?: string | null
           id?: string
+          is_manager_role?: boolean
           is_system_role?: boolean
+          is_work_routing?: boolean
           name: string
+          parent_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          display_name?: string | null
           id?: string
+          is_manager_role?: boolean
           is_system_role?: boolean
+          is_work_routing?: boolean
           name?: string
+          parent_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_roles_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       decision_outcomes: {
         Row: {
@@ -835,18 +855,21 @@ export type Database = {
           created_at: string
           id: string
           role_id: string
+          role_in_group: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           role_id: string
+          role_in_group?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           role_id?: string
+          role_in_group?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1212,6 +1235,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_role_members: { Args: { role_uuid: string }; Returns: string[] }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1228,11 +1252,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_or_custom_role: {
+        Args: {
+          _user_id: string
+          custom_role_id?: string
+          legacy_role?: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
       has_workstream_access: {
         Args: { _user_id?: string; ws_id: string }
         Returns: boolean
       }
       is_manager: { Args: { _user_id?: string }; Returns: boolean }
+      is_role_member: {
+        Args: { role_uuid: string; user_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
