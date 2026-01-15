@@ -204,9 +204,10 @@ export function WorkflowStepsSection({
   };
 
   const updateStep = (stepId: string, updates: Partial<WorkflowStep>) => {
-    onStepsChange(
-      steps.map((s) => (s.step_id === stepId ? { ...s, ...updates } : s))
-    );
+    console.log(`[WorkflowStepsSection] updateStep ${stepId}:`, updates);
+    const newSteps = steps.map((s) => (s.step_id === stepId ? { ...s, ...updates } : s));
+    console.log(`[WorkflowStepsSection] newSteps:`, newSteps.map(s => ({ id: s.step_id, config: s.config })));
+    onStepsChange(newSteps);
   };
 
   const handleDragStart = (index: number) => {
@@ -584,7 +585,9 @@ function StepTypeFields({
   errors?: StepValidationError[];
 }) {
   const updateConfig = (key: string, value: unknown) => {
-    onUpdate({ config: { ...step.config, [key]: value } });
+    const newConfig = { ...step.config, [key]: value };
+    console.log(`[WorkflowStep ${step.step_id}] updateConfig: ${key} =`, value, "full config:", newConfig);
+    onUpdate({ config: newConfig });
   };
 
   const getFieldError = (field: string) => 
