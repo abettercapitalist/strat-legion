@@ -1,7 +1,5 @@
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -11,20 +9,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
-import { Shield, Users, Info } from "lucide-react";
+import { Shield } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
-interface Approver {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+const APPROVER_ROLES = [
+  { value: "general_counsel", label: "General Counsel" },
+  { value: "legal_ops", label: "Legal Ops" },
+  { value: "contract_counsel", label: "Contract Counsel" },
+  { value: "sales_manager", label: "Sales Manager" },
+  { value: "finance_reviewer", label: "Finance Reviewer" },
+];
 
 export interface PlayApprovalConfig {
-  required_approvers: string[];
+  required_roles: string[];
   approval_mode: "all" | "any";
-  instructions?: string;
   auto_approve_if_creator_role?: string;
 }
 
@@ -33,80 +38,19 @@ interface PlayApprovalSectionProps {
   onChange: (config: PlayApprovalConfig) => void;
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  general_counsel: "General Counsel",
-  legal_ops: "Legal Ops",
-  contract_counsel: "Contract Counsel",
-  account_executive: "Account Executive",
-  sales_manager: "Sales Manager",
-  finance_reviewer: "Finance Reviewer",
-};
-
 export function PlayApprovalSection({ config, onChange }: PlayApprovalSectionProps) {
-  const [approvers, setApprovers] = useState<Approver[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  useEffect(() => {
-    async function fetchApprovers() {
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select(`
-            id,
-            full_name,
-            email
-          `)
-          .order("full_name");
-
-        if (error) throw error;
-
-        // Also fetch user roles
-        const { data: rolesData, error: rolesError } = await supabase
-          .from("user_roles")
-          .select("user_id, role");
-
-        if (rolesError) throw rolesError;
-
-        // Map roles to users
-        const roleMap = new Map<string, string>();
-        rolesData?.forEach((r) => {
-          roleMap.set(r.user_id, r.role);
-        });
-
-        const mapped: Approver[] = (data || [])
-          .filter((p) => roleMap.has(p.id))
-          .map((p) => ({
-            id: p.id,
-            name: p.full_name || p.email || "Unknown",
-            email: p.email || "",
-            role: roleMap.get(p.id) || "",
-          }));
-
-        setApprovers(mapped);
-      } catch (err) {
-        console.error("Error fetching approvers:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchApprovers();
-  }, []);
-
-  const handleApproverToggle = (approverId: string) => {
-    const current = config.required_approvers || [];
-    const updated = current.includes(approverId)
-      ? current.filter((id) => id !== approverId)
-      : [...current, approverId];
-    onChange({ ...config, required_approvers: updated });
+  const handleRoleToggle = (role: string, checked: boolean) => {
+    const current = config.required_roles || [];
+    const updated = checked
+      ? [...current, role]
+      : current.filter((r) => r !== role);
+    onChange({ ...config, required_roles: updated });
   };
 
   const handleModeChange = (mode: "all" | "any") => {
     onChange({ ...config, approval_mode: mode });
-  };
-
-  const handleInstructionsChange = (instructions: string) => {
-    onChange({ ...config, instructions });
   };
 
   const handleAutoApproveRoleChange = (role: string) => {
@@ -116,71 +60,50 @@ export function PlayApprovalSection({ config, onChange }: PlayApprovalSectionPro
     });
   };
 
+  const selectedRolesCount = config.required_roles?.length || 0;
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          Play Activation Approval
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Shield className="h-4 w-4" />
+          Activation Approval
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Define who must approve this Play before it can be activated for use
+          Select which roles must approve before this Play can be activated
         </p>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Required Approvers */}
-        <div className="space-y-3">
-          <Label className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Required Approvers
-          </Label>
-          <p className="text-sm text-muted-foreground">
-            Select who must approve before this Play can be activated
-          </p>
-          {loading ? (
-            <div className="text-sm text-muted-foreground">Loading approvers...</div>
-          ) : approvers.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              No users with approval roles found
-            </div>
-          ) : (
-            <div className="grid gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-              {approvers.map((approver) => (
-                <label
-                  key={approver.id}
-                  className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded cursor-pointer"
-                >
-                  <Checkbox
-                    checked={(config.required_approvers || []).includes(approver.id)}
-                    onCheckedChange={() => handleApproverToggle(approver.id)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{approver.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {ROLE_LABELS[approver.role] || approver.role}
-                      {approver.email && ` • ${approver.email}`}
-                    </div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          )}
+      <CardContent className="space-y-4">
+        {/* Role Selection */}
+        <div className="grid gap-2">
+          {APPROVER_ROLES.map((role) => (
+            <label
+              key={role.value}
+              className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+            >
+              <Checkbox
+                checked={(config.required_roles || []).includes(role.value)}
+                onCheckedChange={(checked) => handleRoleToggle(role.value, !!checked)}
+              />
+              <span className="text-sm">{role.label}</span>
+            </label>
+          ))}
         </div>
 
-        {/* Approval Mode */}
-        {(config.required_approvers?.length || 0) > 1 && (
-          <div className="space-y-3">
-            <Label>Approval Mode</Label>
+        {/* Approval Mode - only show if multiple roles selected */}
+        {selectedRolesCount > 1 && (
+          <div className="pt-2 border-t space-y-2">
+            <Label className="text-sm">Approval Mode</Label>
             <RadioGroup
               value={config.approval_mode || "all"}
               onValueChange={(v) => handleModeChange(v as "all" | "any")}
-              className="flex gap-6"
+              className="flex gap-4"
             >
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <RadioGroupItem value="all" />
                 <span>All must approve</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <RadioGroupItem value="any" />
                 <span>Any one can approve</span>
               </label>
@@ -188,44 +111,46 @@ export function PlayApprovalSection({ config, onChange }: PlayApprovalSectionPro
           </div>
         )}
 
-        {/* Approval Instructions */}
-        <div className="space-y-2">
-          <Label htmlFor="approval-instructions">Approval Instructions (optional)</Label>
-          <Textarea
-            id="approval-instructions"
-            placeholder="Provide context or specific criteria for approvers to evaluate..."
-            value={config.instructions || ""}
-            onChange={(e) => handleInstructionsChange(e.target.value)}
-            className="min-h-[80px]"
-          />
-        </div>
+        {/* Advanced Options - Collapsible */}
+        <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+              Advanced
+              <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3 space-y-3">
+            <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+              <Label className="text-sm">Auto-approve Bypass</Label>
+              <p className="text-xs text-muted-foreground">
+                Skip approval if the Play creator has this role
+              </p>
+              <Select
+                value={config.auto_approve_if_creator_role || "none"}
+                onValueChange={handleAutoApproveRoleChange}
+              >
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue placeholder="No bypass" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No bypass</SelectItem>
+                  {APPROVER_ROLES.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
-        {/* Auto-approve bypass */}
-        <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
-          <Label className="flex items-center gap-2">
-            <Info className="h-4 w-4" />
-            Auto-approve Bypass (optional)
-          </Label>
-          <p className="text-sm text-muted-foreground mb-2">
-            Skip approval if the Play creator has this role
+        {/* Summary */}
+        {selectedRolesCount === 0 && (
+          <p className="text-sm text-muted-foreground italic">
+            No approval required — Play will activate immediately
           </p>
-          <Select
-            value={config.auto_approve_if_creator_role || "none"}
-            onValueChange={handleAutoApproveRoleChange}
-          >
-            <SelectTrigger className="w-full max-w-xs">
-              <SelectValue placeholder="No bypass" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No bypass - always require approval</SelectItem>
-              {Object.entries(ROLE_LABELS).map(([role, label]) => (
-                <SelectItem key={role} value={role}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -377,7 +377,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Get approvers for this route
+// Get approvers for this route
       const approvers = route.approvers || [];
       
       // If no specific approvers, use fallback role
@@ -387,6 +387,30 @@ Deno.serve(async (req) => {
           sla_hours: 24,
           is_required: true
         });
+      }
+
+      // Resolve roles to actual user IDs, excluding the workstream owner (self-approval prevention)
+      const excludeUserId = workstream.owner_id || user.id;
+      const approverRoles = approvers.map(a => a.role);
+      
+      const { data: roleUsers } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", approverRoles);
+      
+      const resolvedApproverIds = (roleUsers || [])
+        .map(u => u.user_id)
+        .filter(id => id !== excludeUserId);
+      
+      // If no approvers remain after excluding self, auto-approve this route
+      if (resolvedApproverIds.length === 0 && approverRoles.length > 0) {
+        console.log(`Route ${route.position} auto-approved: creator has authority (no other approvers available)`);
+        autoApprovalLogs.push({
+          route_id: route.id,
+          route_position: route.position,
+          reason: "Self-approval: creator has required role, no other approvers needed"
+        });
+        continue;
       }
 
       // Create approval record for this route
