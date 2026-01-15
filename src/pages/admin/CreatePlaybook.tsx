@@ -61,6 +61,11 @@ export default function CreatePlaybook() {
   const [selectedApprovalTemplateId, setSelectedApprovalTemplateId] = useState<string | null>(null);
   const [autoApprovalConfig, setAutoApprovalConfig] = useState<AutoApprovalConfig | null>(null);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
+  const [playMetadata, setPlayMetadata] = useState<{
+    id: string;
+    created_at: string;
+    updated_at: string;
+  } | null>(null);
 
   const {
     register,
@@ -100,6 +105,13 @@ export default function CreatePlaybook() {
         if (error) throw error;
 
         if (data) {
+          // Store metadata for display
+          setPlayMetadata({
+            id: data.id,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+          });
+
           reset({
             name: data.name,
             display_name: data.display_name || "",
@@ -464,6 +476,44 @@ export default function CreatePlaybook() {
             <h2 className="text-lg font-medium text-foreground border-b pb-2">
               Basic Information
             </h2>
+
+            {/* Show metadata for existing plays */}
+            {isEditing && playMetadata && (
+              <div className="bg-muted/50 border rounded-lg p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Internal ID:</span>
+                    <code className="ml-2 text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                      {playMetadata.id}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Created:</span>
+                    <span className="ml-2">
+                      {new Date(playMetadata.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Last Modified:</span>
+                    <span className="ml-2">
+                      {new Date(playMetadata.updated_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-semibold">
