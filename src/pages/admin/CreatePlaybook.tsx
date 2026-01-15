@@ -400,14 +400,8 @@ export default function CreatePlaybook() {
   };
 
   const handleStepClick = (step: FormStep) => {
-    // Allow navigation to completed steps or current step
-    const stepOrder: FormStep[] = ["basics", "workflow", "approval"];
-    const targetIndex = stepOrder.indexOf(step);
-    const currentIndex = stepOrder.indexOf(currentStep);
-    
-    if (targetIndex <= currentIndex || completedSteps.has(step)) {
-      setCurrentStep(step);
-    }
+    // Allow navigation to any step in both directions
+    setCurrentStep(step);
   };
 
   if (isLoadingPlay) {
