@@ -115,6 +115,7 @@ export function TierConfigCard({
                     discount_max: parseInt(e.target.value, 10) || 0,
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 className="pr-6"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -145,6 +146,7 @@ export function TierConfigCard({
                     liability_cap_min: parseCurrency(e.target.value),
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 className="pl-6"
               />
             </div>
@@ -168,6 +170,7 @@ export function TierConfigCard({
                     contract_duration_min: parseInt(e.target.value, 10) || 1,
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 className="w-20"
               />
             </div>
@@ -184,6 +187,7 @@ export function TierConfigCard({
                     contract_duration_max: parseInt(e.target.value, 10) || 1,
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 className="w-20"
               />
             </div>
