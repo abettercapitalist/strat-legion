@@ -590,7 +590,19 @@ function StepTypeFields({
         </div>
       );
 
-    case "approval":
+    case "approval": {
+      const selectedApprovers = (step.config.approvers as string[] | string) || [];
+      const approversArray = Array.isArray(selectedApprovers) 
+        ? selectedApprovers 
+        : selectedApprovers ? [selectedApprovers] : [];
+      
+      const handleApproverToggle = (value: string, checked: boolean) => {
+        const newApprovers = checked
+          ? [...approversArray, value]
+          : approversArray.filter((a) => a !== value);
+        updateConfig("approvers", newApprovers);
+      };
+
       return (
         <div className="space-y-4">
           <div className="space-y-2">
@@ -616,24 +628,78 @@ function StepTypeFields({
               <p className="text-xs text-destructive">{getFieldError("gate_type")}</p>
             )}
           </div>
+          
+          {/* Multiple Approvers Selection */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold">Approvers</Label>
-            <Select
-              value={(step.config.approvers as string) || ""}
-              onValueChange={(value) => updateConfig("approvers", value)}
-            >
-              <SelectTrigger className="w-full max-w-sm">
-                <SelectValue placeholder="Select approvers" />
-              </SelectTrigger>
-              <SelectContent>
-                {TEAM_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
+            <Label className="text-sm font-semibold">
+              Approvers <span className="text-destructive">*</span>
+            </Label>
+            <p className="text-xs text-muted-foreground italic">
+              Select one or more teams/roles that can approve this gate
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-w-md">
+              {TEAM_OPTIONS.filter(opt => opt.value !== "counterparty").map((opt) => (
+                <div key={opt.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`${step.step_id}-approver-${opt.value}`}
+                    checked={approversArray.includes(opt.value)}
+                    onCheckedChange={(checked) =>
+                      handleApproverToggle(opt.value, checked as boolean)
+                    }
+                  />
+                  <Label
+                    htmlFor={`${step.step_id}-approver-${opt.value}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </Label>
+                </div>
+              ))}
+            </div>
+            {approversArray.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {approversArray.length} approver{approversArray.length > 1 ? 's' : ''} selected
+              </p>
+            )}
+            {getFieldError("approvers") && (
+              <p className="text-xs text-destructive">{getFieldError("approvers")}</p>
+            )}
           </div>
+
+          {/* Approval Mode - shown when multiple approvers selected */}
+          {approversArray.length > 1 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Approval Mode</Label>
+              <p className="text-xs text-muted-foreground italic">
+                How should multiple approvers participate?
+              </p>
+              <RadioGroup
+                value={(step.config.approval_mode as string) || "any"}
+                onValueChange={(value) => updateConfig("approval_mode", value)}
+                className="flex flex-col gap-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="any" id={`${step.step_id}-mode-any`} />
+                  <Label htmlFor={`${step.step_id}-mode-any`} className="text-sm font-normal cursor-pointer">
+                    Any one approver (first to respond)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id={`${step.step_id}-mode-all`} />
+                  <Label htmlFor={`${step.step_id}-mode-all`} className="text-sm font-normal cursor-pointer">
+                    All approvers must approve
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="majority" id={`${step.step_id}-mode-majority`} />
+                  <Label htmlFor={`${step.step_id}-mode-majority`} className="text-sm font-normal cursor-pointer">
+                    Majority must approve
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label className="text-sm font-semibold">SLA (hours)</Label>
             <Input
@@ -646,6 +712,7 @@ function StepTypeFields({
           </div>
         </div>
       );
+    }
 
     case "send_notification":
       return (
@@ -808,7 +875,15 @@ function StepTypeFields({
         </div>
       );
 
-    case "request_information":
+    case "request_information": {
+      const verificationMethods = [
+        { value: "manual_review", label: "Manual Review" },
+        { value: "document_upload", label: "Document Upload Required" },
+        { value: "form_submission", label: "Form Submission" },
+        { value: "email_confirmation", label: "Email Confirmation" },
+        { value: "system_integration", label: "System Integration Check" },
+      ];
+
       return (
         <div className="space-y-4">
           <div className="space-y-2">
@@ -834,6 +909,7 @@ function StepTypeFields({
               <p className="text-xs text-destructive">{getFieldError("request_from")}</p>
             )}
           </div>
+          
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
               Information Needed <span className="text-destructive">*</span>
@@ -849,8 +925,87 @@ function StepTypeFields({
               <p className="text-xs text-destructive">{getFieldError("info_needed")}</p>
             )}
           </div>
+
+          {/* Verification Method */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">
+              Verification Method <span className="text-destructive">*</span>
+            </Label>
+            <p className="text-xs text-muted-foreground italic">
+              How will the system confirm information was received?
+            </p>
+            <Select
+              value={(step.config.verification_method as string) || "manual_review"}
+              onValueChange={(value) => updateConfig("verification_method", value)}
+            >
+              <SelectTrigger className={`w-full max-w-sm ${getFieldError("verification_method") ? "border-destructive" : ""}`}>
+                <SelectValue placeholder="Select verification method" />
+              </SelectTrigger>
+              <SelectContent>
+                {verificationMethods.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {getFieldError("verification_method") && (
+              <p className="text-xs text-destructive">{getFieldError("verification_method")}</p>
+            )}
+          </div>
+
+          {/* Acceptance Criteria */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">
+              Acceptance Criteria
+            </Label>
+            <p className="text-xs text-muted-foreground italic">
+              Define what constitutes valid/complete information
+            </p>
+            <Textarea
+              placeholder="e.g., Must include signed NDA, financial statements from last 2 years..."
+              value={(step.config.acceptance_criteria as string) || ""}
+              onChange={(e) => updateConfig("acceptance_criteria", e.target.value)}
+              rows={2}
+              className="resize-none"
+            />
+          </div>
+
+          {/* Auto-Complete Option */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id={`${step.step_id}-auto-complete`}
+              checked={(step.config.auto_complete as boolean) || false}
+              onCheckedChange={(checked) => updateConfig("auto_complete", checked as boolean)}
+            />
+            <Label
+              htmlFor={`${step.step_id}-auto-complete`}
+              className="text-sm font-normal cursor-pointer"
+            >
+              Auto-complete when verification criteria are met
+            </Label>
+          </div>
+
+          {/* Response Deadline */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Response Deadline</Label>
+            <p className="text-xs text-muted-foreground italic">
+              Days allowed for response before escalation
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                placeholder="e.g., 5"
+                value={(step.config.response_deadline_days as string) || ""}
+                onChange={(e) => updateConfig("response_deadline_days", e.target.value)}
+                className="w-20"
+              />
+              <span className="text-sm text-muted-foreground">days</span>
+            </div>
+          </div>
         </div>
       );
+    }
 
     case "send_reminder":
       return (
