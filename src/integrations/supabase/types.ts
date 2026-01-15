@@ -920,6 +920,7 @@ export type Database = {
       workstream_approvals: {
         Row: {
           approval_template_id: string | null
+          approves_step_ids: string[] | null
           completed_at: string | null
           created_at: string
           current_gate: number | null
@@ -931,6 +932,7 @@ export type Database = {
         }
         Insert: {
           approval_template_id?: string | null
+          approves_step_ids?: string[] | null
           completed_at?: string | null
           created_at?: string
           current_gate?: number | null
@@ -942,6 +944,7 @@ export type Database = {
         }
         Update: {
           approval_template_id?: string | null
+          approves_step_ids?: string[] | null
           completed_at?: string | null
           created_at?: string
           current_gate?: number | null
@@ -1046,6 +1049,7 @@ export type Database = {
           display_name: string | null
           id: string
           name: string
+          play_approval_config: Json | null
           required_documents: string[] | null
           status: string | null
           team_category: string | null
@@ -1062,6 +1066,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           name: string
+          play_approval_config?: Json | null
           required_documents?: string[] | null
           status?: string | null
           team_category?: string | null
@@ -1078,6 +1083,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           name?: string
+          play_approval_config?: Json | null
           required_documents?: string[] | null
           status?: string | null
           team_category?: string | null

@@ -21,6 +21,7 @@ import {
 import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
 import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
 import { TeamCombobox } from "@/components/admin/TeamCombobox";
+import { PlayApprovalSection, PlayApprovalConfig } from "@/components/admin/PlayApprovalSection";
 
 const playbookSchema = z.object({
   name: z
@@ -56,6 +57,10 @@ export default function CreatePlaybook() {
   const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set());
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
+  const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>({
+    required_approvers: [],
+    approval_mode: "all",
+  });
 
   const {
     register,
@@ -112,6 +117,11 @@ export default function CreatePlaybook() {
             } catch (e) {
               console.error("Failed to parse workflow:", e);
             }
+          }
+
+          // Load play approval config
+          if (data.play_approval_config) {
+            setPlayApprovalConfig(data.play_approval_config as unknown as PlayApprovalConfig);
           }
         }
       } catch (error) {
@@ -260,6 +270,7 @@ export default function CreatePlaybook() {
         default_workflow: JSON.stringify({
           steps: workflowSteps,
         }),
+        play_approval_config: playApprovalConfig,
       };
 
       if (isEditing && id) {
@@ -490,12 +501,13 @@ export default function CreatePlaybook() {
             <h2 className="text-lg font-medium text-foreground border-b pb-2">
               Play Approval
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Approval configuration for individual workflow steps is now defined inline within each approval step in the Workflow section.
+            <p className="text-sm text-muted-foreground mb-4">
+              Approval configuration for individual workflow steps is defined inline within each approval step in the Workflow section.
             </p>
-            <p className="text-sm text-muted-foreground">
-              This section will be used to configure who must approve the Play itself before it can be activated (coming soon).
-            </p>
+            <PlayApprovalSection
+              config={playApprovalConfig}
+              onChange={setPlayApprovalConfig}
+            />
           </div>
         )}
 
