@@ -33,8 +33,6 @@ import WorkstreamDetail from "./pages/WorkstreamDetail";
 
 // Admin Module Pages
 import WorkstreamTypes from "./pages/admin/WorkstreamTypes";
-import ApprovalTemplates from "./pages/admin/ApprovalTemplates";
-import CreateEditApprovalTemplate from "./pages/admin/CreateEditApprovalTemplate";
 import CreatePlaybook from "./pages/admin/CreatePlaybook";
 
 // Sales Module Pages
@@ -92,12 +90,6 @@ const App = () => (
               <Route path="workstream-types/:id/edit" element={<CreatePlaybook />} />
             </Route>
 
-            {/* Play Library Routes */}
-            <Route path="/play-library" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-              <Route path="approval-templates" element={<ApprovalTemplates />} />
-              <Route path="approval-templates/new" element={<CreateEditApprovalTemplate />} />
-              <Route path="approval-templates/:id/edit" element={<CreateEditApprovalTemplate />} />
-            </Route>
 
             {/* Sales Module Routes */}
             <Route path="/sales" element={<ProtectedRoute><SalesLayout /></ProtectedRoute>}>
