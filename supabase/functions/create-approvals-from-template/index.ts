@@ -330,12 +330,30 @@ Deno.serve(async (req) => {
     let workflowSteps: WorkflowStep[] = [];
     
     if (workstreamType.default_workflow) {
+      let parsedWorkflow: DefaultWorkflow | null = null;
+      
       if (typeof workstreamType.default_workflow === "object") {
-        const workflow = workstreamType.default_workflow as DefaultWorkflow;
-        workflowSteps = workflow.steps || [];
+        // Already an object (JSONB column)
+        parsedWorkflow = workstreamType.default_workflow as DefaultWorkflow;
       } else if (typeof workstreamType.default_workflow === "string") {
-        // Legacy string format - no steps to process
-        console.log("Legacy workflow format, checking for approval_template_id");
+        // String that might be JSON
+        try {
+          const parsed = JSON.parse(workstreamType.default_workflow);
+          if (typeof parsed === "object" && parsed !== null && "steps" in parsed) {
+            parsedWorkflow = parsed as DefaultWorkflow;
+            console.log("Successfully parsed JSON workflow from string");
+          } else {
+            console.log("Legacy string workflow format (not JSON object with steps)");
+          }
+        } catch {
+          // Not valid JSON - legacy string format like "professional_services"
+          console.log("Legacy string workflow format:", workstreamType.default_workflow);
+        }
+      }
+      
+      if (parsedWorkflow && parsedWorkflow.steps) {
+        workflowSteps = parsedWorkflow.steps;
+        console.log(`Parsed ${workflowSteps.length} total steps from workflow`);
       }
     }
 
