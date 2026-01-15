@@ -19,9 +19,13 @@ import {
 export interface Role {
   id: string;
   name: string;
+  displayName: string | null;
   description: string;
   permissions: string[]; // Permission IDs
   isSystemRole: boolean;
+  isWorkRouting: boolean;
+  isManagerRole: boolean;
+  parentId: string | null;
 }
 
 export interface SystemUser {
@@ -95,8 +99,12 @@ export function RBACProvider({ children }: { children: ReactNode }) {
     return dbRoles.map(dbRole => ({
       id: dbRole.id,
       name: dbRole.name,
+      displayName: (dbRole as any).display_name || null,
       description: dbRole.description || "",
       isSystemRole: dbRole.is_system_role,
+      isWorkRouting: (dbRole as any).is_work_routing ?? false,
+      isManagerRole: (dbRole as any).is_manager_role ?? false,
+      parentId: (dbRole as any).parent_id || null,
       permissions: rolePermissions
         .filter(rp => rp.role_id === dbRole.id)
         .map(rp => rp.permission_id),
@@ -152,7 +160,11 @@ export function RBACProvider({ children }: { children: ReactNode }) {
       name: role.name,
       description: role.description,
       is_system_role: role.isSystemRole,
-    });
+      display_name: role.displayName || role.name,
+      is_work_routing: role.isWorkRouting,
+      is_manager_role: role.isManagerRole,
+      parent_id: role.parentId,
+    } as any);
     
     if (role.permissions.length > 0) {
       await setRolePermissionsMutation.mutateAsync({
@@ -163,13 +175,18 @@ export function RBACProvider({ children }: { children: ReactNode }) {
   };
   
   const updateRoleHandler = async (id: string, updates: Partial<Role>) => {
-    if (updates.name || updates.description !== undefined) {
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
+    if (updates.isWorkRouting !== undefined) dbUpdates.is_work_routing = updates.isWorkRouting;
+    if (updates.isManagerRole !== undefined) dbUpdates.is_manager_role = updates.isManagerRole;
+    if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId;
+    
+    if (Object.keys(dbUpdates).length > 0) {
       await updateRoleMutation.mutateAsync({
         id,
-        updates: {
-          name: updates.name,
-          description: updates.description,
-        },
+        updates: dbUpdates,
       });
     }
     

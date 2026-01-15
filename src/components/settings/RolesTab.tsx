@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Shield, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, Loader2, Users, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export function RolesTab() {
@@ -35,6 +36,8 @@ export function RolesTab() {
     description: "",
     permissions: [] as string[],
     isSystemRole: false,
+    isWorkRouting: false,
+    isManagerRole: false,
   });
 
   const openCreateDialog = () => {
@@ -44,6 +47,8 @@ export function RolesTab() {
       description: "",
       permissions: [],
       isSystemRole: false,
+      isWorkRouting: false,
+      isManagerRole: false,
     });
     setIsDialogOpen(true);
   };
@@ -55,6 +60,8 @@ export function RolesTab() {
       description: role.description,
       permissions: role.permissions,
       isSystemRole: role.isSystemRole,
+      isWorkRouting: role.isWorkRouting ?? false,
+      isManagerRole: role.isManagerRole ?? false,
     });
     setIsDialogOpen(true);
   };
@@ -67,11 +74,18 @@ export function RolesTab() {
 
     setIsSaving(true);
     try {
+      const roleData = {
+        ...formData,
+        displayName: formData.name,
+        parentId: null,
+      };
       if (editingRole) {
-        await updateRole(editingRole.id, formData);
+        await updateRole(editingRole.id, roleData);
         toast.success("Role updated successfully");
       } else {
-        await addRole(formData);
+        await addRole(roleData);
+        toast.success("Role created successfully");
+      }
         toast.success("Role created successfully");
       }
       setIsDialogOpen(false);
@@ -151,7 +165,7 @@ export function RolesTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Define roles and assign permissions to control access
+          Define roles and assign permissions to control access and work routing
         </p>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -165,6 +179,7 @@ export function RolesTab() {
             <TableRow>
               <TableHead>Role Name</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Permissions</TableHead>
               <TableHead>Users</TableHead>
               <TableHead className="w-24">Actions</TableHead>
@@ -190,6 +205,25 @@ export function RolesTab() {
                   </TableCell>
                   <TableCell className="text-muted-foreground max-w-xs truncate">
                     {role.description}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {role.isWorkRouting && (
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          <Users className="h-3 w-3" />
+                          Work Routing
+                        </Badge>
+                      )}
+                      {role.isManagerRole && (
+                        <Badge variant="default" className="text-xs gap-1">
+                          <UserCheck className="h-3 w-3" />
+                          Manager
+                        </Badge>
+                      )}
+                      {!role.isWorkRouting && !role.isManagerRole && (
+                        <span className="text-xs text-muted-foreground">Permission only</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm">
@@ -233,8 +267,8 @@ export function RolesTab() {
             </DialogTitle>
             <DialogDescription>
               {editingRole
-                ? "Modify role settings and permissions"
-                : "Define a new role with specific permissions"}
+                ? "Modify role settings, permissions, and capabilities"
+                : "Define a new role with specific permissions and work routing options"}
             </DialogDescription>
           </DialogHeader>
 
@@ -265,6 +299,49 @@ export function RolesTab() {
                 placeholder="Describe what this role is responsible for..."
                 rows={2}
               />
+            </div>
+
+            {/* Role capabilities */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <h4 className="font-medium">Role Capabilities</h4>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="workRouting" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Work Routing
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enable this role to be used for assigning tasks, needs, and approvals
+                  </p>
+                </div>
+                <Switch
+                  id="workRouting"
+                  checked={formData.isWorkRouting}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, isWorkRouting: checked }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="managerRole" className="flex items-center gap-2">
+                    <UserCheck className="h-4 w-4" />
+                    Manager Role
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Grants elevated data access (can view all workstreams and approve on behalf of team)
+                  </p>
+                </div>
+                <Switch
+                  id="managerRole"
+                  checked={formData.isManagerRole}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, isManagerRole: checked }))
+                  }
+                />
+              </div>
             </div>
 
             <div className="space-y-4">
