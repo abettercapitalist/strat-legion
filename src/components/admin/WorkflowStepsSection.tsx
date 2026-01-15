@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Lightbulb,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +36,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { StepDocumentsSection, StepDocument } from "./StepDocumentsSection";
 import { TeamCombobox } from "./TeamCombobox";
+import { InlineAutoApprovalSection } from "./InlineAutoApprovalSection";
+import { APPROVER_ROLE_OPTIONS } from "@/types/autoApproval";
 
 export type StepType =
   | "generate_document"
@@ -124,13 +132,6 @@ const TRIGGER_TIMING_OPTIONS: { value: TriggerTiming; label: string }[] = [
   { value: "after_closing_approval", label: "After closing approval" },
   { value: "after_signature", label: "After signature" },
   { value: "manual_trigger", label: "Manual trigger only" },
-];
-
-const GATE_TYPE_OPTIONS = [
-  { value: "pre_deal", label: "Pre-Deal" },
-  { value: "proposal", label: "Proposal" },
-  { value: "closing", label: "Closing" },
-  { value: "custom", label: "Custom" },
 ];
 
 const TEAM_OPTIONS = [
@@ -544,6 +545,32 @@ export function WorkflowStepsSection({
   );
 }
 
+// Helper to get preceding steps for an approval step
+function getPrecedingSteps(currentStep: WorkflowStep, allSteps: WorkflowStep[]): WorkflowStep[] {
+  return allSteps
+    .filter((s) => s.position < currentStep.position)
+    .filter((s) => s.step_type !== "approval") // Don't approve other approvals
+    .sort((a, b) => a.position - b.position);
+}
+
+// Helper to generate display label for a step
+function getStepDisplayLabel(step: WorkflowStep): string {
+  const typeLabels: Record<string, string> = {
+    generate_document: "Generate Document",
+    send_notification: "Send Notification",
+    assign_task: "Assign Task",
+    request_information: "Request Information",
+    send_reminder: "Send Reminder",
+  };
+
+  const typeLabel = typeLabels[step.step_type] || step.step_type;
+  const templateName = (step.config.template_id as string) || (step.config.description as string) || "";
+
+  return templateName
+    ? `${step.position}. ${typeLabel} - ${templateName}`
+    : `${step.position}. ${typeLabel}`;
+}
+
 // Step-specific configuration fields
 function StepTypeFields({
   step,
@@ -562,6 +589,10 @@ function StepTypeFields({
 
   const getFieldError = (field: string) => 
     errors.find((e) => e.field === field)?.message;
+
+  const getStepLabel = (type: StepType) => {
+    return STEP_TYPES.find((s) => s.type === type)?.label || type;
+  };
 
   switch (step.step_type) {
     case "generate_document":
@@ -603,39 +634,79 @@ function StepTypeFields({
         updateConfig("approvers", newApprovers);
       };
 
+      // Get preceding steps for the "Approves" field
+      const precedingSteps = getPrecedingSteps(step, allSteps);
+      const selectedApproves = (step.config.approves as string[]) || [];
+      
+      const handleApprovesToggle = (stepId: string, checked: boolean) => {
+        const newApproves = checked
+          ? [...selectedApproves, stepId]
+          : selectedApproves.filter((id) => id !== stepId);
+        updateConfig("approves", newApproves);
+      };
+
+      const escalationOpen = Boolean(step.config.escalation_role);
+      const setEscalationOpen = (open: boolean) => {
+        if (!open) {
+          updateConfig("escalation_role", undefined);
+        }
+      };
+
       return (
         <div className="space-y-4">
+          {/* Approves Field - What this approval covers */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
-              Gate Type <span className="text-destructive">*</span>
+              This approval covers <span className="text-destructive">*</span>
             </Label>
-            <Select
-              value={(step.config.gate_type as string) || ""}
-              onValueChange={(value) => updateConfig("gate_type", value)}
-            >
-              <SelectTrigger className={`w-full max-w-sm ${getFieldError("gate_type") ? "border-destructive" : ""}`}>
-                <SelectValue placeholder="Select gate type" />
-              </SelectTrigger>
-              <SelectContent>
-                {GATE_TYPE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
+            <p className="text-xs text-muted-foreground italic">
+              Select the steps/artifacts that require this approval
+            </p>
+            {precedingSteps.length === 0 ? (
+              <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <span className="text-amber-700 dark:text-amber-400">
+                  No preceding steps to approve. Add other steps before this approval.
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-2 max-w-md">
+                {precedingSteps.map((s) => (
+                  <div key={s.step_id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`${step.step_id}-approves-${s.step_id}`}
+                      checked={selectedApproves.includes(s.step_id)}
+                      onCheckedChange={(checked) =>
+                        handleApprovesToggle(s.step_id, checked as boolean)
+                      }
+                    />
+                    <Label
+                      htmlFor={`${step.step_id}-approves-${s.step_id}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {getStepDisplayLabel(s)}
+                    </Label>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
-            {getFieldError("gate_type") && (
-              <p className="text-xs text-destructive">{getFieldError("gate_type")}</p>
+              </div>
+            )}
+            {selectedApproves.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {selectedApproves.length} step{selectedApproves.length > 1 ? "s" : ""} selected
+              </p>
+            )}
+            {getFieldError("approves") && (
+              <p className="text-xs text-destructive">{getFieldError("approves")}</p>
             )}
           </div>
           
-          {/* Multiple Approvers Selection */}
+          {/* Approvers Selection */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
               Approvers <span className="text-destructive">*</span>
             </Label>
             <p className="text-xs text-muted-foreground italic">
-              Select one or more teams/roles that can approve this gate
+              These reviewers handle all approvals for this step. Deals that don't qualify for auto-approval are routed here for manual review.
             </p>
             <div className="grid grid-cols-2 gap-2 max-w-md">
               {TEAM_OPTIONS.filter(opt => opt.value !== "counterparty").map((opt) => (
@@ -658,7 +729,7 @@ function StepTypeFields({
             </div>
             {approversArray.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                {approversArray.length} approver{approversArray.length > 1 ? 's' : ''} selected
+                {approversArray.length} approver{approversArray.length > 1 ? "s" : ""} selected
               </p>
             )}
             {getFieldError("approvers") && (
@@ -700,6 +771,7 @@ function StepTypeFields({
             </div>
           )}
 
+          {/* SLA Hours */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">SLA (hours)</Label>
             <Input
@@ -710,6 +782,73 @@ function StepTypeFields({
               className="w-32"
             />
           </div>
+
+          {/* Inline Auto-Approval Standards */}
+          <InlineAutoApprovalSection
+            config={{
+              auto_approval_standards: step.config.auto_approval_standards as any,
+              custom_standards: step.config.custom_standards as any,
+            }}
+            onConfigChange={(autoConfig) => {
+              onUpdate({
+                config: {
+                  ...step.config,
+                  auto_approval_standards: autoConfig.auto_approval_standards,
+                  custom_standards: autoConfig.custom_standards,
+                },
+              });
+            }}
+          />
+
+          {/* Escalation Override (Simplified) */}
+          <Collapsible open={escalationOpen} onOpenChange={setEscalationOpen} className="border-t pt-4">
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-between px-0 hover:bg-transparent"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold">Escalation Override</span>
+                  {step.config.escalation_role && (
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                      Configured
+                    </span>
+                  )}
+                </div>
+                {escalationOpen ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 pl-6 space-y-3">
+              <p className="text-xs text-muted-foreground italic">
+                Optionally escalate certain cases to a specialist when manual review is needed.
+              </p>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Escalate to</Label>
+                <Select
+                  value={(step.config.escalation_role as string) || ""}
+                  onValueChange={(value) => updateConfig("escalation_role", value || undefined)}
+                >
+                  <SelectTrigger className="w-full max-w-sm">
+                    <SelectValue placeholder="No escalation (use approvers above)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No escalation</SelectItem>
+                    {APPROVER_ROLE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       );
     }

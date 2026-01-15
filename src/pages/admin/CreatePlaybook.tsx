@@ -18,12 +18,9 @@ import {
   WorkflowStep,
   StepValidationError,
 } from "@/components/admin/WorkflowStepsSection";
-import { ApprovalWorkflowSection } from "@/components/admin/ApprovalWorkflowSection";
-import { AutoApprovalSection } from "@/components/admin/AutoApprovalSection";
 import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
 import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
 import { TeamCombobox } from "@/components/admin/TeamCombobox";
-import { AutoApprovalConfig } from "@/types/autoApproval";
 
 const playbookSchema = z.object({
   name: z
@@ -58,8 +55,6 @@ export default function CreatePlaybook() {
   const [currentStep, setCurrentStep] = useState<FormStep>("basics");
   const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set());
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
-  const [selectedApprovalTemplateId, setSelectedApprovalTemplateId] = useState<string | null>(null);
-  const [autoApprovalConfig, setAutoApprovalConfig] = useState<AutoApprovalConfig | null>(null);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
 
   const {

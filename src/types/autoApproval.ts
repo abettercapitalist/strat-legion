@@ -83,3 +83,19 @@ export const DYNAMIC_OPERATOR_OPTIONS = [
   { value: 'greater_than', label: 'Greater than' },
   { value: 'between', label: 'Between' },
 ];
+
+// Custom Standards for extensible auto-approval criteria
+export interface CustomStandard {
+  id: string;
+  name: string;
+  operator: 'less_than' | 'greater_than' | 'equals' | 'between';
+  value: number;
+  value_max?: number;
+}
+
+export const CUSTOM_STANDARD_OPERATOR_OPTIONS = [
+  { value: 'less_than', label: 'Less than' },
+  { value: 'greater_than', label: 'Greater than' },
+  { value: 'equals', label: 'Equals' },
+  { value: 'between', label: 'Between' },
+];
