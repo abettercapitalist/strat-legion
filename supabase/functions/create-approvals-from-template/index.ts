@@ -136,17 +136,45 @@ function humanizeGateType(gateType: string): string {
     .join(' ');
 }
 
+// Map legacy approver shorthand to actual role names
+function mapApproverToRole(approver: string): string[] {
+  const roleMapping: Record<string, string[]> = {
+    // Shorthand mappings
+    "finance": ["finance_reviewer"],
+    "legal": ["general_counsel", "contract_counsel", "legal_ops"],
+    "sales": ["sales_manager", "account_executive"],
+    "executive": ["general_counsel"],
+    "compliance": ["legal_ops"],
+    // Direct role names (pass through)
+    "general_counsel": ["general_counsel"],
+    "legal_ops": ["legal_ops"],
+    "contract_counsel": ["contract_counsel"],
+    "account_executive": ["account_executive"],
+    "sales_manager": ["sales_manager"],
+    "finance_reviewer": ["finance_reviewer"],
+  };
+  
+  return roleMapping[approver.toLowerCase()] || [approver];
+}
+
 // Get approver roles from step config
 function getApproverRoles(config: WorkflowStep["config"]): string[] {
+  let roles: string[] = [];
+  
   // New format: approver_roles array
   if (config.approver_roles && Array.isArray(config.approver_roles)) {
-    return config.approver_roles;
+    roles = config.approver_roles;
   }
   // Legacy format: single approvers string
-  if (config.approvers && typeof config.approvers === "string") {
-    return [config.approvers];
+  else if (config.approvers && typeof config.approvers === "string") {
+    roles = [config.approvers];
   }
-  return [];
+  
+  // Map all roles to actual database roles
+  const mappedRoles = roles.flatMap(role => mapApproverToRole(role));
+  
+  // Remove duplicates
+  return [...new Set(mappedRoles)];
 }
 
 // Evaluate auto-approval conditions
