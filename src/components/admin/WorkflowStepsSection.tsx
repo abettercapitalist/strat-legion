@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/collapsible";
 import { StepDocumentsSection, StepDocument } from "./StepDocumentsSection";
 import { TeamCombobox } from "./TeamCombobox";
+import { MultiTeamCombobox } from "./MultiTeamCombobox";
 import { InlineAutoApprovalSection } from "./InlineAutoApprovalSection";
 import { APPROVER_ROLE_OPTIONS } from "@/types/autoApproval";
 
@@ -703,45 +704,25 @@ function StepTypeFields({
             )}
           </div>
           
-          {/* Approvers Selection */}
+          {/* Approvers Selection - Team-based */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
-              Approvers <span className="text-destructive">*</span>
+              Approver Teams <span className="text-destructive">*</span>
             </Label>
             <p className="text-xs text-muted-foreground italic">
-              These reviewers handle all approvals for this step. Deals that don't qualify for auto-approval are routed here for manual review.
+              Select teams whose members can approve this step. Deals that don't qualify for auto-approval are routed to these teams for manual review.
             </p>
-            <div className="grid grid-cols-2 gap-2 max-w-md">
-              {TEAM_OPTIONS.filter(opt => opt.value !== "counterparty").map((opt) => (
-                <div key={opt.value} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`${step.step_id}-approver-${opt.value}`}
-                    checked={approversArray.includes(opt.value)}
-                    onCheckedChange={(checked) =>
-                      handleApproverToggle(opt.value, checked as boolean)
-                    }
-                  />
-                  <Label
-                    htmlFor={`${step.step_id}-approver-${opt.value}`}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {opt.label}
-                  </Label>
-                </div>
-              ))}
-            </div>
-            {approversArray.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {approversArray.length} approver{approversArray.length > 1 ? "s" : ""} selected
-              </p>
-            )}
-            {getFieldError("approvers") && (
-              <p className="text-xs text-destructive">{getFieldError("approvers")}</p>
-            )}
+            <MultiTeamCombobox
+              value={(step.config.approver_teams as string[]) || []}
+              onValueChange={(teams) => updateConfig("approver_teams", teams)}
+              placeholder="Select approver teams..."
+              error={getFieldError("approvers")}
+              excludeCounterparty={true}
+            />
           </div>
 
-          {/* Approval Mode - shown when multiple approvers selected */}
-          {approversArray.length > 1 && (
+          {/* Approval Mode - shown when multiple teams selected */}
+          {((step.config.approver_teams as string[]) || []).length > 1 && (
             <div className="space-y-2">
               <Label className="text-sm font-semibold">Approval Mode</Label>
               <p className="text-xs text-muted-foreground italic">
