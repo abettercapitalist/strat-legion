@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { AutoApprovalConfig } from "@/types/autoApproval";
 import type { Json } from "@/integrations/supabase/types";
+import type { PlayApprovalConfig } from "@/components/admin/PlayApprovalSection";
 
 
 export interface WorkstreamType {
@@ -15,6 +16,7 @@ export interface WorkstreamType {
   required_documents: string[] | null;
   default_workflow: string | null;
   auto_approval_config: AutoApprovalConfig | null;
+  play_approval_config: PlayApprovalConfig | null;
   created_at: string;
   updated_at: string;
   active_workstreams_count?: number;
@@ -47,20 +49,21 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
       if (error) throw error;
 
       // Get active workstream counts for each type
-      const typesWithCounts = await Promise.all(
-        (data || []).map(async (type) => {
-          const { count } = await supabase
-            .from("workstreams")
-            .select("*", { count: "exact", head: true })
-            .eq("workstream_type_id", type.id);
-          
-          return {
-            ...type,
-            auto_approval_config: type.auto_approval_config as unknown as AutoApprovalConfig | null,
-            active_workstreams_count: count || 0,
-          };
-        })
-      );
+        const typesWithCounts = await Promise.all(
+          (data || []).map(async (type) => {
+            const { count } = await supabase
+              .from("workstreams")
+              .select("*", { count: "exact", head: true })
+              .eq("workstream_type_id", type.id);
+            
+            return {
+              ...type,
+              auto_approval_config: type.auto_approval_config as unknown as AutoApprovalConfig | null,
+              play_approval_config: type.play_approval_config as unknown as PlayApprovalConfig | null,
+              active_workstreams_count: count || 0,
+            };
+          })
+        );
 
       return typesWithCounts as WorkstreamType[];
     },
@@ -80,6 +83,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
           default_workflow: data.default_workflow,
           approval_template_id: data.approval_template_id || null,
           auto_approval_config: data.auto_approval_config as unknown as Json,
+          play_approval_config: data.play_approval_config as unknown as Json,
         })
         .select()
         .single();
@@ -109,6 +113,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
       if (data.default_workflow !== undefined) updatePayload.default_workflow = data.default_workflow;
       if (data.approval_template_id !== undefined) updatePayload.approval_template_id = data.approval_template_id;
       if (data.auto_approval_config !== undefined) updatePayload.auto_approval_config = data.auto_approval_config as unknown as Json;
+      if (data.play_approval_config !== undefined) updatePayload.play_approval_config = data.play_approval_config as unknown as Json;
 
       const { data: result, error } = await supabase
         .from("workstream_types")
@@ -145,6 +150,7 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
           required_documents: original.required_documents,
           default_workflow: original.default_workflow,
           auto_approval_config: original.auto_approval_config as unknown as Json,
+          play_approval_config: original.play_approval_config as unknown as Json,
         })
         .select()
         .single();
