@@ -1,4 +1,5 @@
 import { ExternalLink, Pencil } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,8 @@ export function ApprovalWorkflowSection({
   selectedTemplateId,
   onTemplateChange,
 }: ApprovalWorkflowSectionProps) {
+  const navigate = useNavigate();
+  
   // Filter to only active templates for the dropdown
   const { templates, loading, error } = useApprovalTemplates(true);
 
@@ -53,12 +56,12 @@ export function ApprovalWorkflowSection({
   );
 
   const handleCreateNew = () => {
-    window.open("/play-library/approval-templates/new", "_blank");
+    navigate("/admin/approval-templates/new");
   };
 
   const handleEditTemplate = () => {
     if (selectedTemplateId) {
-      window.open(`/play-library/approval-templates/${selectedTemplateId}/edit`, "_blank");
+      navigate(`/admin/approval-templates/${selectedTemplateId}/edit`);
     }
   };
 
