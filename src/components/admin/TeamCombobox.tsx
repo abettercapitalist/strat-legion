@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Check, ChevronsUpDown, Plus, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,13 @@ export function TeamCombobox({
   const [open, setOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createAsSubgroupOf, setCreateAsSubgroupOf] = useState<Team | null>(null);
+  
+  // Use a ref to always have access to the latest callback
+  // This fixes stale closure issues when the popover captures old callbacks
+  const onValueChangeRef = useRef(onValueChange);
+  useEffect(() => {
+    onValueChangeRef.current = onValueChange;
+  }, [onValueChange]);
   
   const {
     teams,
@@ -93,8 +100,9 @@ export function TeamCombobox({
     if (team) {
       // If this team has subgroups and we require subgroup selection,
       // we still select it but show a warning
-      console.log("[TeamCombobox] calling onValueChange with:", team.id);
-      onValueChange(team.id);
+      console.log("[TeamCombobox] calling onValueChangeRef.current with:", team.id);
+      // Use ref to avoid stale closure - ensures we always call the latest callback
+      onValueChangeRef.current(team.id);
       setOpen(false);
     }
   };
@@ -112,7 +120,7 @@ export function TeamCombobox({
   };
 
   const handleTeamCreated = (newTeam: Team) => {
-    onValueChange(newTeam.id);
+    onValueChangeRef.current(newTeam.id);
     setShowCreateModal(false);
     setCreateAsSubgroupOf(null);
   };
