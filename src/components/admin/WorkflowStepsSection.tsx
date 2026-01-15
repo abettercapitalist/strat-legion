@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
 import { StepDocumentsSection, StepDocument } from "./StepDocumentsSection";
+import { TeamCombobox } from "./TeamCombobox";
 
 export type StepType =
   | "generate_document"
@@ -725,29 +726,20 @@ function StepTypeFields({
             <p className="text-xs text-muted-foreground italic">
               Team or role responsible for completing this task
             </p>
-            <Select
-              value={(step.config.assign_to as string) || ""}
-              onValueChange={(value) => {
-                updateConfig("assign_to", value);
-                if (value !== "counterparty") {
-                  updateConfig("internal_owner", "");
-                }
-              }}
-            >
-              <SelectTrigger className={`w-full max-w-sm ${getFieldError("assign_to") ? "border-destructive" : ""}`}>
-                <SelectValue placeholder="Select team/role" />
-              </SelectTrigger>
-              <SelectContent>
-                {TEAM_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {getFieldError("assign_to") && (
-              <p className="text-xs text-destructive">{getFieldError("assign_to")}</p>
-            )}
+            <div className="max-w-sm">
+              <TeamCombobox
+                value={(step.config.assign_to as string) || undefined}
+                onValueChange={(value) => {
+                  updateConfig("assign_to", value || "");
+                  if (value !== "counterparty") {
+                    updateConfig("internal_owner", "");
+                  }
+                }}
+                placeholder="Select team/role..."
+                error={getFieldError("assign_to")}
+                requireSubgroupWhenAvailable={false}
+              />
+            </div>
           </div>
           
           {/* Internal Owner - shown when counterparty is selected */}

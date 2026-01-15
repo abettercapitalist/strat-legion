@@ -174,11 +174,12 @@ export default function WorkstreamTypes() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {workstreamTypes.map((type, index) => <TableRow key={type.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
-                  <TableCell 
-                    className="font-medium cursor-pointer hover:text-primary hover:underline"
-                    onClick={() => handleEdit(type.id)}
-                  >
+            {workstreamTypes.map((type, index) => <TableRow 
+                  key={type.id} 
+                  className={`cursor-pointer hover:bg-muted/50 ${index % 2 === 0 ? "bg-background" : "bg-muted/30"}`}
+                  onClick={() => handleEdit(type.id)}
+                >
+                  <TableCell className="font-medium">
                     {type.name}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -198,26 +199,31 @@ export default function WorkstreamTypes() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(type.id)}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(type.id); }}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(type.id)}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(type.id); }}>
                           <Copy className="h-4 w-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleArchive(type.id)} disabled={type.status === "Archived"}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleArchive(type.id); }} disabled={type.status === "Archived"}>
                           <Archive className="h-4 w-4 mr-2" />
                           Archive
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
-                          onClick={() => handleDelete(type.id)} 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(type.id); }} 
                           className="text-destructive focus:text-destructive"
                           disabled={type.active_workstreams_count && type.active_workstreams_count > 0}
                         >
