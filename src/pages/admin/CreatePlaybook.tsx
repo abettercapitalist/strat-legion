@@ -102,8 +102,6 @@ export default function CreatePlaybook() {
             team_category: data.team_category as PlaybookFormData["team_category"],
           });
 
-          setSelectedApprovalTemplateId(data.approval_template_id || null);
-
           // Parse workflow steps from default_workflow JSON
           if (data.default_workflow) {
             try {
@@ -114,11 +112,6 @@ export default function CreatePlaybook() {
             } catch (e) {
               console.error("Failed to parse workflow:", e);
             }
-          }
-
-          // Load auto-approval config
-          if (data.auto_approval_config) {
-            setAutoApprovalConfig(data.auto_approval_config as unknown as AutoApprovalConfig);
           }
         }
       } catch (error) {
@@ -142,7 +135,10 @@ export default function CreatePlaybook() {
 
   const STEP_VALIDATION_RULES: Record<string, { field: string; label: string; conditional?: (config: Record<string, unknown>) => boolean }[]> = {
     generate_document: [{ field: "template_id", label: "Template" }],
-    approval: [{ field: "gate_type", label: "Gate Type" }],
+    approval: [
+      { field: "approves", label: "Steps to Approve" },
+      { field: "approvers", label: "Approvers" },
+    ],
     send_notification: [{ field: "notify_team", label: "Recipient" }],
     assign_task: [
       { field: "assign_to", label: "Assignee" },
@@ -232,80 +228,10 @@ export default function CreatePlaybook() {
       }
     });
 
-    // Validate approval template
-    if (!selectedApprovalTemplateId) {
-      errors.push({
-        id: "approval-template",
-        section: "approval",
-        field: "approval_template_id",
-        message: "An approval route is required to activate",
-      });
-    }
-
-    // Validate auto-approval config if configured
-    if (autoApprovalConfig) {
-      const standards = autoApprovalConfig.auto_approval_standards;
-      const tiers = Object.entries(standards);
-
-      // At least one tier must be defined if using auto-approval
-      if (tiers.length === 0) {
-        errors.push({
-          id: "auto-approval-tiers",
-          section: "approval",
-          field: "auto_approval_standards",
-          message: "At least one tier must be defined if using auto-approval",
-        });
-      }
-
-      tiers.forEach(([tierName, tierConfig]) => {
-        if (!tierConfig) return;
-
-        // Maximum discount must be > 0 and < 100
-        if (tierConfig.discount_max <= 0 || tierConfig.discount_max >= 100) {
-          errors.push({
-            id: `auto-approval-${tierName}-discount`,
-            section: "approval",
-            field: "discount_max",
-            message: `${tierName} tier: Discount must be between 1 and 99%`,
-          });
-        }
-
-        // Minimum liability cap must be > 0
-        if (tierConfig.liability_cap_min <= 0) {
-          errors.push({
-            id: `auto-approval-${tierName}-liability`,
-            section: "approval",
-            field: "liability_cap_min",
-            message: `${tierName} tier: Liability cap must be greater than 0`,
-          });
-        }
-
-        // Duration min must be < duration max
-        if (tierConfig.contract_duration_min >= tierConfig.contract_duration_max) {
-          errors.push({
-            id: `auto-approval-${tierName}-duration`,
-            section: "approval",
-            field: "contract_duration",
-            message: `${tierName} tier: Minimum duration must be less than maximum`,
-          });
-        }
-
-        // At least one payment term must be selected
-        if (tierConfig.payment_terms.length === 0) {
-          errors.push({
-            id: `auto-approval-${tierName}-payment`,
-            section: "approval",
-            field: "payment_terms",
-            message: `${tierName} tier: At least one payment term must be selected`,
-          });
-        }
-      });
-    }
-
     setValidationErrors(errors);
     setStepErrors(stepErrs);
     return errors.length === 0;
-  }, [workflowSteps, selectedApprovalTemplateId, autoApprovalConfig, teamCategory, getTeamById, hasSubgroups]);
+  }, [workflowSteps, teamCategory, getTeamById, hasSubgroups]);
 
   const handleErrorClick = (error: ValidationError) => {
     setCurrentStep(error.section);
@@ -331,11 +257,9 @@ export default function CreatePlaybook() {
         description: data.description || null,
         team_category: data.team_category,
         status,
-        approval_template_id: selectedApprovalTemplateId,
         default_workflow: JSON.stringify({
           steps: workflowSteps,
         }),
-        auto_approval_config: autoApprovalConfig,
       };
 
       if (isEditing && id) {
@@ -560,30 +484,18 @@ export default function CreatePlaybook() {
           </div>
         )}
 
-        {/* Step 3: Approval Workflow */}
+        {/* Step 3: Play Approval (who approves the play itself) */}
         {currentStep === "approval" && (
           <div className="space-y-6">
-            <ApprovalWorkflowSection
-              selectedTemplateId={selectedApprovalTemplateId}
-              onTemplateChange={setSelectedApprovalTemplateId}
-            />
-            {validationErrors.some(e => e.section === "approval" && e.field === "approval_template_id") && (
-              <p className="text-xs text-destructive">
-                {validationErrors.find(e => e.section === "approval" && e.field === "approval_template_id")?.message}
-              </p>
-            )}
-
-            {/* Auto-Approval Standards Section */}
-            <AutoApprovalSection
-              config={autoApprovalConfig}
-              onConfigChange={setAutoApprovalConfig}
-              isEditing={isEditing}
-            />
-            {validationErrors.filter(e => e.section === "approval" && e.field !== "approval_template_id").map((err) => (
-              <p key={err.id} className="text-xs text-destructive">
-                {err.message}
-              </p>
-            ))}
+            <h2 className="text-lg font-medium text-foreground border-b pb-2">
+              Play Approval
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Approval configuration for individual workflow steps is now defined inline within each approval step in the Workflow section.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This section will be used to configure who must approve the Play itself before it can be activated (coming soon).
+            </p>
           </div>
         )}
 
