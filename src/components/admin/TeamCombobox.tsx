@@ -89,9 +89,11 @@ export function TeamCombobox({
 
   const handleSelect = (teamId: string) => {
     const team = getTeamById(teamId);
+    console.log("[TeamCombobox] handleSelect:", { teamId, team, willCall: !!team });
     if (team) {
       // If this team has subgroups and we require subgroup selection,
       // we still select it but show a warning
+      console.log("[TeamCombobox] calling onValueChange with:", team.id);
       onValueChange(team.id);
       setOpen(false);
     }
