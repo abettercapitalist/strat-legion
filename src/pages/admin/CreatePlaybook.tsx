@@ -57,8 +57,8 @@ export default function CreatePlaybook() {
   const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set());
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
-  const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>({
-    required_approvers: [],
+const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>({
+    required_roles: [],
     approval_mode: "all",
   });
 
