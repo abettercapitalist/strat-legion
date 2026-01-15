@@ -86,8 +86,6 @@ export function RolesTab() {
         await addRole(roleData);
         toast.success("Role created successfully");
       }
-        toast.success("Role created successfully");
-      }
       setIsDialogOpen(false);
     } catch (error) {
       toast.error("Failed to save role");
