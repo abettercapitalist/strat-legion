@@ -1,4 +1,4 @@
-import { FileText, Settings, Home, MessageSquareText, Check, FolderOpen, ClipboardCheck } from "lucide-react";
+import { FileText, Settings, Home, MessageSquareText, FolderOpen, ClipboardCheck } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -28,7 +28,6 @@ const librariesNavigation = [
 // Admin-only library items
 const playLibraryItems = [
   { name: "Play Library", href: "/admin/workstream-types", icon: PlaybookIcon },
-  { name: "Approval Routes", href: "/play-library/approval-templates", icon: Check },
 ];
 
 export function LawSidebar() {
