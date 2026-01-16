@@ -14,21 +14,19 @@ export interface NeedsFilterState {
   satisfierRoleForFilter: string | null;
   teamRoleFilter: string | null;
   setTeamRoleFilter: (role: string | null) => void;
+  // New: unified role system values
+  workRoutingRoleIds: string[];
+  isManager: boolean;
 }
-
-// Team roles that are "your team" for each user role
-const teamRolesForRole: Record<AppRole, string[]> = {
-  general_counsel: ["contract_counsel", "legal_ops", "general_counsel"],
-  legal_ops: ["contract_counsel", "legal_ops", "general_counsel"],
-  contract_counsel: ["contract_counsel", "legal_ops", "general_counsel"],
-  account_executive: ["account_executive", "sales_manager"],
-  sales_manager: ["account_executive", "sales_manager"],
-  finance_reviewer: ["finance_reviewer"],
-};
 
 export function useNeedsFilter(): NeedsFilterState {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { role } = useAuth();
+  const { role, getWorkRoutingRoleIds, isManager } = useAuth();
+
+  // Get work routing role IDs from the unified system
+  const workRoutingRoleIds = useMemo(() => {
+    return getWorkRoutingRoleIds();
+  }, [getWorkRoutingRoleIds]);
 
   const activeFilter = useMemo(() => {
     const filterParam = searchParams.get("filter");
@@ -105,15 +103,30 @@ export function useNeedsFilter(): NeedsFilterState {
     satisfierRoleForFilter,
     teamRoleFilter,
     setTeamRoleFilter,
+    workRoutingRoleIds,
+    isManager: isManager(),
   };
 }
 
-// Helper to get team roles for a given user role
+/**
+ * @deprecated Use workRoutingRoleIds from useNeedsFilter instead
+ */
 export function getTeamRolesForRole(role: AppRole): string[] {
+  // Legacy hardcoded mapping - kept for backward compatibility
+  const teamRolesForRole: Record<AppRole, string[]> = {
+    general_counsel: ["contract_counsel", "legal_ops", "general_counsel"],
+    legal_ops: ["contract_counsel", "legal_ops", "general_counsel"],
+    contract_counsel: ["contract_counsel", "legal_ops", "general_counsel"],
+    account_executive: ["account_executive", "sales_manager"],
+    sales_manager: ["account_executive", "sales_manager"],
+    finance_reviewer: ["finance_reviewer"],
+  };
   return teamRolesForRole[role] || [];
 }
 
-// Helper to get satisfier role from user role (identity function since they match)
+/**
+ * @deprecated Use satisfierRoleForFilter from useNeedsFilter instead
+ */
 export function getSatisfierRole(role: AppRole): string {
   return role;
 }

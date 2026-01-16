@@ -18,14 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
-
-const APPROVER_ROLES = [
-  { value: "general_counsel", label: "General Counsel" },
-  { value: "legal_ops", label: "Legal Ops" },
-  { value: "contract_counsel", label: "Contract Counsel" },
-  { value: "sales_manager", label: "Sales Manager" },
-  { value: "finance_reviewer", label: "Finance Reviewer" },
-];
+import { useRoles } from "@/hooks/useRoles";
 
 export interface PlayApprovalConfig {
   required_roles: string[];
@@ -40,6 +33,13 @@ interface PlayApprovalSectionProps {
 
 export function PlayApprovalSection({ config, onChange }: PlayApprovalSectionProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const { roles, isLoading } = useRoles({ workRoutingOnly: true });
+  
+  // Dynamic roles from custom_roles table
+  const approverRoles = roles.map(r => ({
+    value: r.id,
+    label: r.display_name || r.name,
+  }));
 
   const handleRoleToggle = (role: string, checked: boolean) => {
     const current = config.required_roles || [];
@@ -76,7 +76,9 @@ export function PlayApprovalSection({ config, onChange }: PlayApprovalSectionPro
       <CardContent className="space-y-4">
         {/* Role Selection */}
         <div className="grid gap-2">
-          {APPROVER_ROLES.map((role) => (
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading roles...</p>
+          ) : approverRoles.map((role) => (
             <label
               key={role.value}
               className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
@@ -134,7 +136,7 @@ export function PlayApprovalSection({ config, onChange }: PlayApprovalSectionPro
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No bypass</SelectItem>
-                  {APPROVER_ROLES.map((role) => (
+                  {approverRoles.map((role) => (
                     <SelectItem key={role.value} value={role.value}>
                       {role.label}
                     </SelectItem>

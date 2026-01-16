@@ -1240,6 +1240,11 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_user_role_ids: { Args: { _user_id?: string }; Returns: string[] }
+      get_user_work_routing_roles: {
+        Args: { _user_id?: string }
+        Returns: string[]
+      }
       has_business_role: { Args: { _user_id?: string }; Returns: boolean }
       has_permission: {
         Args: { _permission_id: string; _user_id: string }
@@ -1265,6 +1270,10 @@ export type Database = {
         Returns: boolean
       }
       is_manager: { Args: { _user_id?: string }; Returns: boolean }
+      is_manager_for_scope: {
+        Args: { _user_id?: string; scope_role_id?: string }
+        Returns: boolean
+      }
       is_role_member: {
         Args: { role_uuid: string; user_uuid: string }
         Returns: boolean

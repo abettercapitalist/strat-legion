@@ -2,7 +2,18 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+// Legacy app_role type for backward compatibility
 type AppRole = 'general_counsel' | 'legal_ops' | 'contract_counsel' | 'account_executive' | 'sales_manager' | 'finance_reviewer';
+
+// New custom role interface
+interface CustomRole {
+  id: string;
+  name: string;
+  display_name: string | null;
+  is_manager_role: boolean;
+  is_work_routing: boolean;
+  parent_id: string | null;
+}
 
 interface Profile {
   id: string;
@@ -15,10 +26,15 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  role: AppRole | null;
+  role: AppRole | null; // Legacy - kept for backward compatibility
+  customRoles: CustomRole[]; // New - unified role system
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  // Helper functions for the unified system
+  isManager: () => boolean;
+  hasCustomRole: (roleId: string) => boolean;
+  getWorkRoutingRoleIds: () => string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchUserData = async (userId: string) => {
@@ -43,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData);
       }
 
-      // Fetch role
+      // Fetch legacy role (for backward compatibility)
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
@@ -52,6 +69,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (roleData) {
         setRole(roleData.role as AppRole);
+      }
+
+      // Fetch custom roles (new unified system)
+      const { data: userCustomRoles } = await supabase
+        .from('user_custom_roles')
+        .select(`
+          role_id,
+          custom_roles (
+            id,
+            name,
+            display_name,
+            is_manager_role,
+            is_work_routing,
+            parent_id
+          )
+        `)
+        .eq('user_id', userId);
+
+      if (userCustomRoles) {
+        const roles = userCustomRoles
+          .map((ucr: any) => ucr.custom_roles)
+          .filter((r: any): r is CustomRole => r !== null);
+        setCustomRoles(roles);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -70,6 +110,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRole(null);
+    setCustomRoles([]);
+  };
+
+  // Helper: Check if user has any manager role
+  const isManager = () => {
+    return customRoles.some(r => r.is_manager_role);
+  };
+
+  // Helper: Check if user has a specific custom role
+  const hasCustomRole = (roleId: string) => {
+    return customRoles.some(r => r.id === roleId);
+  };
+
+  // Helper: Get user's work routing role IDs
+  const getWorkRoutingRoleIds = () => {
+    return customRoles
+      .filter(r => r.is_work_routing)
+      .map(r => r.id);
   };
 
   useEffect(() => {
@@ -87,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
           setRole(null);
+          setCustomRoles([]);
         }
       }
     );
@@ -114,9 +173,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session, 
       profile, 
       role, 
+      customRoles,
       isLoading, 
       signOut,
-      refreshProfile 
+      refreshProfile,
+      isManager,
+      hasCustomRole,
+      getWorkRoutingRoleIds,
     }}>
       {children}
     </AuthContext.Provider>
