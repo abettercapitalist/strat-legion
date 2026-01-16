@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, isPast, differenceInDays } from "date-fns";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -383,10 +383,13 @@ export function useUnifiedNeeds(
     }
   }, [userRole, allRolesToMatch, myRolesToMatch, roleMap]);
 
+  // Debounce timer ref to prevent rapid re-renders from realtime updates
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+
   useEffect(() => {
     fetchUnifiedNeeds(false);
 
-    // Set up realtime subscription for live updates
+    // Set up realtime subscription for live updates with debouncing
     const channel: RealtimeChannel = supabase
       .channel('unified-needs-changes')
       .on(
@@ -397,13 +400,17 @@ export function useUnifiedNeeds(
           table: 'needs',
         },
         () => {
-          // Refetch when any need changes (mark as refresh)
-          fetchUnifiedNeeds(true);
+          // Debounce to prevent rapid re-renders causing visual flipping
+          clearTimeout(debounceTimer.current);
+          debounceTimer.current = setTimeout(() => {
+            fetchUnifiedNeeds(true);
+          }, 500);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(debounceTimer.current);
       supabase.removeChannel(channel);
     };
   }, [fetchUnifiedNeeds]);
