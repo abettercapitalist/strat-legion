@@ -1,14 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Clock, XCircle, AlertCircle, Lock, Unlock } from "lucide-react";
+import { CheckCircle, Clock, XCircle, AlertCircle, Lock, Unlock, ThumbsUp, ThumbsDown } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { getRouteName } from "@/lib/approvalUtils";
+import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
+import { ApprovalDecisionModal } from "@/components/approvals/ApprovalDecisionModal";
 
 interface WorkstreamApprovalsTabProps {
   workstreamId: string;
+}
+
+interface ApprovalRoute {
+  role?: string;
+  approvers?: Array<{ role: string; is_required?: boolean }>;
+  position?: number;
 }
 
 const statusConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
@@ -19,7 +29,37 @@ const statusConfig: Record<string, { icon: React.ElementType; color: string; lab
   locked: { icon: Lock, color: "bg-muted/50 text-muted-foreground", label: "Locked" },
 };
 
+// Map legacy role names to check user assignment
+const LEGACY_ROLE_MAP: Record<string, string[]> = {
+  sales_manager: ["sales_manager"],
+  finance_reviewer: ["finance_reviewer"],
+  contract_counsel: ["contract_counsel"],
+  legal_ops: ["legal_ops"],
+  general_counsel: ["general_counsel"],
+  account_executive: ["account_executive"],
+};
+
 export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabProps) {
+  const queryClient = useQueryClient();
+  const { role: legacyRole, customRoles, userId, isManager } = useCurrentUserRole();
+  
+  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
+  const [dealName, setDealName] = useState<string>("");
+
+  // Fetch workstream for deal name
+  const { data: workstream } = useQuery({
+    queryKey: ["workstream-basic", workstreamId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workstreams")
+        .select("name")
+        .eq("id", workstreamId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: approvals, isLoading } = useQuery({
     queryKey: ["workstream-approvals", workstreamId],
     queryFn: async () => {
@@ -60,6 +100,82 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
     },
     enabled: !!approvals?.length,
   });
+
+  // Check if current user is assigned to a specific route
+  const isUserAssignedToRoute = (approvalSequence: ApprovalRoute[] | null, gateNumber: number): boolean => {
+    if (!approvalSequence || !Array.isArray(approvalSequence)) return false;
+
+    const route = approvalSequence.find(r => (r.position || 0) === gateNumber);
+    if (!route) return false;
+
+    // Get roles from the route
+    const routeRoles: string[] = [];
+    if (route.role) {
+      routeRoles.push(route.role);
+    }
+    if (route.approvers && Array.isArray(route.approvers)) {
+      route.approvers.forEach(approver => {
+        if (approver.role) {
+          routeRoles.push(approver.role);
+        }
+      });
+    }
+
+    // Check legacy role match
+    if (legacyRole) {
+      const legacyMatches = LEGACY_ROLE_MAP[legacyRole] || [legacyRole];
+      if (routeRoles.some(role => legacyMatches.includes(role) || role === legacyRole)) {
+        return true;
+      }
+    }
+
+    // Check custom roles match (by name)
+    if (customRoles.length > 0) {
+      const customRoleNames = customRoles.map(cr => cr.name.toLowerCase());
+      if (routeRoles.some(role => customRoleNames.includes(role.toLowerCase()))) {
+        return true;
+      }
+    }
+
+    // Managers can act on any approval
+    if (isManager) return true;
+
+    return false;
+  };
+
+  // Check if current user has already decided on an approval
+  const hasUserDecided = (approvalId: string): boolean => {
+    if (!decisions || !userId) return false;
+    return decisions.some(d => d.approval_id === approvalId && d.decided_by === userId);
+  };
+
+  // Get pending approver role for display
+  const getPendingApproverRole = (approvalSequence: ApprovalRoute[] | null, gateNumber: number): string => {
+    if (!approvalSequence || !Array.isArray(approvalSequence)) return "Approver";
+
+    const route = approvalSequence.find(r => (r.position || 0) === gateNumber);
+    if (!route) return "Approver";
+
+    if (route.approvers && route.approvers.length > 0) {
+      return route.approvers.map(a => a.role?.replace(/_/g, ' ')).filter(Boolean).join(', ');
+    }
+    if (route.role) {
+      return route.role.replace(/_/g, ' ');
+    }
+    return "Approver";
+  };
+
+  const handleApprovalAction = (approvalId: string) => {
+    setDealName(workstream?.name || "Workstream");
+    setSelectedApprovalId(approvalId);
+  };
+
+  const handleDecisionComplete = () => {
+    // Refresh approvals and decisions
+    queryClient.invalidateQueries({ queryKey: ["workstream-approvals", workstreamId] });
+    queryClient.invalidateQueries({ queryKey: ["workstream-approval-decisions", workstreamId] });
+    setSelectedApprovalId(null);
+  };
 
   if (isLoading) {
     return (
@@ -149,6 +265,15 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
 
         const approvalSequence = (approval.approval_template as any)?.approval_sequence;
         const routeName = getRouteName(approvalSequence, gateNumber);
+        
+        // Determine if user can take action
+        const isPending = status === "pending";
+        const isUnlocked = !isLocked;
+        const isAssigned = isUserAssignedToRoute(approvalSequence, gateNumber);
+        const hasDecided = hasUserDecided(approval.id);
+        const canTakeAction = isPending && isUnlocked && isAssigned && !hasDecided;
+        
+        const pendingApproverRole = getPendingApproverRole(approvalSequence, gateNumber);
 
         return (
           <Card key={approval.id} className={isLocked ? "opacity-60" : ""}>
@@ -207,6 +332,53 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
                 )}
               </div>
 
+              {/* Pending Status for Non-Assigned Users */}
+              {isPending && isUnlocked && !isAssigned && !hasDecided && (
+                <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-sm text-yellow-800 dark:text-yellow-200">
+                  <Clock className="h-4 w-4" />
+                  <span>Pending <span className="capitalize">{pendingApproverRole}</span> review</span>
+                </div>
+              )}
+
+              {/* Already Decided Message */}
+              {isPending && isUnlocked && hasDecided && (
+                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>You have already submitted your decision on this approval</span>
+                </div>
+              )}
+
+              {/* Action Buttons for Assigned Users */}
+              {canTakeAction && (
+                <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Your Action Required</p>
+                    <p className="text-xs text-muted-foreground">
+                      Review and submit your decision for this approval gate
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => handleApprovalAction(approval.id)}
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => handleApprovalAction(approval.id)}
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      Approve
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Locked Gate Message */}
               {isLocked && (
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
@@ -237,7 +409,7 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
                             <p className="text-muted-foreground mt-1">{decision.reasoning}</p>
                           )}
                           <p className="text-xs text-muted-foreground mt-1">
-                            {format(new Date(decision.created_at), "MMM d, yyyy 'at' h:mm a")}
+                            {(decision as any).decided_by_profile?.full_name || "User"} • {format(new Date(decision.created_at), "MMM d, yyyy 'at' h:mm a")}
                           </p>
                         </div>
                       </div>
@@ -249,6 +421,17 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
           </Card>
         );
       })}
+
+      {/* Approval Decision Modal */}
+      <ApprovalDecisionModal
+        open={!!selectedApprovalId}
+        onOpenChange={(open) => {
+          if (!open) setSelectedApprovalId(null);
+        }}
+        approvalId={selectedApprovalId || ""}
+        dealName={dealName}
+        onDecisionComplete={handleDecisionComplete}
+      />
     </div>
   );
 }
