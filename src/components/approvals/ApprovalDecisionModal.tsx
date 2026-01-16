@@ -26,6 +26,8 @@ interface ApprovalDecisionModalProps {
   approvalId: string;
   dealName: string;
   onDecisionComplete?: (result: ProcessApprovalDecisionResult) => void;
+  /** If provided, restricts modal to only show this decision option */
+  initialDecision?: "approved" | "rejected";
 }
 
 type DecisionType = "approved" | "rejected" | "request_changes";
@@ -38,18 +40,25 @@ export function ApprovalDecisionModal({
   approvalId,
   dealName,
   onDecisionComplete,
+  initialDecision,
 }: ApprovalDecisionModalProps) {
   const [decision, setDecision] = useState<DecisionType>("approved");
   const [reasoning, setReasoning] = useState("");
   const { processDecision, isProcessing } = useApprovalDecision();
 
+  // Determine if we're in locked mode (only one decision type allowed)
+  const isLockedDecision = !!initialDecision;
+  const availableDecisions: DecisionType[] = initialDecision 
+    ? [initialDecision] 
+    : ["approved", "rejected", "request_changes"];
+
   // Reset form when modal opens
   useEffect(() => {
     if (open) {
-      setDecision("approved");
+      setDecision(initialDecision || "approved");
       setReasoning("");
     }
-  }, [open]);
+  }, [open, initialDecision]);
 
   const handleSubmit = useCallback(async () => {
     if (isProcessing) return;
@@ -146,59 +155,79 @@ export function ApprovalDecisionModal({
           <DialogTitle className="flex items-center gap-2">
             {getDecisionIcon(decision)}
             <span>
-              {getDecisionLabel(decision)} Deal - {dealName}
+              {isLockedDecision 
+                ? `${getDecisionLabel(decision)} - ${dealName}`
+                : `${getDecisionLabel(decision)} Deal - ${dealName}`
+              }
             </span>
           </DialogTitle>
           <DialogDescription id="approval-decision-description">
-            Record your decision for this approval request
+            {isLockedDecision 
+              ? `Confirm your ${decision === "approved" ? "approval" : "rejection"} for this request`
+              : "Record your decision for this approval request"
+            }
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Decision Selection */}
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-medium">Your Decision</legend>
-            <RadioGroup
-              value={decision}
-              onValueChange={(value) => setDecision(value as DecisionType)}
-              className="space-y-3"
-              aria-label="Select your decision"
-            >
-              {(["approved", "rejected", "request_changes"] as DecisionType[]).map((type) => (
-                <div
-                  key={type}
-                  className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                    decision === type
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                      : "border-border hover:border-muted-foreground/30"
-                  }`}
-                  onClick={() => setDecision(type)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setDecision(type);
-                    }
-                  }}
-                >
-                  <RadioGroupItem value={type} id={type} className="mt-0.5" />
-                  <div className="flex-1">
-                    <Label
-                      htmlFor={type}
-                      className="flex items-center gap-2 cursor-pointer font-medium"
-                    >
-                      {getDecisionIcon(type)}
-                      {getDecisionLabel(type)}
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {getDecisionDescription(type)}
-                    </p>
+          {/* Decision Selection - only show if not locked to single decision */}
+          {!isLockedDecision ? (
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Your Decision</legend>
+              <RadioGroup
+                value={decision}
+                onValueChange={(value) => setDecision(value as DecisionType)}
+                className="space-y-3"
+                aria-label="Select your decision"
+              >
+                {availableDecisions.map((type) => (
+                  <div
+                    key={type}
+                    className={`flex items-start space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                      decision === type
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                    onClick={() => setDecision(type)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setDecision(type);
+                      }
+                    }}
+                  >
+                    <RadioGroupItem value={type} id={type} className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label
+                        htmlFor={type}
+                        className="flex items-center gap-2 cursor-pointer font-medium"
+                      >
+                        {getDecisionIcon(type)}
+                        {getDecisionLabel(type)}
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {getDecisionDescription(type)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </RadioGroup>
-          </fieldset>
+                ))}
+              </RadioGroup>
+            </fieldset>
+          ) : (
+            <div className={`flex items-center gap-3 p-4 rounded-lg border ${
+              decision === "approved" 
+                ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20" 
+                : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+            }`}>
+              {getDecisionIcon(decision)}
+              <div>
+                <p className="font-medium">{getDecisionLabel(decision)}</p>
+                <p className="text-xs text-muted-foreground">{getDecisionDescription(decision)}</p>
+              </div>
+            </div>
+          )}
 
           {/* Reasoning */}
           <div className="space-y-2">
@@ -279,7 +308,9 @@ export function ApprovalDecisionModal({
                   <span>Processing...</span>
                 </>
               ) : (
-                "Submit Decision"
+                isLockedDecision 
+                  ? `Confirm ${decision === "approved" ? "Approval" : "Rejection"}`
+                  : "Submit Decision"
               )}
             </Button>
           </div>
