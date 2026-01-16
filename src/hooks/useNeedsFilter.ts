@@ -5,6 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 export type AppRole = 'general_counsel' | 'legal_ops' | 'contract_counsel' | 'account_executive' | 'sales_manager' | 'finance_reviewer';
 export type NeedsFilterType = "all" | "my-needs" | "team-queue" | "waiting-for";
 
+export interface RoleInfo {
+  id: string;
+  name: string;
+  displayName: string;
+}
+
 export interface NeedsFilterState {
   activeFilter: NeedsFilterType;
   setFilter: (filter: NeedsFilterType) => void;
@@ -14,19 +20,33 @@ export interface NeedsFilterState {
   satisfierRoleForFilter: string | null;
   teamRoleFilter: string | null;
   setTeamRoleFilter: (role: string | null) => void;
-  // New: unified role system values
+  // Unified role system values
   workRoutingRoleIds: string[];
   isManager: boolean;
+  // Custom roles for display
+  customRoles: RoleInfo[];
 }
 
 export function useNeedsFilter(): NeedsFilterState {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { role, getWorkRoutingRoleIds, isManager } = useAuth();
+  const { role, customRoles: authCustomRoles, getWorkRoutingRoleIds, isManager } = useAuth();
 
   // Get work routing role IDs from the unified system
   const workRoutingRoleIds = useMemo(() => {
     return getWorkRoutingRoleIds();
   }, [getWorkRoutingRoleIds]);
+
+  // Map custom roles to RoleInfo format for UI display
+  const customRoles = useMemo((): RoleInfo[] => {
+    if (!authCustomRoles) return [];
+    return authCustomRoles
+      .filter(r => r.is_work_routing)
+      .map(r => ({
+        id: r.id,
+        name: r.name,
+        displayName: r.display_name || r.name.replace(/_/g, " "),
+      }));
+  }, [authCustomRoles]);
 
   const activeFilter = useMemo(() => {
     const filterParam = searchParams.get("filter");
@@ -75,7 +95,10 @@ export function useNeedsFilter(): NeedsFilterState {
 
   const filterLabel = useMemo(() => {
     if (teamRoleFilter) {
-      return `Team Queue: ${teamRoleFilter.replace(/_/g, " ")}`;
+      // Try to find display name from custom roles
+      const roleInfo = customRoles.find(r => r.id === teamRoleFilter || r.name === teamRoleFilter);
+      const displayName = roleInfo?.displayName || teamRoleFilter.replace(/_/g, " ");
+      return `Team Queue: ${displayName}`;
     }
     switch (activeFilter) {
       case "my-needs":
@@ -87,7 +110,7 @@ export function useNeedsFilter(): NeedsFilterState {
       default:
         return null;
     }
-  }, [activeFilter, teamRoleFilter]);
+  }, [activeFilter, teamRoleFilter, customRoles]);
 
   // Database roles already match satisfier_role values
   const satisfierRoleForFilter = useMemo(() => {
@@ -105,6 +128,7 @@ export function useNeedsFilter(): NeedsFilterState {
     setTeamRoleFilter,
     workRoutingRoleIds,
     isManager: isManager(),
+    customRoles,
   };
 }
 

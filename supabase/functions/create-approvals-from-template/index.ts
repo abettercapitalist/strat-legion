@@ -513,8 +513,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Create corresponding need
+      // Create corresponding need - use custom_role type for team-based approvals
       const needDescription = `${approvalName} required`;
+      const isUuidRole = approverConfig.type === 'teams';
 
       const { error: needError } = await supabaseAdmin
         .from("needs")
@@ -522,8 +523,8 @@ Deno.serve(async (req) => {
           workstream_id,
           need_type: "approval",
           description: needDescription,
-          satisfier_role: primaryRole,
-          satisfier_type: "role",
+          satisfier_role: isUuidRole ? approverConfig.values[0] : primaryRole,
+          satisfier_type: isUuidRole ? "custom_role" : "role",
           status: "open",
           due_at: dueAt.toISOString(),
           source_type: "workflow_step",
