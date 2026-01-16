@@ -14,8 +14,8 @@ import {
   DeviationType,
   DeviationRoute,
   DEVIATION_LABELS,
-  APPROVER_ROLE_OPTIONS,
 } from "@/types/autoApproval";
+import { useRoles } from "@/hooks/useRoles";
 
 export interface CustomDeviationRule {
   id: string;
@@ -38,6 +38,13 @@ export function DeviationRoutingSection({
 }: DeviationRoutingSectionProps) {
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [newRuleName, setNewRuleName] = useState("");
+  const { roles, isLoading } = useRoles({ workRoutingOnly: true });
+  
+  // Dynamic roles from custom_roles table
+  const approverRoleOptions = roles.map(r => ({
+    value: r.id,
+    label: r.display_name || r.name,
+  }));
 
   const deviationTypes: DeviationType[] = [
     'payment_terms',
@@ -105,7 +112,7 @@ export function DeviationRoutingSection({
                 <SelectValue placeholder="Select role..." />
               </SelectTrigger>
               <SelectContent>
-                {APPROVER_ROLE_OPTIONS.map((role) => (
+                {approverRoleOptions.map((role) => (
                   <SelectItem key={role.value} value={role.value}>
                     {role.label}
                   </SelectItem>
@@ -132,7 +139,7 @@ export function DeviationRoutingSection({
                   <SelectValue placeholder="Select role..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {APPROVER_ROLE_OPTIONS.map((role) => (
+                  {approverRoleOptions.map((role) => (
                     <SelectItem key={role.value} value={role.value}>
                       {role.label}
                     </SelectItem>

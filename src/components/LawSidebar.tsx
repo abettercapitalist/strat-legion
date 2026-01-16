@@ -33,12 +33,12 @@ const playLibraryItems = [
 export function LawSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
-  const { role } = useAuth();
+  const { isManager } = useAuth();
   const { labels } = useTheme();
   const isCollapsed = state === "collapsed";
 
-  // Admin roles that can see the Workstreams section
-  const isAdmin = role === "general_counsel" || role === "legal_ops";
+  // Use the unified isManager() helper - checks if user has any role with is_manager_role = true
+  const canAccessAdmin = isManager();
   
   const lawDeptNavigation = getLawDeptNavigation(labels.matters, labels.performanceReview);
 
@@ -122,7 +122,7 @@ export function LawSidebar() {
                 );
               })}
               {/* Play Library - admin only, at bottom of Libraries */}
-              {isAdmin && playLibraryItems.map((item) => {
+              {canAccessAdmin && playLibraryItems.map((item) => {
                 const isActive = location.pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.name}>
