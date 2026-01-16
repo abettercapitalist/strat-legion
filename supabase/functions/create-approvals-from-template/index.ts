@@ -571,6 +571,38 @@ Deno.serve(async (req) => {
 
     console.log(`Created ${approvalsCreated.length} approvals, auto-approved ${autoApprovalLogs.length}, skipped ${skippedSteps.length}`);
 
+    // Update workstream stage to pending_approval when approvals are created
+    if (approvalsCreated.length > 0) {
+      const { error: stageError } = await supabaseAdmin
+        .from("workstreams")
+        .update({ 
+          stage: "pending_approval", 
+          updated_at: now.toISOString() 
+        })
+        .eq("id", workstream_id);
+      
+      if (stageError) {
+        console.error("Error updating workstream stage:", stageError);
+      } else {
+        console.log("Workstream stage updated to pending_approval");
+      }
+    } else if (autoApprovalLogs.length > 0 && approvalsCreated.length === 0) {
+      // All gates auto-approved - mark as approved
+      const { error: stageError } = await supabaseAdmin
+        .from("workstreams")
+        .update({ 
+          stage: "approved", 
+          updated_at: now.toISOString() 
+        })
+        .eq("id", workstream_id);
+      
+      if (stageError) {
+        console.error("Error updating workstream stage:", stageError);
+      } else {
+        console.log("Workstream stage updated to approved (all gates auto-approved)");
+      }
+    }
+
     // Log activity
     if (approvalsCreated.length > 0 || autoApprovalLogs.length > 0) {
       const activityDescription = approvalsCreated.length > 0
@@ -581,14 +613,17 @@ Deno.serve(async (req) => {
         .from("workstream_activity")
         .insert({
           workstream_id,
-          activity_type: "approval_submitted",
+          activity_type: approvalsCreated.length > 0 ? "stage_changed" : "approval_submitted",
           description: activityDescription,
+          actor_id: user.id,
           metadata: {
             workstream_type_id: workstreamType.id,
             workstream_type_name: workstreamType.name,
             approvals_created: approvalsCreated.length,
             auto_approved: autoApprovalLogs.length,
             skipped: skippedSteps.length,
+            new_stage: approvalsCreated.length > 0 ? "pending_approval" : "approved",
+            triggered_by: "approval_workflow_start",
           },
         });
     }

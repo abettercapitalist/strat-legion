@@ -441,7 +441,18 @@ Deno.serve(async (req) => {
       const nextRoute = routes.find(r => r.position === currentGate + 1);
       
       if (nextRoute) {
-        // Create next approval record
+        // Create next approval record with gate sequencing metadata
+        const routeMetadata = {
+          route_id: nextRoute.id,
+          route_position: nextRoute.position,
+          route_type: nextRoute.route_type,
+          approval_mode: nextRoute.approval_mode,
+          approval_threshold: nextRoute.approval_threshold,
+          unlocked_by_gate: currentGate,
+          unlocked_at: now.toISOString(),
+          approvers: nextRoute.approvers,
+        };
+
         const { data: nextApproval, error: nextApprovalError } = await supabaseAdmin
           .from("workstream_approvals")
           .insert({
@@ -453,6 +464,8 @@ Deno.serve(async (req) => {
           })
           .select()
           .single();
+        
+        console.log("Next approval route_metadata:", routeMetadata);
 
         if (!nextApprovalError && nextApproval) {
           nextRouteCreated = true;
