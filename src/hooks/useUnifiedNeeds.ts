@@ -149,6 +149,7 @@ export function useUnifiedNeeds(
   });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [roleMap, setRoleMap] = useState<Map<string, RoleInfo>>(new Map());
+  const [rolesReady, setRolesReady] = useState(false);
   
   // Debounce timer ref to prevent rapid re-renders from realtime updates
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
@@ -178,6 +179,7 @@ export function useUnifiedNeeds(
         });
         setRoleMap(map);
       }
+      setRolesReady(true);
     }
     fetchRoles();
   }, []);
@@ -387,6 +389,9 @@ export function useUnifiedNeeds(
   }, [userRole, allRolesToMatch, myRolesToMatch, roleMap]);
 
   useEffect(() => {
+    // Wait until roles are loaded to prevent flipping between lanes
+    if (!rolesReady) return;
+
     fetchUnifiedNeeds(false);
 
     // Set up realtime subscription for live updates with debouncing
@@ -413,7 +418,7 @@ export function useUnifiedNeeds(
       clearTimeout(debounceTimer.current);
       supabase.removeChannel(channel);
     };
-  }, [fetchUnifiedNeeds]);
+  }, [rolesReady, fetchUnifiedNeeds]);
 
   return data;
 }
