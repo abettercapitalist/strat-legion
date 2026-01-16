@@ -38,7 +38,7 @@ import {
 import { format, isPast, isWithinInterval, addDays } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useNeedsFilter, getSatisfierRole, getTeamRolesForRole } from "@/hooks/useNeedsFilter";
+import { useNeedsFilter } from "@/hooks/useNeedsFilter";
 import { NeedsFilterBar } from "@/components/filters/NeedsFilterBar";
 
 type Workstream = {
@@ -130,7 +130,7 @@ export default function ActiveMatters() {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
 
-  const { activeFilter, setFilter, clearFilter, filterLabel, userRole, teamRoleFilter, setTeamRoleFilter } = useNeedsFilter();
+  const { activeFilter, setFilter, clearFilter, filterLabel, userRole, teamRoleFilter, setTeamRoleFilter, workRoutingRoleIds, customRoles } = useNeedsFilter();
 
   // Fetch workstreams
   const { data: workstreams, isLoading: isLoadingWorkstreams } = useQuery({
@@ -175,59 +175,63 @@ export default function ActiveMatters() {
 
   const isLoading = isLoadingWorkstreams || isLoadingNeeds;
 
-  const teamRoles = userRole ? getTeamRolesForRole(userRole) : [];
+  // Use unified role system - combine legacy and new role IDs
+  const allRoleIds = useMemo(() => {
+    const roles = new Set<string>();
+    if (userRole) roles.add(userRole);
+    workRoutingRoleIds.forEach(r => roles.add(r));
+    return Array.from(roles);
+  }, [userRole, workRoutingRoleIds]);
 
   // Calculate filter counts including role breakdown
   const filterCounts = useMemo(() => {
     if (!needs || !workstreams || !userRole) return { myNeeds: 0, teamQueue: 0, waitingFor: 0, roleBreakdown: {} };
 
-    const userSatisfierRole = getSatisfierRole(userRole);
-    const roles = getTeamRolesForRole(userRole);
     const workstreamIds = new Set(workstreams.map(ws => ws.id));
 
     // Only count needs for workstreams in our list
     const relevantNeeds = needs.filter(n => workstreamIds.has(n.workstream_id));
 
+    // My needs: match any of my role IDs
     const myNeeds = new Set(
       relevantNeeds
-        .filter(n => n.satisfier_role === userSatisfierRole)
+        .filter(n => n.satisfier_role && allRoleIds.includes(n.satisfier_role))
         .map(n => n.workstream_id)
     ).size;
 
+    // Team queue: roles in our set but not directly assigned to current user's primary role
     const teamQueue = new Set(
       relevantNeeds
-        .filter(n => n.satisfier_role && roles.includes(n.satisfier_role) && n.satisfier_role !== userSatisfierRole)
+        .filter(n => n.satisfier_role && allRoleIds.includes(n.satisfier_role) && n.satisfier_role !== userRole)
         .map(n => n.workstream_id)
     ).size;
 
+    // Waiting for: roles NOT in our set
     const waitingFor = new Set(
       relevantNeeds
-        .filter(n => n.satisfier_role && !roles.includes(n.satisfier_role))
+        .filter(n => n.satisfier_role && !allRoleIds.includes(n.satisfier_role))
         .map(n => n.workstream_id)
     ).size;
 
     // Calculate counts per role for Team Queue chips
     const roleBreakdown: Record<string, number> = {};
-    roles.forEach(role => {
-      if (role !== userSatisfierRole) {
-        roleBreakdown[role] = new Set(
+    allRoleIds.forEach(roleId => {
+      if (roleId !== userRole) {
+        roleBreakdown[roleId] = new Set(
           relevantNeeds
-            .filter(n => n.satisfier_role === role)
+            .filter(n => n.satisfier_role === roleId)
             .map(n => n.workstream_id)
         ).size;
       }
     });
 
     return { myNeeds, teamQueue, waitingFor, roleBreakdown };
-  }, [needs, workstreams, userRole]);
+  }, [needs, workstreams, userRole, allRoleIds]);
 
   // Filter workstreams based on needs filter
   const filteredWorkstreams = useMemo(() => {
     if (!workstreams) return [];
     if (!needs || !userRole) return workstreams;
-
-    const userSatisfierRole = getSatisfierRole(userRole);
-    const teamRoles = getTeamRolesForRole(userRole);
 
     // Build a map of workstream IDs to their needs
     const workstreamNeedsMap = new Map<string, Need[]>();
@@ -243,7 +247,7 @@ export default function ActiveMatters() {
     if (activeFilter === "my-needs") {
       filtered = workstreams.filter(ws => {
         const wsNeeds = workstreamNeedsMap.get(ws.id) || [];
-        return wsNeeds.some(n => n.satisfier_role === userSatisfierRole);
+        return wsNeeds.some(n => n.satisfier_role && allRoleIds.includes(n.satisfier_role));
       });
     } else if (activeFilter === "team-queue") {
       filtered = workstreams.filter(ws => {
@@ -252,11 +256,11 @@ export default function ActiveMatters() {
         if (teamRoleFilter) {
           return wsNeeds.some(n => n.satisfier_role === teamRoleFilter);
         }
-        // Otherwise, show all team roles except the current user's role
+        // Otherwise, show all team roles except the current user's primary role
         return wsNeeds.some(n => 
           n.satisfier_role && 
-          teamRoles.includes(n.satisfier_role) && 
-          n.satisfier_role !== userSatisfierRole
+          allRoleIds.includes(n.satisfier_role) && 
+          n.satisfier_role !== userRole
         );
       });
     } else if (activeFilter === "waiting-for") {
@@ -264,7 +268,7 @@ export default function ActiveMatters() {
         const wsNeeds = workstreamNeedsMap.get(ws.id) || [];
         return wsNeeds.some(n => 
           n.satisfier_role && 
-          !teamRoles.includes(n.satisfier_role)
+          !allRoleIds.includes(n.satisfier_role)
         );
       });
     }
@@ -295,7 +299,7 @@ export default function ActiveMatters() {
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       }
     });
-  }, [workstreams, needs, activeFilter, userRole, teamRoleFilter, searchQuery, stageFilter, sortBy]);
+  }, [workstreams, needs, activeFilter, userRole, allRoleIds, teamRoleFilter, searchQuery, stageFilter, sortBy]);
 
   const getOwnerInitials = (workstream: Workstream) => {
     return "JD";
@@ -330,7 +334,7 @@ export default function ActiveMatters() {
         teamRoleFilter={teamRoleFilter}
         onClearTeamRoleFilter={() => setTeamRoleFilter(null)}
         counts={filterCounts}
-        availableTeamRoles={teamRoles.filter(r => r !== getSatisfierRole(userRole!))}
+        availableTeamRoles={customRoles.filter(r => r.id !== userRole)}
         roleCounts={filterCounts.roleBreakdown}
         onSetTeamRoleFilter={setTeamRoleFilter}
       />

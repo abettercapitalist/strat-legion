@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X, Filter, User, Users, Clock } from "lucide-react";
-import { type NeedsFilterType } from "@/hooks/useNeedsFilter";
+import { type NeedsFilterType, type RoleInfo } from "@/hooks/useNeedsFilter";
 
 interface NeedsFilterBarProps {
   activeFilter: NeedsFilterType;
@@ -15,8 +15,8 @@ interface NeedsFilterBarProps {
     teamQueue?: number;
     waitingFor?: number;
   };
-  // New props for role chips
-  availableTeamRoles?: string[];
+  // New props for role chips - support both legacy strings and RoleInfo objects
+  availableTeamRoles?: (string | RoleInfo)[];
   roleCounts?: Record<string, number>;
   onSetTeamRoleFilter?: (role: string | null) => void;
 }
@@ -48,8 +48,21 @@ export function NeedsFilterBar({
     }
   };
 
-  const formatRoleName = (role: string) => {
-    return role.replace(/_/g, " ");
+  // Helper to get role info from mixed array
+  const getRoleInfo = (role: string | RoleInfo): { id: string; displayName: string } => {
+    if (typeof role === 'string') {
+      return { id: role, displayName: role.replace(/_/g, " ") };
+    }
+    return { id: role.id, displayName: role.displayName };
+  };
+
+  // Get count for a role (check both by ID and by name for backward compatibility)
+  const getRoleCount = (role: string | RoleInfo): number => {
+    if (!roleCounts) return 0;
+    if (typeof role === 'string') {
+      return roleCounts[role] || 0;
+    }
+    return roleCounts[role.id] || roleCounts[role.name] || 0;
   };
 
   return (
@@ -102,18 +115,19 @@ export function NeedsFilterBar({
             All Roles
           </Button>
           {availableTeamRoles.map((role) => {
-            const isActive = teamRoleFilter === role;
-            const count = roleCounts?.[role] || 0;
+            const { id, displayName } = getRoleInfo(role);
+            const isActive = teamRoleFilter === id;
+            const count = getRoleCount(role);
             
             return (
               <Button
-                key={role}
+                key={id}
                 variant={isActive ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => onSetTeamRoleFilter?.(role)}
+                onClick={() => onSetTeamRoleFilter?.(id)}
                 className={`h-7 text-xs gap-1 capitalize ${isActive ? "bg-background shadow-sm" : "hover:bg-background/50"}`}
               >
-                {formatRoleName(role)}
+                {displayName}
                 {count > 0 && (
                   <Badge 
                     variant="outline" 

@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
         need_type: defaultNeed.need_type,
         description: defaultNeed.description,
         satisfier_role: defaultNeed.satisfier_role || null,
-        satisfier_type: defaultNeed.satisfier_type || 'role',
+        satisfier_type: defaultNeed.satisfier_type || (defaultNeed.satisfier_role?.match(/^[0-9a-f-]{36}$/) ? 'custom_role' : 'role'),
         status: 'open',
         required_before: defaultNeed.required_before || null,
         due_at: dueAt,

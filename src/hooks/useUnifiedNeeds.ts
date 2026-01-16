@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, isPast, differenceInDays } from "date-fns";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -9,6 +9,7 @@ export interface UnifiedNeed {
   need_type: 'approval' | 'document' | 'information' | 'review' | 'action';
   description: string;
   satisfier_role: string | null;
+  satisfier_type: string | null;
   status: string;
   due_at: string | null;
   created_at: string;
@@ -16,10 +17,12 @@ export interface UnifiedNeed {
   dueText: string | null;
   isOverdue: boolean;
   urgency: 'critical' | 'high' | 'medium' | 'low';
+  roleDisplayName?: string;
 }
 
 export interface TeamQueueGroup {
   role: string;
+  roleId: string;
   roleDisplay: string;
   count: number;
   exampleDescription: string;
@@ -57,6 +60,7 @@ export interface NeedTypeBreakdown {
 
 export interface RoleBreakdown {
   role: string;
+  roleId: string;
   count: number;
   color: string;
 }
@@ -67,14 +71,15 @@ export interface StatusBreakdown {
   color: string;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  legal_ops: "hsl(var(--primary))",
-  contract_counsel: "hsl(var(--chart-2))",
-  general_counsel: "hsl(var(--chart-3))",
-  account_executive: "hsl(var(--chart-4))",
-  sales_manager: "hsl(var(--chart-5))",
-  finance_reviewer: "hsl(var(--chart-1))",
-};
+// Dynamic color palette for roles (assigned by index)
+const ROLE_COLOR_PALETTE = [
+  "hsl(var(--primary))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-1))",
+];
 
 const NEED_TYPE_COLORS: Record<string, string> = {
   approval: "hsl(var(--primary))",
@@ -118,9 +123,21 @@ function calculateHealthPercentage(totalCount: number, overdueCount: number): nu
   return Math.max(0, 100 - overduePercentage);
 }
 
+interface RoleInfo {
+  id: string;
+  name: string;
+  displayName: string;
+}
+
+/**
+ * Unified needs hook supporting both:
+ * - Legacy string-based roles (satisfier_type = 'role')
+ * - New UUID-based roles (satisfier_type = 'custom_role')
+ */
 export function useUnifiedNeeds(
   userRole: string = "legal_ops",
-  teamRoles: string[] = ["legal_ops", "contract_counsel", "general_counsel"]
+  teamRoles: string[] = ["legal_ops", "contract_counsel", "general_counsel"],
+  workRoutingRoleIds: string[] = []
 ): UnifiedNeedsData {
   const [data, setData] = useState<UnifiedNeedsData>({
     myActions: { items: [], totalCount: 0, overdueCount: 0, healthPercentage: 100 },
@@ -131,27 +148,73 @@ export function useUnifiedNeeds(
     lastUpdated: null,
   });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [roleMap, setRoleMap] = useState<Map<string, RoleInfo>>(new Map());
+
+  // Fetch role display names on mount
+  useEffect(() => {
+    async function fetchRoles() {
+      const { data: roles } = await supabase
+        .from("custom_roles")
+        .select("id, name, display_name")
+        .eq("is_work_routing", true);
+      
+      if (roles) {
+        const map = new Map<string, RoleInfo>();
+        roles.forEach(r => {
+          map.set(r.id, {
+            id: r.id,
+            name: r.name,
+            displayName: r.display_name || r.name.replace(/_/g, " "),
+          });
+          // Also map by name for legacy support
+          map.set(r.name, {
+            id: r.id,
+            name: r.name,
+            displayName: r.display_name || r.name.replace(/_/g, " "),
+          });
+        });
+        setRoleMap(map);
+      }
+    }
+    fetchRoles();
+  }, []);
+
+  // Build combined filter for both legacy and new role systems
+  const allRolesToMatch = useMemo(() => {
+    const roles = new Set<string>();
+    // Add legacy string roles
+    teamRoles.forEach(r => roles.add(r));
+    // Add UUID-based roles
+    workRoutingRoleIds.forEach(r => roles.add(r));
+    return Array.from(roles);
+  }, [teamRoles, workRoutingRoleIds]);
+
+  const myRolesToMatch = useMemo(() => {
+    const roles = new Set<string>();
+    roles.add(userRole);
+    workRoutingRoleIds.forEach(r => roles.add(r));
+    return Array.from(roles);
+  }, [userRole, workRoutingRoleIds]);
 
   const fetchUnifiedNeeds = useCallback(async (isRefresh: boolean = false) => {
-    // Set refreshing state for non-initial loads
     if (isRefresh) {
       setData(prev => ({ ...prev, isRefreshing: true }));
     }
     try {
-      // Fetch needs assigned to my role
+      // Fetch needs assigned to my roles (both legacy and new)
       const { data: myNeedsRaw } = await supabase
         .from("needs")
-        .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
-        .eq("satisfier_role", userRole)
+        .select("id, workstream_id, need_type, description, satisfier_role, satisfier_type, status, due_at, created_at")
+        .in("satisfier_role", myRolesToMatch)
         .in("status", ["open", "expressed", "committed"])
         .order("due_at", { ascending: true, nullsFirst: false })
         .limit(20);
 
-      // Fetch team needs (grouped by role)
+      // Fetch team needs (both legacy and new)
       const { data: teamNeedsRaw } = await supabase
         .from("needs")
-        .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
-        .in("satisfier_role", teamRoles)
+        .select("id, workstream_id, need_type, description, satisfier_role, satisfier_type, status, due_at, created_at")
+        .in("satisfier_role", allRolesToMatch)
         .in("status", ["open", "expressed"])
         .order("created_at", { ascending: false })
         .limit(100);
@@ -172,12 +235,13 @@ export function useUnifiedNeeds(
           myWorkstreamMap = new Map(myWorkstreams.map(w => [w.id, w.name]));
           const workstreamIds = myWorkstreams.map(w => w.id);
 
+          // Waiting-for: needs NOT in my roles
           const { data: waitingData } = await supabase
             .from("needs")
-            .select("id, workstream_id, need_type, description, satisfier_role, status, due_at, created_at")
+            .select("id, workstream_id, need_type, description, satisfier_role, satisfier_type, status, due_at, created_at")
             .in("workstream_id", workstreamIds)
             .neq("status", "satisfied")
-            .neq("satisfier_role", userRole)
+            .not("satisfier_role", "in", `(${myRolesToMatch.join(",")})`)
             .order("due_at", { ascending: true, nullsFirst: false })
             .limit(20);
 
@@ -203,6 +267,15 @@ export function useUnifiedNeeds(
         workstreamMap.set(id, name);
       }
 
+      // Helper to get role display name
+      const getRoleDisplayName = (satisfierRole: string | null): string => {
+        if (!satisfierRole) return "Unassigned";
+        const info = roleMap.get(satisfierRole);
+        if (info) return info.displayName;
+        // Fallback: format the string
+        return satisfierRole.replace(/_/g, " ");
+      };
+
       // Transform my needs
       const myNeeds: UnifiedNeed[] = (myNeedsRaw || []).map(need => {
         const dueInfo = formatDueDate(need.due_at);
@@ -213,6 +286,7 @@ export function useUnifiedNeeds(
           need_type: need.need_type as UnifiedNeed['need_type'],
           description: need.description,
           satisfier_role: need.satisfier_role,
+          satisfier_type: need.satisfier_type,
           status: need.status,
           due_at: need.due_at,
           created_at: need.created_at,
@@ -220,17 +294,21 @@ export function useUnifiedNeeds(
           dueText: dueInfo?.text || null,
           isOverdue,
           urgency: calculateUrgency(need.due_at, isOverdue),
+          roleDisplayName: getRoleDisplayName(need.satisfier_role),
         };
       });
 
       const myOverdueCount = myNeeds.filter(n => n.isOverdue).length;
 
-      // Transform team needs into groups
-      const roleGroups: Record<string, { needs: any[]; overdueCount: number }> = {};
+      // Transform team needs into groups (exclude items in my roles)
+      const roleGroups: Record<string, { needs: any[]; overdueCount: number; roleId: string }> = {};
       for (const need of teamNeedsRaw || []) {
         const role = need.satisfier_role || "unassigned";
+        // Skip items that are in my roles (to avoid double-counting)
+        if (myRolesToMatch.includes(role)) continue;
+        
         if (!roleGroups[role]) {
-          roleGroups[role] = { needs: [], overdueCount: 0 };
+          roleGroups[role] = { needs: [], overdueCount: 0, roleId: role };
         }
         roleGroups[role].needs.push(need);
         const dueInfo = formatDueDate(need.due_at);
@@ -241,7 +319,8 @@ export function useUnifiedNeeds(
 
       const teamGroups: TeamQueueGroup[] = Object.entries(roleGroups).map(([role, data]) => ({
         role,
-        roleDisplay: role.replace(/_/g, " "),
+        roleId: data.roleId,
+        roleDisplay: getRoleDisplayName(role),
         count: data.needs.length,
         exampleDescription: data.needs[0]?.description || "",
         overdueCount: data.overdueCount,
@@ -260,6 +339,7 @@ export function useUnifiedNeeds(
           need_type: need.need_type as UnifiedNeed['need_type'],
           description: need.description,
           satisfier_role: need.satisfier_role,
+          satisfier_type: need.satisfier_type,
           status: need.status,
           due_at: need.due_at,
           created_at: need.created_at,
@@ -267,6 +347,7 @@ export function useUnifiedNeeds(
           dueText: dueInfo?.text || null,
           isOverdue,
           urgency: calculateUrgency(need.due_at, isOverdue),
+          roleDisplayName: getRoleDisplayName(need.satisfier_role),
         };
       });
 
@@ -300,7 +381,7 @@ export function useUnifiedNeeds(
       console.error("Error fetching unified needs:", error);
       setData(prev => ({ ...prev, isLoading: false, isRefreshing: false }));
     }
-  }, [userRole, teamRoles]);
+  }, [userRole, allRolesToMatch, myRolesToMatch, roleMap]);
 
   useEffect(() => {
     fetchUnifiedNeeds(false);
@@ -343,10 +424,11 @@ export function getNeedTypeBreakdown(needs: UnifiedNeed[]): NeedTypeBreakdown[] 
 }
 
 export function getRoleBreakdown(groups: TeamQueueGroup[]): RoleBreakdown[] {
-  return groups.map(group => ({
+  return groups.map((group, index) => ({
     role: group.roleDisplay,
+    roleId: group.roleId,
     count: group.count,
-    color: ROLE_COLORS[group.role] || "hsl(var(--muted-foreground))",
+    color: ROLE_COLOR_PALETTE[index % ROLE_COLOR_PALETTE.length],
   }));
 }
 
