@@ -149,6 +149,9 @@ export function useUnifiedNeeds(
   });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [roleMap, setRoleMap] = useState<Map<string, RoleInfo>>(new Map());
+  
+  // Debounce timer ref to prevent rapid re-renders from realtime updates
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   // Fetch role display names on mount
   useEffect(() => {
@@ -382,9 +385,6 @@ export function useUnifiedNeeds(
       setData(prev => ({ ...prev, isLoading: false, isRefreshing: false }));
     }
   }, [userRole, allRolesToMatch, myRolesToMatch, roleMap]);
-
-  // Debounce timer ref to prevent rapid re-renders from realtime updates
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     fetchUnifiedNeeds(false);
