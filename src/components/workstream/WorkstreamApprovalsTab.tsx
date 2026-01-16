@@ -44,6 +44,7 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
   const { role: legacyRole, customRoles, userId, isManager } = useCurrentUserRole();
   
   const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
+  const [selectedDecision, setSelectedDecision] = useState<"approved" | "rejected" | undefined>(undefined);
   const [dealName, setDealName] = useState<string>("");
 
   // Fetch workstream for deal name
@@ -165,9 +166,10 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
     return "Approver";
   };
 
-  const handleApprovalAction = (approvalId: string) => {
+  const handleApprovalAction = (approvalId: string, decision: "approved" | "rejected") => {
     setDealName(workstream?.name || "Workstream");
     setSelectedApprovalId(approvalId);
+    setSelectedDecision(decision);
   };
 
   const handleDecisionComplete = () => {
@@ -175,6 +177,7 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
     queryClient.invalidateQueries({ queryKey: ["workstream-approvals", workstreamId] });
     queryClient.invalidateQueries({ queryKey: ["workstream-approval-decisions", workstreamId] });
     setSelectedApprovalId(null);
+    setSelectedDecision(undefined);
   };
 
   if (isLoading) {
@@ -361,16 +364,16 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
                     <Button
                       size="sm"
                       variant="outline"
-                      className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                      onClick={() => handleApprovalAction(approval.id)}
+                      className="gap-1.5 border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                      onClick={() => handleApprovalAction(approval.id, "rejected")}
                     >
                       <ThumbsDown className="h-4 w-4" />
                       Reject
                     </Button>
                     <Button
                       size="sm"
-                      className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => handleApprovalAction(approval.id)}
+                      className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => handleApprovalAction(approval.id, "approved")}
                     >
                       <ThumbsUp className="h-4 w-4" />
                       Approve
@@ -426,11 +429,15 @@ export function WorkstreamApprovalsTab({ workstreamId }: WorkstreamApprovalsTabP
       <ApprovalDecisionModal
         open={!!selectedApprovalId}
         onOpenChange={(open) => {
-          if (!open) setSelectedApprovalId(null);
+          if (!open) {
+            setSelectedApprovalId(null);
+            setSelectedDecision(undefined);
+          }
         }}
         approvalId={selectedApprovalId || ""}
         dealName={dealName}
         onDecisionComplete={handleDecisionComplete}
+        initialDecision={selectedDecision}
       />
     </div>
   );
