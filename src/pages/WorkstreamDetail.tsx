@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,7 @@ export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { labels } = useTheme();
+  const [activeTab, setActiveTab] = useState("overview");
 
   const displayName = module === "sales" ? labels.deal : labels.matter;
   const displayNamePlural = module === "sales" ? labels.deals : labels.matters;
@@ -133,7 +135,7 @@ export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="approvals">Approvals</TabsTrigger>
@@ -142,7 +144,11 @@ export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
         </TabsList>
 
         <TabsContent value="overview">
-          <WorkstreamOverviewTab workstream={workstream} module={module} />
+          <WorkstreamOverviewTab 
+            workstream={workstream} 
+            module={module} 
+            onSwitchToApprovals={() => setActiveTab("approvals")}
+          />
         </TabsContent>
 
         <TabsContent value="approvals">

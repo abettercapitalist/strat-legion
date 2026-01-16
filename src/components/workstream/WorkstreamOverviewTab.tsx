@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { useTheme } from "@/contexts/ThemeContext";
+import { WorkstreamStepsPanel } from "./WorkstreamStepsPanel";
 
 interface Workstream {
   id: string;
@@ -34,9 +35,10 @@ interface Workstream {
 interface WorkstreamOverviewTabProps {
   workstream: Workstream;
   module: "law" | "sales";
+  onSwitchToApprovals?: () => void;
 }
 
-export function WorkstreamOverviewTab({ workstream, module }: WorkstreamOverviewTabProps) {
+export function WorkstreamOverviewTab({ workstream, module, onSwitchToApprovals }: WorkstreamOverviewTabProps) {
   const { labels } = useTheme();
   
   const formatCurrency = (value: number) => {
@@ -50,6 +52,12 @@ export function WorkstreamOverviewTab({ workstream, module }: WorkstreamOverview
 
   return (
     <div className="space-y-6">
+      {/* Workflow Steps Panel - Prominent Position */}
+      <WorkstreamStepsPanel 
+        workstreamId={workstream.id} 
+        onSwitchToApprovals={onSwitchToApprovals}
+      />
+
       {/* Business Context */}
       <Card>
         <CardHeader>
