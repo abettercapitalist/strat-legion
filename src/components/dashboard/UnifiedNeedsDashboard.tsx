@@ -97,13 +97,18 @@ export function UnifiedNeedsDashboard({
                 No actions waiting on you
               </p>
             ) : (
-              myActions.items.slice(0, 5).map((need) => (
-                <NeedKanbanCard
-                  key={need.id}
-                  need={need}
-                  onClick={() => navigate(`/${modulePrefix}/workstream/${need.workstream_id}`)}
-                />
-              ))
+              myActions.items.slice(0, 5).map((need) => {
+                const detailPath = modulePrefix === "law"
+                  ? `/${modulePrefix}/matters/${need.workstream_id}`
+                  : `/${modulePrefix}/${need.workstream_id}`;
+                return (
+                  <NeedKanbanCard
+                    key={need.id}
+                    need={need}
+                    onClick={() => navigate(detailPath)}
+                  />
+                );
+              })
             )}
           </div>
 
@@ -214,13 +219,18 @@ export function UnifiedNeedsDashboard({
                 Nothing blocking your workstreams
               </p>
             ) : (
-              waitingFor.items.slice(0, 5).map((need) => (
-                <NeedKanbanCard
-                  key={need.id}
-                  need={need}
-                  onClick={() => navigate(`/${modulePrefix}/workstream/${need.workstream_id}`)}
-                />
-              ))
+              waitingFor.items.slice(0, 5).map((need) => {
+                const detailPath = modulePrefix === "law"
+                  ? `/${modulePrefix}/matters/${need.workstream_id}`
+                  : `/${modulePrefix}/${need.workstream_id}`;
+                return (
+                  <NeedKanbanCard
+                    key={need.id}
+                    need={need}
+                    onClick={() => navigate(detailPath)}
+                  />
+                );
+              })
             )}
           </div>
 

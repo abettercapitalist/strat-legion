@@ -175,13 +175,20 @@ export default function ActiveMatters() {
 
   const isLoading = isLoadingWorkstreams || isLoadingNeeds;
 
-  // Use unified role system - combine legacy and new role IDs
+  // Use unified role system - combine legacy role strings, UUIDs, and custom role names
   const allRoleIds = useMemo(() => {
     const roles = new Set<string>();
+    // Add legacy role string (e.g., "general_counsel")
     if (userRole) roles.add(userRole);
+    // Add UUID-based role IDs from work routing
     workRoutingRoleIds.forEach(r => roles.add(r));
+    // Add custom role names for legacy data matching (needs.satisfier_role contains legacy strings)
+    customRoles.forEach(r => {
+      roles.add(r.id);
+      roles.add(r.name); // This enables matching "general_counsel" in needs.satisfier_role
+    });
     return Array.from(roles);
-  }, [userRole, workRoutingRoleIds]);
+  }, [userRole, workRoutingRoleIds, customRoles]);
 
   // Calculate filter counts including role breakdown
   const filterCounts = useMemo(() => {
