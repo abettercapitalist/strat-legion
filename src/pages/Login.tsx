@@ -182,10 +182,12 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Test Credentials Helper */}
-        <p className="text-center text-xs text-muted-foreground">
-          Test accounts: firstname.lastname@testco.com / 1testLOGin!
-        </p>
+        {/* Test Credentials Helper - only show in development */}
+        {import.meta.env.DEV && (
+          <p className="text-center text-xs text-muted-foreground">
+            Test accounts: firstname.lastname@testco.com / 1testLOGin!
+          </p>
+        )}
       </div>
     </div>
   );
