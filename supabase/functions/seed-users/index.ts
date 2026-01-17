@@ -20,6 +20,15 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Block execution in production environment
+  const environment = Deno.env.get('ENVIRONMENT') || 'production'
+  if (environment === 'production') {
+    return new Response(
+      JSON.stringify({ error: 'Seed function is disabled in production' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+    )
+  }
+
   try {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
