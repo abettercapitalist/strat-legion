@@ -1,25 +1,29 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { 
-  HelpCircle, 
-  CheckCircle2, 
-  ClipboardList, 
-  FileText, 
-  ChevronDown, 
+import {
+  HelpCircle,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  ChevronDown,
   ChevronUp,
   ExternalLink,
-  PartyPopper
+  PartyPopper,
+  Loader2,
+  Zap
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CompleteRequestInfoModal } from "./step-modals/CompleteRequestInfoModal";
 import { CompleteTaskModal } from "./step-modals/CompleteTaskModal";
 import { CompleteDocumentModal } from "./step-modals/CompleteDocumentModal";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
+import { useBrickStepExecution } from "@/hooks/useBrickStepExecution";
+import type { Workstream, CurrentUser } from "@/lib/bricks/services/stepExecutor";
 
 interface WorkstreamStep {
   id: string;
@@ -78,18 +82,62 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     },
   });
 
-  // Check if user owns the workstream
+  // Load full workstream data for brick execution
   const { data: workstream } = useQuery({
-    queryKey: ["workstream-owner", workstreamId],
+    queryKey: ["workstream", workstreamId],
     queryFn: async () => {
       const { data } = await supabase
         .from("workstreams")
-        .select("owner_id")
+        .select("*")
         .eq("id", workstreamId)
         .single();
-      return data;
+      return data as Workstream | null;
     },
   });
+
+  // Load current user data
+  const { data: currentUser } = useQuery({
+    queryKey: ["current-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      return {
+        id: user.id,
+        email: user.email || "",
+        role: profile?.role || null,
+      } as CurrentUser;
+    },
+  });
+
+  // Brick execution hook
+  const {
+    isExecuting: isBrickExecuting,
+    executeStep: executeBrickStep,
+    checkBrickSupport,
+  } = useBrickStepExecution();
+
+  // Track which steps have brick support
+  const [brickSupportMap, setBrickSupportMap] = useState<Record<string, boolean>>({});
+
+  // Check brick support for each step type
+  useEffect(() => {
+    const checkSupport = async () => {
+      const stepTypes = [...new Set(steps.map(s => s.step_type))];
+      const supportMap: Record<string, boolean> = {};
+      for (const stepType of stepTypes) {
+        supportMap[stepType] = await checkBrickSupport(stepType);
+      }
+      setBrickSupportMap(supportMap);
+    };
+    if (steps.length > 0) {
+      checkSupport();
+    }
+  }, [steps, checkBrickSupport]);
 
   const isOwner = workstream?.owner_id === userId;
   const canSeeAllSteps = isOwner || isManager;
@@ -106,9 +154,36 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
         return workRoutingRoleIds.includes(assignedRole);
       });
 
-  const handleCompleteClick = (step: WorkstreamStep) => {
-    setSelectedStep(step);
-    setModalType(step.step_type);
+  // Handle step completion - tries brick execution first, falls back to modal
+  const handleStepComplete = async (step: WorkstreamStep) => {
+    const hasBrickSupport = brickSupportMap[step.step_type];
+
+    // If no brick support, go straight to modal
+    if (!hasBrickSupport) {
+      setSelectedStep(step);
+      setModalType(step.step_type);
+      return;
+    }
+
+    // Try brick execution
+    if (!workstream || !currentUser) {
+      // No context available, fall back to modal
+      setSelectedStep(step);
+      setModalType(step.step_type);
+      return;
+    }
+
+    const outcome = await executeBrickStep(
+      step,
+      workstream,
+      currentUser
+    );
+
+    // If the step requires user input, fall back to modal
+    if (outcome.requiresUserAction || !outcome.success) {
+      setSelectedStep(step);
+      setModalType(step.step_type);
+    }
   };
 
   const handleModalClose = () => {
@@ -253,9 +328,26 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
                         <p className="text-xs text-muted-foreground mb-3">
                           {getRequirementLabel(step)}
                           {!step.config?.assigned_role && " • Anyone can complete"}
+                          {brickSupportMap[step.step_type] && (
+                            <span className="ml-2 inline-flex items-center text-primary">
+                              <Zap className="h-3 w-3 mr-0.5" />
+                              Brick-powered
+                            </span>
+                          )}
                         </p>
-                        <Button size="sm" onClick={() => handleCompleteClick(step)}>
-                          Complete This Step
+                        <Button
+                          size="sm"
+                          onClick={() => handleStepComplete(step)}
+                          disabled={isBrickExecuting}
+                        >
+                          {isBrickExecuting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Executing...
+                            </>
+                          ) : (
+                            "Complete This Step"
+                          )}
                         </Button>
                       </>
                     )}
