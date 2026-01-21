@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,12 +34,16 @@ import {
   Archive,
   AlertTriangle,
   Clock,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { format, isPast, isWithinInterval, addDays } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNeedsFilter } from "@/hooks/useNeedsFilter";
 import { NeedsFilterBar } from "@/components/filters/NeedsFilterBar";
+import { toast } from "sonner";
 
 type Workstream = {
   id: string;
@@ -51,6 +55,7 @@ type Workstream = {
   updated_at: string;
   expected_close_date: string | null;
   owner_id: string | null;
+  last_activity_date: string | null;
   counterparty: {
     name: string;
     counterparty_type: string | null;
@@ -60,6 +65,9 @@ type Workstream = {
     name: string;
   } | null;
 };
+
+type SortColumn = "counterparty" | "status" | "priority" | "lastAction" | "nextAction" | "owner" | "dueDate";
+type SortDirection = "asc" | "desc";
 
 type Need = {
   id: string;
@@ -125,18 +133,59 @@ function getDueUrgency(dueDate: string | null): "overdue" | "urgent" | "normal" 
 
 export default function ActiveMatters() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { labels } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("recent");
+  const [sortConfig, setSortConfig] = useState<{ column: SortColumn; direction: SortDirection }>({
+    column: "lastAction",
+    direction: "desc",
+  });
 
   const { activeFilter, setFilter, clearFilter, filterLabel, userRole, teamRoleFilter, setTeamRoleFilter, workRoutingRoleIds, customRoles } = useNeedsFilter();
 
-  // Fetch workstreams
+  // Archive mutation
+  const archiveMutation = useMutation({
+    mutationFn: async (workstreamId: string) => {
+      const { error } = await supabase
+        .from("workstreams")
+        .update({ stage: "archived" })
+        .eq("id", workstreamId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["law-workstreams"] });
+      toast.success("Matter archived successfully");
+    },
+    onError: () => {
+      toast.error("Failed to archive matter");
+    },
+  });
+
+  const handleSort = (column: SortColumn) => {
+    setSortConfig((prev) => ({
+      column,
+      direction: prev.column === column && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortConfig.column !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortConfig.direction === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
+    );
+  };
+
+  // Fetch workstreams with last activity
   const { data: workstreams, isLoading: isLoadingWorkstreams } = useQuery({
     queryKey: ["law-workstreams"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First fetch workstreams
+      const { data: wsData, error: wsError } = await supabase
         .from("workstreams")
         .select(`
           id,
@@ -154,8 +203,29 @@ export default function ActiveMatters() {
         .not("stage", "in", "(archived,closed_won,closed_lost)")
         .order("updated_at", { ascending: false });
 
-      if (error) throw error;
-      return data as unknown as Workstream[];
+      if (wsError) throw wsError;
+
+      // Fetch last activity for each workstream
+      const workstreamIds = wsData.map(ws => ws.id);
+      const { data: activityData } = await supabase
+        .from("workstream_activity")
+        .select("workstream_id, created_at")
+        .in("workstream_id", workstreamIds)
+        .order("created_at", { ascending: false });
+
+      // Build a map of workstream_id -> latest activity date
+      const lastActivityMap = new Map<string, string>();
+      activityData?.forEach(activity => {
+        if (!lastActivityMap.has(activity.workstream_id)) {
+          lastActivityMap.set(activity.workstream_id, activity.created_at);
+        }
+      });
+
+      // Merge last activity into workstreams
+      return wsData.map(ws => ({
+        ...ws,
+        last_activity_date: lastActivityMap.get(ws.id) || null,
+      })) as unknown as Workstream[];
     },
   });
 
@@ -292,21 +362,43 @@ export default function ActiveMatters() {
       return matchesSearch && matchesStage;
     });
 
-    // Apply sorting
+    // Apply sorting based on column headers
     return filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "due_soon":
-          if (!a.expected_close_date) return 1;
-          if (!b.expected_close_date) return -1;
-          return new Date(a.expected_close_date).getTime() - new Date(b.expected_close_date).getTime();
-        case "oldest":
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case "recent":
+      const { column, direction } = sortConfig;
+      const multiplier = direction === "asc" ? 1 : -1;
+
+      switch (column) {
+        case "counterparty":
+          const aName = a.counterparty?.name || a.name;
+          const bName = b.counterparty?.name || b.name;
+          return multiplier * aName.localeCompare(bName);
+        case "status":
+          return multiplier * (a.stage || "").localeCompare(b.stage || "");
+        case "priority":
+          const priorityOrder = { strategic: 1, high: 2, standard: 3 };
+          const aPriority = priorityOrder[a.tier as keyof typeof priorityOrder] || 4;
+          const bPriority = priorityOrder[b.tier as keyof typeof priorityOrder] || 4;
+          return multiplier * (aPriority - bPriority);
+        case "lastAction":
+          if (!a.last_activity_date && !b.last_activity_date) return 0;
+          if (!a.last_activity_date) return multiplier;
+          if (!b.last_activity_date) return -multiplier;
+          return multiplier * (new Date(a.last_activity_date).getTime() - new Date(b.last_activity_date).getTime());
+        case "nextAction":
+          return multiplier * getNextAction(a.stage).localeCompare(getNextAction(b.stage));
+        case "owner":
+          // Placeholder until real owner data
+          return 0;
+        case "dueDate":
+          if (!a.expected_close_date && !b.expected_close_date) return 0;
+          if (!a.expected_close_date) return multiplier;
+          if (!b.expected_close_date) return -multiplier;
+          return multiplier * (new Date(a.expected_close_date).getTime() - new Date(b.expected_close_date).getTime());
         default:
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+          return 0;
       }
     });
-  }, [workstreams, needs, activeFilter, userRole, allRoleIds, teamRoleFilter, searchQuery, stageFilter, sortBy]);
+  }, [workstreams, needs, activeFilter, userRole, allRoleIds, teamRoleFilter, searchQuery, stageFilter, sortConfig]);
 
   const getOwnerInitials = (workstream: Workstream) => {
     return "JD";
@@ -369,16 +461,6 @@ export default function ActiveMatters() {
             <SelectItem value="at_risk">At Risk</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="recent">Most Recent</SelectItem>
-            <SelectItem value="due_soon">Due Soon</SelectItem>
-            <SelectItem value="oldest">Oldest</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Table */}
@@ -393,13 +475,70 @@ export default function ActiveMatters() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="w-[250px]">Counterparty</TableHead>
-                <TableHead className="w-[140px]">Status</TableHead>
-                <TableHead className="w-[80px]">Priority</TableHead>
-                <TableHead className="w-[150px]">Owner</TableHead>
-                <TableHead>Next Action</TableHead>
-                <TableHead className="w-[140px]">Due Date</TableHead>
-                <TableHead className="w-[60px]">Actions</TableHead>
+                <TableHead 
+                  className="w-[220px] cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => handleSort("counterparty")}
+                >
+                  <div className="flex items-center">
+                    Counterparty
+                    {getSortIcon("counterparty")}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-[130px] cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => handleSort("status")}
+                >
+                  <div className="flex items-center">
+                    Status
+                    {getSortIcon("status")}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-[80px] cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => handleSort("priority")}
+                >
+                  <div className="flex items-center">
+                    Priority
+                    {getSortIcon("priority")}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-[90px] cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => handleSort("lastAction")}
+                >
+                  <div className="flex items-center">
+                    Last Action
+                    {getSortIcon("lastAction")}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => handleSort("nextAction")}
+                >
+                  <div className="flex items-center">
+                    Next Action
+                    {getSortIcon("nextAction")}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-[130px] cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => handleSort("owner")}
+                >
+                  <div className="flex items-center">
+                    Owner
+                    {getSortIcon("owner")}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-[120px] cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => handleSort("dueDate")}
+                >
+                  <div className="flex items-center">
+                    Due Date
+                    {getSortIcon("dueDate")}
+                  </div>
+                </TableHead>
+                <TableHead className="w-[50px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -437,19 +576,26 @@ export default function ActiveMatters() {
                       )}
                     </TableCell>
                     <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {ws.last_activity_date 
+                          ? format(new Date(ws.last_activity_date), "MMM d")
+                          : "-"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">
+                        {getNextAction(ws.stage)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
                           <AvatarFallback className="text-xs bg-primary/10">
                             {getOwnerInitials(ws)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-sm">{getOwnerName(ws)}</span>
+                        <span className="text-sm truncate">{getOwnerName(ws)}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {getNextAction(ws.stage)}
-                      </span>
                     </TableCell>
                     <TableCell>
                       {ws.expected_close_date ? (
@@ -502,7 +648,12 @@ export default function ActiveMatters() {
                             <Flag className="h-4 w-4 mr-2" />
                             {ws.tier === "high" || ws.tier === "strategic" ? "Unflag" : "Flag"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              archiveMutation.mutate(ws.id);
+                            }}
+                          >
                             <Archive className="h-4 w-4 mr-2" />
                             Archive
                           </DropdownMenuItem>
