@@ -1,102 +1,102 @@
 /**
- * useBrickStepExecution Hook
+ * usePlayExecution Hook
  *
- * React hook for executing workstream steps via the brick engine.
- * Provides easy integration with the existing step completion UI.
+ * React hook for executing plays via the brick engine.
+ * Provides easy integration with the workflow UI.
  */
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import {
-  executeWorkstreamStep,
-  resumeStepExecution,
-  hasBrickDefinition,
-  getPendingAction,
-  type WorkstreamStep,
+  executePlay,
+  resumePlayExecution,
+  hasActivePlay,
+  getPendingPlayAction,
   type Workstream,
   type CurrentUser,
-  type StepExecutionOutcome,
-} from '@/lib/bricks/services/stepExecutor';
+  type PlayExecutionOutcome,
+} from '@/lib/bricks/services/playExecutor';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface BrickStepExecutionState {
+export interface PlayExecutionState {
   isExecuting: boolean;
-  lastOutcome: StepExecutionOutcome | null;
+  lastOutcome: PlayExecutionOutcome | null;
   error: string | null;
 }
 
-export interface BrickStepExecutionActions {
-  /** Execute a step using the brick engine */
-  executeStep: (
-    step: WorkstreamStep,
+export interface PlayExecutionActions {
+  /** Execute a play for a workstream */
+  executePlay: (
     workstream: Workstream,
+    playId: string,
     user: CurrentUser | null,
     additionalConfig?: Record<string, unknown>
-  ) => Promise<StepExecutionOutcome>;
+  ) => Promise<PlayExecutionOutcome>;
 
-  /** Resume a paused step with user input */
-  resumeStep: (
-    step: WorkstreamStep,
+  /** Resume a paused play with user input */
+  resumePlay: (
     workstream: Workstream,
+    playId: string,
     user: CurrentUser | null,
     userInput: Record<string, unknown>
-  ) => Promise<StepExecutionOutcome>;
+  ) => Promise<PlayExecutionOutcome>;
 
-  /** Check if a step type has brick support */
-  checkBrickSupport: (stepType: string) => Promise<boolean>;
+  /** Check if a workstream has an active play */
+  checkActivePlay: (workstreamId: string) => Promise<boolean>;
 
-  /** Get pending action for a step */
-  getPendingAction: (step: WorkstreamStep) => ReturnType<typeof getPendingAction>;
+  /** Get pending action for a workstream's play */
+  getPendingAction: (workstreamId: string) => ReturnType<typeof getPendingPlayAction>;
 
   /** Clear any error state */
   clearError: () => void;
 }
 
-export type UseBrickStepExecutionReturn = BrickStepExecutionState & BrickStepExecutionActions;
+export type UsePlayExecutionReturn = PlayExecutionState & PlayExecutionActions;
 
 // ============================================================================
 // HOOK
 // ============================================================================
 
-export function useBrickStepExecution(): UseBrickStepExecutionReturn {
+export function usePlayExecution(): UsePlayExecutionReturn {
   const [isExecuting, setIsExecuting] = useState(false);
-  const [lastOutcome, setLastOutcome] = useState<StepExecutionOutcome | null>(null);
+  const [lastOutcome, setLastOutcome] = useState<PlayExecutionOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   /**
-   * Invalidates relevant queries after step execution.
+   * Invalidates relevant queries after play execution.
    */
   const invalidateQueries = useCallback(
     (workstreamId: string) => {
       queryClient.invalidateQueries({ queryKey: ['workstream-steps', workstreamId] });
       queryClient.invalidateQueries({ queryKey: ['workstream-activity', workstreamId] });
       queryClient.invalidateQueries({ queryKey: ['workstream', workstreamId] });
+      queryClient.invalidateQueries({ queryKey: ['node-execution-state', workstreamId] });
     },
     [queryClient]
   );
 
   /**
-   * Execute a step using the brick engine.
+   * Execute a play for a workstream.
    */
-  const executeStep = useCallback(
+  const executePlayAction = useCallback(
     async (
-      step: WorkstreamStep,
       workstream: Workstream,
+      playId: string,
       user: CurrentUser | null,
       additionalConfig?: Record<string, unknown>
-    ): Promise<StepExecutionOutcome> => {
+    ): Promise<PlayExecutionOutcome> => {
       setIsExecuting(true);
       setError(null);
 
       try {
-        const outcome = await executeWorkstreamStep(step, workstream, user, {
+        const outcome = await executePlay(workstream, playId, user, {
           additionalConfig,
           updateDatabase: true,
           debug: process.env.NODE_ENV === 'development',
@@ -106,21 +106,20 @@ export function useBrickStepExecution(): UseBrickStepExecutionReturn {
 
         if (outcome.success) {
           toast({
-            title: 'Step completed',
-            description: 'The step has been executed successfully.',
+            title: 'Play completed',
+            description: 'The play has been executed successfully.',
           });
           invalidateQueries(workstream.id);
         } else if (outcome.requiresUserAction) {
-          // Step is paused waiting for user input
           toast({
             title: 'Action required',
-            description: `This step requires ${outcome.pendingActionType || 'your input'}.`,
+            description: `This play requires ${outcome.pendingActionType || 'your input'}.`,
           });
           invalidateQueries(workstream.id);
         } else if (outcome.error) {
           setError(outcome.error);
           toast({
-            title: 'Step execution failed',
+            title: 'Play execution failed',
             description: outcome.error,
             variant: 'destructive',
           });
@@ -155,20 +154,20 @@ export function useBrickStepExecution(): UseBrickStepExecutionReturn {
   );
 
   /**
-   * Resume a paused step with user input.
+   * Resume a paused play with user input.
    */
-  const resumeStep = useCallback(
+  const resumePlayAction = useCallback(
     async (
-      step: WorkstreamStep,
       workstream: Workstream,
+      playId: string,
       user: CurrentUser | null,
       userInput: Record<string, unknown>
-    ): Promise<StepExecutionOutcome> => {
+    ): Promise<PlayExecutionOutcome> => {
       setIsExecuting(true);
       setError(null);
 
       try {
-        const outcome = await resumeStepExecution(step, workstream, user, userInput, {
+        const outcome = await resumePlayExecution(workstream, playId, user, userInput, {
           updateDatabase: true,
           debug: process.env.NODE_ENV === 'development',
         });
@@ -177,20 +176,20 @@ export function useBrickStepExecution(): UseBrickStepExecutionReturn {
 
         if (outcome.success) {
           toast({
-            title: 'Step completed',
-            description: 'The step has been completed with your input.',
+            title: 'Play completed',
+            description: 'The play has been completed with your input.',
           });
           invalidateQueries(workstream.id);
         } else if (outcome.requiresUserAction) {
           toast({
             title: 'Additional action required',
-            description: `This step still requires ${outcome.pendingActionType || 'more input'}.`,
+            description: `This play still requires ${outcome.pendingActionType || 'more input'}.`,
           });
           invalidateQueries(workstream.id);
         } else if (outcome.error) {
           setError(outcome.error);
           toast({
-            title: 'Step execution failed',
+            title: 'Play execution failed',
             description: outcome.error,
             variant: 'destructive',
           });
@@ -219,11 +218,11 @@ export function useBrickStepExecution(): UseBrickStepExecutionReturn {
   );
 
   /**
-   * Check if a step type has brick-based support.
+   * Check if a workstream has an active play.
    */
-  const checkBrickSupport = useCallback(async (stepType: string): Promise<boolean> => {
+  const checkActivePlay = useCallback(async (workstreamId: string): Promise<boolean> => {
     try {
-      return await hasBrickDefinition(stepType);
+      return await hasActivePlay(workstreamId);
     } catch {
       return false;
     }
@@ -240,10 +239,10 @@ export function useBrickStepExecution(): UseBrickStepExecutionReturn {
     isExecuting,
     lastOutcome,
     error,
-    executeStep,
-    resumeStep,
-    checkBrickSupport,
-    getPendingAction,
+    executePlay: executePlayAction,
+    resumePlay: resumePlayAction,
+    checkActivePlay,
+    getPendingAction: getPendingPlayAction,
     clearError,
   };
 }

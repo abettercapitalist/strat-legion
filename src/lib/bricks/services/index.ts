@@ -1,35 +1,55 @@
 /**
  * Brick Services - Main Export
+ *
+ * Exports all service functions for the refined brick architecture.
  */
 
 // Supabase data layer
 export {
+  // Brick loading
   loadAllBricks,
   loadBrickById,
+  loadBrickByName,
   loadBricksByIds,
-  loadBrickCategories,
-  loadStepDefinitionById,
-  loadStepDefinitionByLegacyType,
-  loadTemplateStepDefinitions,
-  loadStepDefinitionBricks,
-  loadStepDefinitionWithBricks,
-  loadLegacyStepWithBricks,
-  normalizeLegacyStepType,
+  loadBricksByCategory,
   getBricks,
   getBrickByName,
-  getCategories,
+  getBrickCategories,
   clearBrickCache,
+  // Playbook loading
+  loadPlaybooks,
+  loadPlaybookById,
+  loadPlaybookTemplates,
+  loadPlaybookByWorkstreamType,
+  // Pattern loading
+  loadPlaybookPatterns,
+  loadPatternById,
+  // Play loading
+  loadPlaybookPlays,
+  loadPlayById,
+  // Workflow DAG
+  loadWorkflowNodes,
+  loadWorkflowEdges,
+  buildPlayDAG,
+  // Node execution state
+  loadNodeExecutionStates,
+  saveNodeExecutionState,
+  updateNodeExecutionStatus,
+  // Library loading
+  loadLibraries,
+  loadLibraryArtifacts,
+  loadLibraryTemplates,
 } from './supabase';
 
-// Step executor
+// Play executor
 export {
-  executeWorkstreamStep,
-  resumeStepExecution,
-  hasBrickDefinition,
-  getPendingAction,
-  type WorkstreamStep,
+  executePlay,
+  resumePlayExecution,
+  hasActivePlay,
+  getPendingPlayAction,
+  assignPlayToWorkstream,
   type Workstream,
   type CurrentUser,
-  type StepExecutionOptions,
-  type StepExecutionOutcome,
-} from './stepExecutor';
+  type PlayExecutionOptions,
+  type PlayExecutionOutcome,
+} from './playExecutor';

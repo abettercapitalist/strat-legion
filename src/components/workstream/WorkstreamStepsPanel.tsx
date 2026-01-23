@@ -14,16 +14,15 @@ import {
   ChevronUp,
   ExternalLink,
   PartyPopper,
-  Loader2,
-  Zap
+  Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CompleteRequestInfoModal } from "./step-modals/CompleteRequestInfoModal";
 import { CompleteTaskModal } from "./step-modals/CompleteTaskModal";
 import { CompleteDocumentModal } from "./step-modals/CompleteDocumentModal";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
-import { useBrickStepExecution } from "@/hooks/useBrickStepExecution";
-import type { Workstream, CurrentUser } from "@/lib/bricks/services/stepExecutor";
+import { usePlayExecution } from "@/hooks/usePlayExecution";
+import type { Workstream, CurrentUser } from "@/lib/bricks/services/playExecutor";
 
 interface WorkstreamStep {
   id: string;
@@ -114,30 +113,24 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     },
   });
 
-  // Brick execution hook
+  // Play execution hook
   const {
-    isExecuting: isBrickExecuting,
-    executeStep: executeBrickStep,
-    checkBrickSupport,
-  } = useBrickStepExecution();
+    isExecuting: isPlayExecuting,
+    executePlay: executePlayAction,
+    checkActivePlay,
+  } = usePlayExecution();
 
-  // Track which steps have brick support
-  const [brickSupportMap, setBrickSupportMap] = useState<Record<string, boolean>>({});
+  // Track whether workstream has an active play
+  const [hasPlay, setHasPlay] = useState(false);
 
-  // Check brick support for each step type
+  // Check if workstream has an active play
   useEffect(() => {
-    const checkSupport = async () => {
-      const stepTypes = [...new Set(steps.map(s => s.step_type))];
-      const supportMap: Record<string, boolean> = {};
-      for (const stepType of stepTypes) {
-        supportMap[stepType] = await checkBrickSupport(stepType);
-      }
-      setBrickSupportMap(supportMap);
+    const checkPlay = async () => {
+      const active = await checkActivePlay(workstreamId);
+      setHasPlay(active);
     };
-    if (steps.length > 0) {
-      checkSupport();
-    }
-  }, [steps, checkBrickSupport]);
+    checkPlay();
+  }, [workstreamId, checkActivePlay]);
 
   const isOwner = workstream?.owner_id === userId;
   const canSeeAllSteps = isOwner || isManager;
@@ -154,36 +147,12 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
         return workRoutingRoleIds.includes(assignedRole);
       });
 
-  // Handle step completion - tries brick execution first, falls back to modal
+  // Handle step completion - uses modal for now until play-based UI is built
   const handleStepComplete = async (step: WorkstreamStep) => {
-    const hasBrickSupport = brickSupportMap[step.step_type];
-
-    // If no brick support, go straight to modal
-    if (!hasBrickSupport) {
-      setSelectedStep(step);
-      setModalType(step.step_type);
-      return;
-    }
-
-    // Try brick execution
-    if (!workstream || !currentUser) {
-      // No context available, fall back to modal
-      setSelectedStep(step);
-      setModalType(step.step_type);
-      return;
-    }
-
-    const outcome = await executeBrickStep(
-      step,
-      workstream,
-      currentUser
-    );
-
-    // If the step requires user input, fall back to modal
-    if (outcome.requiresUserAction || !outcome.success) {
-      setSelectedStep(step);
-      setModalType(step.step_type);
-    }
+    // For now, always use modal until play execution UI is ready
+    // In the future, this will check if the step is part of a play and execute accordingly
+    setSelectedStep(step);
+    setModalType(step.step_type);
   };
 
   const handleModalClose = () => {
@@ -328,19 +297,13 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
                         <p className="text-xs text-muted-foreground mb-3">
                           {getRequirementLabel(step)}
                           {!step.config?.assigned_role && " • Anyone can complete"}
-                          {brickSupportMap[step.step_type] && (
-                            <span className="ml-2 inline-flex items-center text-primary">
-                              <Zap className="h-3 w-3 mr-0.5" />
-                              Brick-powered
-                            </span>
-                          )}
                         </p>
                         <Button
                           size="sm"
                           onClick={() => handleStepComplete(step)}
-                          disabled={isBrickExecuting}
+                          disabled={isPlayExecuting}
                         >
-                          {isBrickExecuting ? (
+                          {isPlayExecuting ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                               Executing...

@@ -109,6 +109,95 @@ export type Database = {
           },
         ]
       }
+      brick_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          display_order: number
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name: string
+          display_order: number
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          display_order?: number
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      bricks: {
+        Row: {
+          brick_number: number
+          category_id: string
+          created_at: string
+          dependencies: string[] | null
+          dependency_level: string
+          display_name: string
+          id: string
+          input_schema: Json
+          is_active: boolean
+          is_container: boolean
+          name: string
+          output_schema: Json
+          purpose: string
+          updated_at: string
+        }
+        Insert: {
+          brick_number: number
+          category_id: string
+          created_at?: string
+          dependencies?: string[] | null
+          dependency_level: string
+          display_name: string
+          id?: string
+          input_schema?: Json
+          is_active?: boolean
+          is_container?: boolean
+          name: string
+          output_schema?: Json
+          purpose: string
+          updated_at?: string
+        }
+        Update: {
+          brick_number?: number
+          category_id?: string
+          created_at?: string
+          dependencies?: string[] | null
+          dependency_level?: string
+          display_name?: string
+          id?: string
+          input_schema?: Json
+          is_active?: boolean
+          is_container?: boolean
+          name?: string
+          output_schema?: Json
+          purpose?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bricks_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "brick_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clause_alternatives: {
         Row: {
           alternative_text: string
@@ -633,6 +722,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      step_definition_bricks: {
+        Row: {
+          brick_id: string
+          created_at: string
+          execution_condition: Json | null
+          id: string
+          input_config: Json
+          output_mapping: Json | null
+          position: number
+          step_definition_id: string
+        }
+        Insert: {
+          brick_id: string
+          created_at?: string
+          execution_condition?: Json | null
+          id?: string
+          input_config?: Json
+          output_mapping?: Json | null
+          position: number
+          step_definition_id: string
+        }
+        Update: {
+          brick_id?: string
+          created_at?: string
+          execution_condition?: Json | null
+          id?: string
+          input_config?: Json
+          output_mapping?: Json | null
+          position?: number
+          step_definition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "step_definition_bricks_brick_id_fkey"
+            columns: ["brick_id"]
+            isOneToOne: false
+            referencedRelation: "bricks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "step_definition_bricks_step_definition_id_fkey"
+            columns: ["step_definition_id"]
+            isOneToOne: false
+            referencedRelation: "step_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      step_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_name: string
+          icon: string | null
+          id: string
+          is_system: boolean
+          is_template: boolean
+          legacy_step_type: string | null
+          name: string
+          updated_at: string
+          workstream_type_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name: string
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          is_template?: boolean
+          legacy_step_type?: string | null
+          name: string
+          updated_at?: string
+          workstream_type_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name?: string
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          is_template?: boolean
+          legacy_step_type?: string | null
+          name?: string
+          updated_at?: string
+          workstream_type_id?: string | null
+        }
+        Relationships: []
       }
       tags: {
         Row: {

@@ -2,60 +2,41 @@
  * Workflow Brick Executors
  *
  * Executors for workflow control and orchestration bricks.
- * Bricks: update_status, trigger_workflow, wait_for_event, set_deadline,
- *         parallel_execute, check_dependencies, assign_ownership
+ * Bricks: handoff_workstream, wait_for_event, wait_for_duration,
+ *         send_notification, schedule_task
  */
 
 import type { BrickExecutor, BrickRegistry } from '../types';
 
 // ============================================================================
-// UPDATE STATUS (Brick #16)
+// HANDOFF WORKSTREAM
 // ============================================================================
 
-const updateStatus: BrickExecutor = async (inputs, context) => {
-  const { target, new_status, reason, notify_stakeholders } = inputs;
+const handoffWorkstream: BrickExecutor = async (inputs, context) => {
+  const { handoff_type, target_workstream_type, handoff_data, wait_for_completion } = inputs;
 
-  // In a real implementation, this would update the database
-  return {
-    status: 'completed',
-    outputs: {
-      status_updated: true,
-      target: target || 'workstream',
-      previous_status: context.workstream.stage,
-      new_status: new_status,
-      reason: reason,
-      updated_at: new Date().toISOString(),
-      updated_by: context.user?.id,
-    },
-  };
-};
+  const handoffId = `handoff_${Date.now()}`;
 
-// ============================================================================
-// TRIGGER WORKFLOW (Brick #17)
-// ============================================================================
-
-const triggerWorkflow: BrickExecutor = async (inputs, context) => {
-  const { workflow_id, workflow_type, trigger_data, wait_for_completion } = inputs;
-
-  const triggerId = `trigger_${Date.now()}`;
-
+  // In a real implementation, this would create the handoff record and
+  // potentially spawn a new workstream
   if (wait_for_completion) {
-    // This would need async handling in a real implementation
     return {
       status: 'waiting_for_event',
       outputs: {
-        trigger_id: triggerId,
-        triggered_at: new Date().toISOString(),
+        handoff_id: handoffId,
+        initiated_at: new Date().toISOString(),
       },
       pending_action: {
         type: 'event',
-        brick_id: 'trigger_workflow',
-        brick_name: 'Trigger Workflow',
-        description: `Waiting for workflow: ${workflow_id || workflow_type}`,
+        brick_id: 'handoff_workstream',
+        brick_name: 'Handoff Workstream',
+        node_id: context.execution.node_id,
+        description: `Waiting for ${handoff_type} handoff to complete`,
         config: {
-          workflow_id,
-          workflow_type,
-          trigger_data,
+          handoff_type,
+          target_workstream_type,
+          handoff_data,
+          source_workstream_id: context.workstream.id,
         },
       },
     };
@@ -64,21 +45,35 @@ const triggerWorkflow: BrickExecutor = async (inputs, context) => {
   return {
     status: 'completed',
     outputs: {
-      trigger_id: triggerId,
-      workflow_triggered: true,
-      workflow_id: workflow_id,
-      workflow_type: workflow_type,
-      triggered_at: new Date().toISOString(),
+      handoff_id: handoffId,
+      handoff_type: handoff_type,
+      target_workstream_type: target_workstream_type,
+      handoff_status: 'initiated',
+      initiated_at: new Date().toISOString(),
     },
   };
 };
 
 // ============================================================================
-// WAIT FOR EVENT (Brick #18)
+// WAIT FOR EVENT
 // ============================================================================
 
 const waitForEvent: BrickExecutor = async (inputs, context) => {
   const { event_type, event_source, timeout_hours, timeout_action } = inputs;
+
+  // Check if event has been received
+  const eventReceived = context.play_config.event_received;
+
+  if (eventReceived) {
+    return {
+      status: 'completed',
+      outputs: {
+        event_received: true,
+        event_data: context.play_config.event_data || {},
+        received_at: context.play_config.event_received_at ?? new Date().toISOString(),
+      },
+    };
+  }
 
   return {
     status: 'waiting_for_event',
@@ -89,6 +84,7 @@ const waitForEvent: BrickExecutor = async (inputs, context) => {
       type: 'event',
       brick_id: 'wait_for_event',
       brick_name: 'Wait for Event',
+      node_id: context.execution.node_id,
       description: `Waiting for: ${event_type}`,
       config: {
         event_type,
@@ -102,146 +98,117 @@ const waitForEvent: BrickExecutor = async (inputs, context) => {
 };
 
 // ============================================================================
-// SET DEADLINE (Brick #19)
+// WAIT FOR DURATION
 // ============================================================================
 
-const setDeadline: BrickExecutor = async (inputs, context) => {
-  const { deadline_date, deadline_type, escalation_config, reminders } = inputs;
+const waitForDuration: BrickExecutor = async (inputs, context) => {
+  const { duration_minutes, duration_until, reason } = inputs;
 
-  let computedDeadline: string;
+  // Check if wait has completed
+  const waitCompleted = context.play_config.wait_completed;
 
-  if (typeof deadline_date === 'number') {
-    // Days from now
-    const date = new Date();
-    date.setDate(date.getDate() + deadline_date);
-    computedDeadline = date.toISOString();
-  } else if (typeof deadline_date === 'string') {
-    computedDeadline = deadline_date;
+  if (waitCompleted) {
+    return {
+      status: 'completed',
+      outputs: {
+        waited: true,
+        resume_at: context.play_config.resume_at,
+        actual_duration_minutes: context.play_config.actual_duration_minutes,
+      },
+    };
+  }
+
+  let resumeAt: string;
+
+  if (duration_until) {
+    resumeAt = String(duration_until);
+  } else if (typeof duration_minutes === 'number') {
+    const resumeDate = new Date();
+    resumeDate.setMinutes(resumeDate.getMinutes() + duration_minutes);
+    resumeAt = resumeDate.toISOString();
   } else {
-    computedDeadline = new Date().toISOString();
+    // Default to immediate (no delay)
+    return {
+      status: 'completed',
+      outputs: {
+        waited: false,
+        reason: 'No delay specified',
+      },
+    };
+  }
+
+  return {
+    status: 'waiting_for_event',
+    outputs: {
+      resume_at: resumeAt,
+      wait_started: new Date().toISOString(),
+    },
+    pending_action: {
+      type: 'event',
+      brick_id: 'wait_for_duration',
+      brick_name: 'Wait for Duration',
+      node_id: context.execution.node_id,
+      description: reason || `Waiting until ${resumeAt}`,
+      config: {
+        resume_at: resumeAt,
+        reason,
+        workstream_id: context.workstream.id,
+      },
+    },
+  };
+};
+
+// ============================================================================
+// SEND NOTIFICATION
+// ============================================================================
+
+const sendNotification: BrickExecutor = async (inputs, context) => {
+  const { recipient, message, channel, urgency } = inputs;
+
+  // In a real implementation, this would call the notification service
+  const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Determine recipient(s)
+  let recipients: string[] = [];
+  if (Array.isArray(recipient)) {
+    recipients = recipient.map(String);
+  } else if (typeof recipient === 'string') {
+    recipients = [recipient];
   }
 
   return {
     status: 'completed',
     outputs: {
-      deadline_set: true,
-      deadline: computedDeadline,
-      deadline_type: deadline_type || 'soft',
-      escalation_config: escalation_config,
-      reminders_configured: reminders || [],
-      set_at: new Date().toISOString(),
+      notification_id: notificationId,
+      notification_sent: true,
+      recipients: recipients,
+      message: message,
+      channel: channel || 'in_app',
+      urgency: urgency || 'medium',
+      delivered_at: new Date().toISOString(),
     },
   };
 };
 
 // ============================================================================
-// PARALLEL EXECUTE (Brick #20)
+// SCHEDULE TASK
 // ============================================================================
 
-const parallelExecute: BrickExecutor = async (inputs, context) => {
-  const { branches, wait_for_all, timeout_minutes } = inputs;
+const scheduleTask: BrickExecutor = async (inputs, context) => {
+  const { assignee, due_date, description, priority, reminders } = inputs;
 
-  // This is a container brick - the engine would need special handling
-  // For now, return a placeholder
-  return {
-    status: 'completed',
-    outputs: {
-      branches_initiated: Array.isArray(branches) ? branches.length : 0,
-      parallel_execution_id: `parallel_${Date.now()}`,
-      wait_for_all: wait_for_all !== false,
-      initiated_at: new Date().toISOString(),
-    },
-  };
-};
-
-// ============================================================================
-// CHECK DEPENDENCIES (Brick #26)
-// ============================================================================
-
-const checkDependencies: BrickExecutor = async (inputs, context) => {
-  const { required_steps, required_approvals, required_documents, check_mode } = inputs;
-
-  const missingSteps: string[] = [];
-  const missingApprovals: string[] = [];
-  const missingDocuments: string[] = [];
-
-  // In a real implementation, this would check against actual data
-  // For now, assume all dependencies are met
-
-  const allMet =
-    missingSteps.length === 0 &&
-    missingApprovals.length === 0 &&
-    missingDocuments.length === 0;
+  const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   return {
     status: 'completed',
     outputs: {
-      all_dependencies_met: allMet,
-      missing_steps: missingSteps,
-      missing_approvals: missingApprovals,
-      missing_documents: missingDocuments,
-      checked_at: new Date().toISOString(),
-    },
-  };
-};
-
-// ============================================================================
-// ASSIGN OWNERSHIP (Brick #61)
-// ============================================================================
-
-const assignOwnership: BrickExecutor = async (inputs, context) => {
-  const { assignee, scope, authority_level, duration, notification } = inputs;
-
-  const assignmentId = `assign_${Date.now()}`;
-
-  return {
-    status: 'completed',
-    outputs: {
-      assignment_id: assignmentId,
+      task_id: taskId,
       assignee: assignee,
-      scope: scope,
-      authority_level: authority_level || 'contributor',
-      assigned_at: new Date().toISOString(),
-      assigned_by: context.user?.id,
-    },
-  };
-};
-
-// ============================================================================
-// CREATE CHECKPOINT (Brick #41)
-// ============================================================================
-
-const createCheckpoint: BrickExecutor = async (inputs, context) => {
-  const { checkpoint_name, checkpoint_data, recoverable } = inputs;
-
-  const checkpointId = `checkpoint_${Date.now()}`;
-
-  return {
-    status: 'completed',
-    outputs: {
-      checkpoint_id: checkpointId,
-      checkpoint_name: checkpoint_name,
-      recoverable: recoverable !== false,
-      created_at: new Date().toISOString(),
-    },
-  };
-};
-
-// ============================================================================
-// RESTORE CHECKPOINT (Brick #42)
-// ============================================================================
-
-const restoreCheckpoint: BrickExecutor = async (inputs, context) => {
-  const { checkpoint_id, restore_mode } = inputs;
-
-  // In a real implementation, this would restore workflow state
-  return {
-    status: 'completed',
-    outputs: {
-      restored: true,
-      checkpoint_id: checkpoint_id,
-      restore_mode: restore_mode || 'full',
-      restored_at: new Date().toISOString(),
+      due_date: due_date,
+      description: description,
+      priority: priority || 'medium',
+      scheduled_at: new Date().toISOString(),
+      reminders_set: reminders || [],
     },
   };
 };
@@ -251,13 +218,9 @@ const restoreCheckpoint: BrickExecutor = async (inputs, context) => {
 // ============================================================================
 
 export const workflowExecutors: BrickRegistry = {
-  update_status: updateStatus,
-  trigger_workflow: triggerWorkflow,
+  handoff_workstream: handoffWorkstream,
   wait_for_event: waitForEvent,
-  set_deadline: setDeadline,
-  parallel_execute: parallelExecute,
-  check_dependencies: checkDependencies,
-  assign_ownership: assignOwnership,
-  create_checkpoint: createCheckpoint,
-  restore_checkpoint: restoreCheckpoint,
+  wait_for_duration: waitForDuration,
+  send_notification: sendNotification,
+  schedule_task: scheduleTask,
 };

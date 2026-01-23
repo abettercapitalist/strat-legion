@@ -1,17 +1,27 @@
 /**
  * Brick Services - Supabase Data Layer
  *
- * Functions to load bricks, step definitions, and related data from Supabase.
+ * Functions to load bricks, playbooks, plays, patterns, and related data from Supabase.
+ * Supports the refined architecture with 26 bricks, patterns/plays model, and Library system.
  */
 
 import { supabase } from '@/integrations/supabase/client';
 import type {
   Brick,
   BrickCategory,
-  StepDefinition,
-  StepDefinitionBrick,
+  Playbook,
+  PlaybookPattern,
+  PlaybookPlay,
+  WorkflowNode,
+  WorkflowEdge,
+  NodeExecutionState,
+  Library,
+  LibraryArtifact,
+  LibraryTemplate,
   BrickInputSchema,
   BrickOutputSchema,
+  DAG,
+  DAGNode,
 } from '../types';
 
 // ============================================================================
@@ -27,52 +37,136 @@ function toBrick(row: Record<string, unknown>): Brick {
     name: String(row.name),
     display_name: String(row.display_name),
     purpose: String(row.purpose),
-    category_id: String(row.category_id),
-    brick_number: Number(row.brick_number),
+    brick_category: String(row.brick_category) as BrickCategory,
     input_schema: (row.input_schema as BrickInputSchema) || { fields: [] },
     output_schema: (row.output_schema as BrickOutputSchema) || { fields: [] },
-    dependencies: (row.dependencies as string[]) || [],
-    dependency_level: (row.dependency_level as Brick['dependency_level']) || 'none',
-    is_container: Boolean(row.is_container),
     is_active: Boolean(row.is_active),
+    is_system: Boolean(row.is_system),
+    metadata: (row.metadata as Record<string, unknown>) || {},
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
 }
 
 /**
- * Converts database row to StepDefinition type.
+ * Converts database row to Playbook type.
  */
-function toStepDefinition(row: Record<string, unknown>): StepDefinition {
+function toPlaybook(row: Record<string, unknown>): Playbook {
   return {
     id: String(row.id),
     name: String(row.name),
     display_name: String(row.display_name),
     description: row.description ? String(row.description) : null,
-    icon: row.icon ? String(row.icon) : null,
-    is_template: Boolean(row.is_template),
-    is_system: Boolean(row.is_system),
-    legacy_step_type: row.legacy_step_type ? String(row.legacy_step_type) : null,
-    created_by: row.created_by ? String(row.created_by) : null,
     workstream_type_id: row.workstream_type_id ? String(row.workstream_type_id) : null,
+    version: Number(row.version),
+    is_active: Boolean(row.is_active),
+    is_template: Boolean(row.is_template),
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    created_by: row.created_by ? String(row.created_by) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
 }
 
 /**
- * Converts database row to StepDefinitionBrick type.
+ * Converts database row to PlaybookPattern type.
  */
-function toStepDefinitionBrick(row: Record<string, unknown>): StepDefinitionBrick {
+function toPlaybookPattern(row: Record<string, unknown>): PlaybookPattern {
   return {
     id: String(row.id),
-    step_definition_id: String(row.step_definition_id),
-    brick_id: String(row.brick_id),
+    playbook_id: String(row.playbook_id),
+    name: String(row.name),
+    display_name: String(row.display_name),
+    description: row.description ? String(row.description) : null,
+    pattern_type: String(row.pattern_type) as PlaybookPattern['pattern_type'],
+    trigger_conditions: (row.trigger_conditions as Record<string, unknown>) || {},
+    is_active: Boolean(row.is_active),
     position: Number(row.position),
-    input_config: (row.input_config as StepDefinitionBrick['input_config']) || {},
-    output_mapping: (row.output_mapping as StepDefinitionBrick['output_mapping']) || {},
-    execution_condition: row.execution_condition as StepDefinitionBrick['execution_condition'] | null,
+    metadata: (row.metadata as Record<string, unknown>) || {},
     created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  };
+}
+
+/**
+ * Converts database row to PlaybookPlay type.
+ */
+function toPlaybookPlay(row: Record<string, unknown>): PlaybookPlay {
+  return {
+    id: String(row.id),
+    pattern_id: String(row.pattern_id),
+    name: String(row.name),
+    display_name: String(row.display_name),
+    description: row.description ? String(row.description) : null,
+    brick_id: row.brick_id ? String(row.brick_id) : null,
+    config: (row.config as Record<string, unknown>) || {},
+    input_mapping: (row.input_mapping as Record<string, unknown>) || {},
+    output_mapping: (row.output_mapping as Record<string, unknown>) || {},
+    execution_conditions: (row.execution_conditions as Record<string, unknown>) || {},
+    is_active: Boolean(row.is_active),
+    position: Number(row.position),
+    estimated_duration_minutes: row.estimated_duration_minutes ? Number(row.estimated_duration_minutes) : null,
+    sla_hours: row.sla_hours ? Number(row.sla_hours) : null,
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  };
+}
+
+/**
+ * Converts database row to WorkflowNode type.
+ */
+function toWorkflowNode(row: Record<string, unknown>): WorkflowNode {
+  return {
+    id: String(row.id),
+    play_id: String(row.play_id),
+    node_type: String(row.node_type) as WorkflowNode['node_type'],
+    brick_id: row.brick_id ? String(row.brick_id) : null,
+    config: (row.config as Record<string, unknown>) || {},
+    position_x: Number(row.position_x) || 0,
+    position_y: Number(row.position_y) || 0,
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    created_at: String(row.created_at),
+  };
+}
+
+/**
+ * Converts database row to WorkflowEdge type.
+ */
+function toWorkflowEdge(row: Record<string, unknown>): WorkflowEdge {
+  return {
+    id: String(row.id),
+    play_id: String(row.play_id),
+    source_node_id: String(row.source_node_id),
+    target_node_id: String(row.target_node_id),
+    edge_type: String(row.edge_type) as WorkflowEdge['edge_type'],
+    condition: row.condition as Record<string, unknown> | null,
+    label: row.label ? String(row.label) : null,
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    created_at: String(row.created_at),
+  };
+}
+
+/**
+ * Converts database row to NodeExecutionState type.
+ */
+function toNodeExecutionState(row: Record<string, unknown>): NodeExecutionState {
+  return {
+    id: String(row.id),
+    workstream_id: String(row.workstream_id),
+    play_id: String(row.play_id),
+    node_id: String(row.node_id),
+    status: String(row.status) as NodeExecutionState['status'],
+    inputs: (row.inputs as Record<string, unknown>) || {},
+    outputs: (row.outputs as Record<string, unknown>) || {},
+    error: row.error ? String(row.error) : null,
+    started_at: row.started_at ? String(row.started_at) : null,
+    completed_at: row.completed_at ? String(row.completed_at) : null,
+    executed_by: row.executed_by ? String(row.executed_by) : null,
+    retry_count: Number(row.retry_count) || 0,
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
   };
 }
 
@@ -88,7 +182,8 @@ export async function loadAllBricks(): Promise<Brick[]> {
     .from('bricks')
     .select('*')
     .eq('is_active', true)
-    .order('brick_number');
+    .order('brick_category')
+    .order('name');
 
   if (error) {
     console.error('[BrickService] Error loading bricks:', error);
@@ -109,8 +204,27 @@ export async function loadBrickById(brickId: string): Promise<Brick | null> {
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') return null; // Not found
+    if (error.code === 'PGRST116') return null;
     console.error('[BrickService] Error loading brick:', error);
+    throw new Error(`Failed to load brick: ${error.message}`);
+  }
+
+  return data ? toBrick(data) : null;
+}
+
+/**
+ * Loads a single brick by name.
+ */
+export async function loadBrickByName(brickName: string): Promise<Brick | null> {
+  const { data, error } = await supabase
+    .from('bricks')
+    .select('*')
+    .eq('name', brickName)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    console.error('[BrickService] Error loading brick by name:', error);
     throw new Error(`Failed to load brick: ${error.message}`);
   }
 
@@ -143,17 +257,399 @@ export async function loadBricksByIds(brickIds: string[]): Promise<Map<string, B
 }
 
 /**
- * Loads all brick categories.
+ * Loads bricks by category.
  */
-export async function loadBrickCategories(): Promise<BrickCategory[]> {
+export async function loadBricksByCategory(category: BrickCategory): Promise<Brick[]> {
   const { data, error } = await supabase
-    .from('brick_categories')
+    .from('bricks')
     .select('*')
-    .order('display_order');
+    .eq('brick_category', category)
+    .eq('is_active', true)
+    .order('name');
 
   if (error) {
-    console.error('[BrickService] Error loading categories:', error);
-    throw new Error(`Failed to load brick categories: ${error.message}`);
+    console.error('[BrickService] Error loading bricks by category:', error);
+    throw new Error(`Failed to load bricks: ${error.message}`);
+  }
+
+  return (data || []).map(toBrick);
+}
+
+// ============================================================================
+// PLAYBOOK LOADING
+// ============================================================================
+
+/**
+ * Loads all active playbooks.
+ */
+export async function loadPlaybooks(): Promise<Playbook[]> {
+  const { data, error } = await supabase
+    .from('playbooks')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_name');
+
+  if (error) {
+    console.error('[BrickService] Error loading playbooks:', error);
+    throw new Error(`Failed to load playbooks: ${error.message}`);
+  }
+
+  return (data || []).map(toPlaybook);
+}
+
+/**
+ * Loads a playbook by ID.
+ */
+export async function loadPlaybookById(playbookId: string): Promise<Playbook | null> {
+  const { data, error } = await supabase
+    .from('playbooks')
+    .select('*')
+    .eq('id', playbookId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    console.error('[BrickService] Error loading playbook:', error);
+    throw new Error(`Failed to load playbook: ${error.message}`);
+  }
+
+  return data ? toPlaybook(data) : null;
+}
+
+/**
+ * Loads playbook templates.
+ */
+export async function loadPlaybookTemplates(): Promise<Playbook[]> {
+  const { data, error } = await supabase
+    .from('playbooks')
+    .select('*')
+    .eq('is_template', true)
+    .eq('is_active', true)
+    .order('display_name');
+
+  if (error) {
+    console.error('[BrickService] Error loading playbook templates:', error);
+    throw new Error(`Failed to load playbook templates: ${error.message}`);
+  }
+
+  return (data || []).map(toPlaybook);
+}
+
+/**
+ * Loads playbook by workstream type.
+ */
+export async function loadPlaybookByWorkstreamType(workstreamTypeId: string): Promise<Playbook | null> {
+  const { data, error } = await supabase
+    .from('playbooks')
+    .select('*')
+    .eq('workstream_type_id', workstreamTypeId)
+    .eq('is_active', true)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    console.error('[BrickService] Error loading playbook by workstream type:', error);
+    throw new Error(`Failed to load playbook: ${error.message}`);
+  }
+
+  return data ? toPlaybook(data) : null;
+}
+
+// ============================================================================
+// PATTERN LOADING
+// ============================================================================
+
+/**
+ * Loads patterns for a playbook.
+ */
+export async function loadPlaybookPatterns(playbookId: string): Promise<PlaybookPattern[]> {
+  const { data, error } = await supabase
+    .from('playbook_patterns')
+    .select('*')
+    .eq('playbook_id', playbookId)
+    .eq('is_active', true)
+    .order('position');
+
+  if (error) {
+    console.error('[BrickService] Error loading playbook patterns:', error);
+    throw new Error(`Failed to load playbook patterns: ${error.message}`);
+  }
+
+  return (data || []).map(toPlaybookPattern);
+}
+
+/**
+ * Loads a pattern by ID.
+ */
+export async function loadPatternById(patternId: string): Promise<PlaybookPattern | null> {
+  const { data, error } = await supabase
+    .from('playbook_patterns')
+    .select('*')
+    .eq('id', patternId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    console.error('[BrickService] Error loading pattern:', error);
+    throw new Error(`Failed to load pattern: ${error.message}`);
+  }
+
+  return data ? toPlaybookPattern(data) : null;
+}
+
+// ============================================================================
+// PLAY LOADING
+// ============================================================================
+
+/**
+ * Loads plays for a pattern.
+ */
+export async function loadPlaybookPlays(patternId: string): Promise<PlaybookPlay[]> {
+  const { data, error } = await supabase
+    .from('playbook_plays')
+    .select('*')
+    .eq('pattern_id', patternId)
+    .eq('is_active', true)
+    .order('position');
+
+  if (error) {
+    console.error('[BrickService] Error loading playbook plays:', error);
+    throw new Error(`Failed to load playbook plays: ${error.message}`);
+  }
+
+  return (data || []).map(toPlaybookPlay);
+}
+
+/**
+ * Loads a play by ID.
+ */
+export async function loadPlayById(playId: string): Promise<PlaybookPlay | null> {
+  const { data, error } = await supabase
+    .from('playbook_plays')
+    .select('*')
+    .eq('id', playId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    console.error('[BrickService] Error loading play:', error);
+    throw new Error(`Failed to load play: ${error.message}`);
+  }
+
+  return data ? toPlaybookPlay(data) : null;
+}
+
+// ============================================================================
+// WORKFLOW NODE/EDGE LOADING
+// ============================================================================
+
+/**
+ * Loads workflow nodes for a play.
+ */
+export async function loadWorkflowNodes(playId: string): Promise<WorkflowNode[]> {
+  const { data, error } = await supabase
+    .from('workflow_nodes')
+    .select('*')
+    .eq('play_id', playId);
+
+  if (error) {
+    console.error('[BrickService] Error loading workflow nodes:', error);
+    throw new Error(`Failed to load workflow nodes: ${error.message}`);
+  }
+
+  return (data || []).map(toWorkflowNode);
+}
+
+/**
+ * Loads workflow edges for a play.
+ */
+export async function loadWorkflowEdges(playId: string): Promise<WorkflowEdge[]> {
+  const { data, error } = await supabase
+    .from('workflow_edges')
+    .select('*')
+    .eq('play_id', playId);
+
+  if (error) {
+    console.error('[BrickService] Error loading workflow edges:', error);
+    throw new Error(`Failed to load workflow edges: ${error.message}`);
+  }
+
+  return (data || []).map(toWorkflowEdge);
+}
+
+/**
+ * Builds a DAG from play nodes and edges.
+ */
+export async function buildPlayDAG(play: PlaybookPlay): Promise<DAG> {
+  const [nodes, edges] = await Promise.all([
+    loadWorkflowNodes(play.id),
+    loadWorkflowEdges(play.id),
+  ]);
+
+  // Load bricks for brick nodes
+  const brickIds = nodes
+    .filter(n => n.brick_id)
+    .map(n => n.brick_id as string);
+  const bricks = await loadBricksByIds(brickIds);
+
+  // Build DAG structure
+  const dagNodes = new Map<string, DAGNode>();
+  let startNode: DAGNode | null = null;
+  const endNodes: DAGNode[] = [];
+
+  for (const node of nodes) {
+    const incomingEdges = edges.filter(e => e.target_node_id === node.id);
+    const outgoingEdges = edges.filter(e => e.source_node_id === node.id);
+
+    const dagNode: DAGNode = {
+      id: node.id,
+      node,
+      brick: node.brick_id ? bricks.get(node.brick_id) || null : null,
+      incomingEdges,
+      outgoingEdges,
+    };
+
+    dagNodes.set(node.id, dagNode);
+
+    if (node.node_type === 'start') {
+      startNode = dagNode;
+    }
+    if (node.node_type === 'end') {
+      endNodes.push(dagNode);
+    }
+  }
+
+  return {
+    nodes: dagNodes,
+    startNode,
+    endNodes,
+    play,
+  };
+}
+
+// ============================================================================
+// NODE EXECUTION STATE
+// ============================================================================
+
+/**
+ * Loads execution state for a workstream's play.
+ */
+export async function loadNodeExecutionStates(
+  workstreamId: string,
+  playId: string
+): Promise<NodeExecutionState[]> {
+  const { data, error } = await supabase
+    .from('node_execution_state')
+    .select('*')
+    .eq('workstream_id', workstreamId)
+    .eq('play_id', playId);
+
+  if (error) {
+    console.error('[BrickService] Error loading node execution states:', error);
+    throw new Error(`Failed to load node execution states: ${error.message}`);
+  }
+
+  return (data || []).map(toNodeExecutionState);
+}
+
+/**
+ * Saves or updates node execution state.
+ */
+export async function saveNodeExecutionState(
+  state: Omit<NodeExecutionState, 'id' | 'created_at' | 'updated_at'>
+): Promise<NodeExecutionState> {
+  const { data, error } = await supabase
+    .from('node_execution_state')
+    .upsert(
+      {
+        workstream_id: state.workstream_id,
+        play_id: state.play_id,
+        node_id: state.node_id,
+        status: state.status,
+        inputs: state.inputs,
+        outputs: state.outputs,
+        error: state.error,
+        started_at: state.started_at,
+        completed_at: state.completed_at,
+        executed_by: state.executed_by,
+        retry_count: state.retry_count,
+        metadata: state.metadata,
+      },
+      { onConflict: 'workstream_id,play_id,node_id' }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[BrickService] Error saving node execution state:', error);
+    throw new Error(`Failed to save node execution state: ${error.message}`);
+  }
+
+  return toNodeExecutionState(data);
+}
+
+/**
+ * Updates node execution status.
+ */
+export async function updateNodeExecutionStatus(
+  workstreamId: string,
+  playId: string,
+  nodeId: string,
+  status: NodeExecutionState['status'],
+  outputs?: Record<string, unknown>,
+  error?: string
+): Promise<void> {
+  const updateData: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (outputs) {
+    updateData.outputs = outputs;
+  }
+
+  if (error !== undefined) {
+    updateData.error = error;
+  }
+
+  if (status === 'running') {
+    updateData.started_at = new Date().toISOString();
+  }
+
+  if (status === 'completed' || status === 'failed') {
+    updateData.completed_at = new Date().toISOString();
+  }
+
+  const { error: updateError } = await supabase
+    .from('node_execution_state')
+    .update(updateData)
+    .eq('workstream_id', workstreamId)
+    .eq('play_id', playId)
+    .eq('node_id', nodeId);
+
+  if (updateError) {
+    console.error('[BrickService] Error updating node execution status:', updateError);
+    throw new Error(`Failed to update node execution status: ${updateError.message}`);
+  }
+}
+
+// ============================================================================
+// LIBRARY LOADING
+// ============================================================================
+
+/**
+ * Loads all active libraries.
+ */
+export async function loadLibraries(): Promise<Library[]> {
+  const { data, error } = await supabase
+    .from('libraries')
+    .select('*')
+    .eq('is_active', true)
+    .order('display_name');
+
+  if (error) {
+    console.error('[BrickService] Error loading libraries:', error);
+    throw new Error(`Failed to load libraries: ${error.message}`);
   }
 
   return (data || []).map((row) => ({
@@ -161,167 +657,81 @@ export async function loadBrickCategories(): Promise<BrickCategory[]> {
     name: String(row.name),
     display_name: String(row.display_name),
     description: row.description ? String(row.description) : null,
-    display_order: Number(row.display_order),
-    icon: row.icon ? String(row.icon) : null,
+    library_type: String(row.library_type) as Library['library_type'],
+    owner_id: row.owner_id ? String(row.owner_id) : null,
+    is_active: Boolean(row.is_active),
+    metadata: (row.metadata as Record<string, unknown>) || {},
     created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
   }));
 }
 
-// ============================================================================
-// STEP DEFINITION LOADING
-// ============================================================================
-
 /**
- * Loads a step definition by ID.
+ * Loads artifacts from a library.
  */
-export async function loadStepDefinitionById(
-  stepDefinitionId: string
-): Promise<StepDefinition | null> {
+export async function loadLibraryArtifacts(libraryId: string): Promise<LibraryArtifact[]> {
   const { data, error } = await supabase
-    .from('step_definitions')
+    .from('library_artifacts')
     .select('*')
-    .eq('id', stepDefinitionId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    console.error('[BrickService] Error loading step definition:', error);
-    throw new Error(`Failed to load step definition: ${error.message}`);
-  }
-
-  return data ? toStepDefinition(data) : null;
-}
-
-/**
- * Loads a step definition by legacy step type.
- * Used to map old hardcoded step types to brick-based definitions.
- */
-export async function loadStepDefinitionByLegacyType(
-  legacyStepType: string
-): Promise<StepDefinition | null> {
-  const { data, error } = await supabase
-    .from('step_definitions')
-    .select('*')
-    .eq('legacy_step_type', legacyStepType)
-    .eq('is_system', true)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    console.error('[BrickService] Error loading step definition by legacy type:', error);
-    throw new Error(`Failed to load step definition: ${error.message}`);
-  }
-
-  return data ? toStepDefinition(data) : null;
-}
-
-/**
- * Loads all template step definitions (available for users to use).
- */
-export async function loadTemplateStepDefinitions(): Promise<StepDefinition[]> {
-  const { data, error } = await supabase
-    .from('step_definitions')
-    .select('*')
-    .eq('is_template', true)
+    .eq('library_id', libraryId)
+    .eq('is_active', true)
     .order('display_name');
 
   if (error) {
-    console.error('[BrickService] Error loading template step definitions:', error);
-    throw new Error(`Failed to load template step definitions: ${error.message}`);
+    console.error('[BrickService] Error loading library artifacts:', error);
+    throw new Error(`Failed to load library artifacts: ${error.message}`);
   }
 
-  return (data || []).map(toStepDefinition);
+  return (data || []).map((row) => ({
+    id: String(row.id),
+    library_id: String(row.library_id),
+    name: String(row.name),
+    display_name: String(row.display_name),
+    artifact_type: String(row.artifact_type) as LibraryArtifact['artifact_type'],
+    content: (row.content as Record<string, unknown>) || {},
+    file_url: row.file_url ? String(row.file_url) : null,
+    version: Number(row.version),
+    is_active: Boolean(row.is_active),
+    tags: (row.tags as string[]) || [],
+    metadata: (row.metadata as Record<string, unknown>) || {},
+    created_by: row.created_by ? String(row.created_by) : null,
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  }));
 }
 
-// ============================================================================
-// STEP DEFINITION BRICK LOADING
-// ============================================================================
-
 /**
- * Loads all bricks for a step definition, ordered by position.
+ * Loads templates from a library.
  */
-export async function loadStepDefinitionBricks(
-  stepDefinitionId: string
-): Promise<StepDefinitionBrick[]> {
+export async function loadLibraryTemplates(libraryId: string): Promise<LibraryTemplate[]> {
   const { data, error } = await supabase
-    .from('step_definition_bricks')
+    .from('library_templates')
     .select('*')
-    .eq('step_definition_id', stepDefinitionId)
-    .order('position');
+    .eq('library_id', libraryId)
+    .eq('is_active', true)
+    .order('display_name');
 
   if (error) {
-    console.error('[BrickService] Error loading step definition bricks:', error);
-    throw new Error(`Failed to load step definition bricks: ${error.message}`);
+    console.error('[BrickService] Error loading library templates:', error);
+    throw new Error(`Failed to load library templates: ${error.message}`);
   }
 
-  return (data || []).map(toStepDefinitionBrick);
-}
-
-/**
- * Loads a complete step definition with its bricks and brick details.
- */
-export async function loadStepDefinitionWithBricks(stepDefinitionId: string): Promise<{
-  stepDefinition: StepDefinition;
-  stepBricks: StepDefinitionBrick[];
-  bricks: Map<string, Brick>;
-} | null> {
-  const stepDefinition = await loadStepDefinitionById(stepDefinitionId);
-  if (!stepDefinition) return null;
-
-  const stepBricks = await loadStepDefinitionBricks(stepDefinitionId);
-  const brickIds = stepBricks.map((sb) => sb.brick_id);
-  const bricks = await loadBricksByIds(brickIds);
-
-  return { stepDefinition, stepBricks, bricks };
-}
-
-/**
- * Loads a step definition by legacy type with its bricks and brick details.
- */
-export async function loadLegacyStepWithBricks(legacyStepType: string): Promise<{
-  stepDefinition: StepDefinition;
-  stepBricks: StepDefinitionBrick[];
-  bricks: Map<string, Brick>;
-} | null> {
-  const stepDefinition = await loadStepDefinitionByLegacyType(legacyStepType);
-  if (!stepDefinition) return null;
-
-  const stepBricks = await loadStepDefinitionBricks(stepDefinition.id);
-  const brickIds = stepBricks.map((sb) => sb.brick_id);
-  const bricks = await loadBricksByIds(brickIds);
-
-  return { stepDefinition, stepBricks, bricks };
-}
-
-// ============================================================================
-// WORKSTREAM STEP HELPERS
-// ============================================================================
-
-/**
- * Maps legacy step_type values to the standardized legacy_step_type values
- * used in step_definitions.
- */
-export function normalizeLegacyStepType(stepType: string): string {
-  const mappings: Record<string, string> = {
-    // UI step types → database legacy_step_type
-    'request_information': 'request_information',
-    'request-information': 'request_information',
-    'approval': 'approval',
-    'approval_gate': 'approval',
-    'approval-gate': 'approval',
-    'generate_document': 'generate_document',
-    'generate-document': 'generate_document',
-    'send_notification': 'send_notification',
-    'send-notification': 'send_notification',
-    'assign_task': 'assign_task',
-    'assign-task': 'assign_task',
-    'task_assignment': 'assign_task',
-    'task-assignment': 'assign_task',
-    'send_reminder': 'send_reminder',
-    'send-reminder': 'send_reminder',
-  };
-
-  return mappings[stepType.toLowerCase()] || stepType;
+  return (data || []).map((row) => ({
+    id: String(row.id),
+    library_id: String(row.library_id),
+    name: String(row.name),
+    display_name: String(row.display_name),
+    description: row.description ? String(row.description) : null,
+    template_type: String(row.template_type) as LibraryTemplate['template_type'],
+    content: (row.content as Record<string, unknown>) || {},
+    parameters: (row.parameters as Record<string, unknown>) || {},
+    version: Number(row.version),
+    is_active: Boolean(row.is_active),
+    tags: (row.tags as string[]) || [],
+    created_by: row.created_by ? String(row.created_by) : null,
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  }));
 }
 
 // ============================================================================
@@ -329,7 +739,7 @@ export function normalizeLegacyStepType(stepType: string): string {
 // ============================================================================
 
 let brickCache: Map<string, Brick> | null = null;
-let categoryCache: BrickCategory[] | null = null;
+let brickByNameCache: Map<string, Brick> | null = null;
 
 /**
  * Gets all bricks, using cache if available.
@@ -338,6 +748,7 @@ export async function getBricks(): Promise<Map<string, Brick>> {
   if (!brickCache) {
     const bricks = await loadAllBricks();
     brickCache = new Map(bricks.map((b) => [b.id, b]));
+    brickByNameCache = new Map(bricks.map((b) => [b.name, b]));
   }
   return brickCache;
 }
@@ -346,21 +757,22 @@ export async function getBricks(): Promise<Map<string, Brick>> {
  * Gets brick by name from cache.
  */
 export async function getBrickByName(name: string): Promise<Brick | undefined> {
-  const bricks = await getBricks();
-  for (const brick of bricks.values()) {
-    if (brick.name === name) return brick;
+  if (!brickByNameCache) {
+    await getBricks();
   }
-  return undefined;
+  return brickByNameCache?.get(name);
 }
 
 /**
- * Gets all categories, using cache if available.
+ * Gets all unique brick categories.
  */
-export async function getCategories(): Promise<BrickCategory[]> {
-  if (!categoryCache) {
-    categoryCache = await loadBrickCategories();
+export async function getBrickCategories(): Promise<BrickCategory[]> {
+  const bricks = await getBricks();
+  const categories = new Set<BrickCategory>();
+  for (const brick of bricks.values()) {
+    categories.add(brick.brick_category);
   }
-  return categoryCache;
+  return Array.from(categories).sort();
 }
 
 /**
@@ -368,5 +780,5 @@ export async function getCategories(): Promise<BrickCategory[]> {
  */
 export function clearBrickCache(): void {
   brickCache = null;
-  categoryCache = null;
+  brickByNameCache = null;
 }

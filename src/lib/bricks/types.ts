@@ -1,21 +1,99 @@
 /**
  * Brick Architecture - Type Definitions
  *
- * Core types for the brick-based workflow execution engine.
+ * Core types for the refined brick-based workflow execution engine.
+ * Supports 26 bricks, 6 categories, patterns/plays model, and Library system.
  */
 
 // ============================================================================
-// DATABASE TYPES (match Supabase schema)
+// BRICK CATEGORIES
 // ============================================================================
 
-export interface BrickCategory {
+export type BrickCategory = 'data' | 'approval' | 'document' | 'workflow' | 'communication' | 'quality';
+
+// ============================================================================
+// LIBRARY SYSTEM TYPES
+// ============================================================================
+
+export interface Library {
   id: string;
   name: string;
   display_name: string;
   description: string | null;
-  display_order: number;
-  icon: string | null;
+  library_type: 'system' | 'organization' | 'user';
+  owner_id: string | null;
+  is_active: boolean;
+  metadata: Record<string, unknown>;
   created_at: string;
+  updated_at: string;
+}
+
+export interface LibraryArtifact {
+  id: string;
+  library_id: string;
+  name: string;
+  display_name: string;
+  artifact_type: 'document' | 'template' | 'clause' | 'checklist' | 'reference';
+  content: Record<string, unknown>;
+  file_url: string | null;
+  version: number;
+  is_active: boolean;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LibraryTemplate {
+  id: string;
+  library_id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  template_type: 'playbook' | 'pattern' | 'play' | 'checklist';
+  content: Record<string, unknown>;
+  parameters: Record<string, unknown>;
+  version: number;
+  is_active: boolean;
+  tags: string[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LibraryPackage {
+  id: string;
+  library_id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  package_contents: Array<{ type: string; id: string }>;
+  version: number;
+  is_active: boolean;
+  tags: string[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// PLAYBOOK SYSTEM TYPES
+// ============================================================================
+
+export interface Playbook {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  workstream_type_id: string | null;
+  version: number;
+  is_active: boolean;
+  is_template: boolean;
+  metadata: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Brick {
@@ -23,41 +101,145 @@ export interface Brick {
   name: string;
   display_name: string;
   purpose: string;
-  category_id: string;
-  brick_number: number;
+  brick_category: BrickCategory;
   input_schema: BrickInputSchema;
   output_schema: BrickOutputSchema;
-  dependencies: string[];
-  dependency_level: 'none' | 'light' | 'moderate' | 'complex';
-  is_container: boolean;
   is_active: boolean;
+  is_system: boolean;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
 
-export interface StepDefinition {
+export interface PlaybookPattern {
   id: string;
+  playbook_id: string;
   name: string;
   display_name: string;
   description: string | null;
-  icon: string | null;
-  is_template: boolean;
-  is_system: boolean;
-  legacy_step_type: string | null;
-  created_by: string | null;
-  workstream_type_id: string | null;
+  pattern_type: 'sequential' | 'parallel' | 'conditional' | 'loop';
+  trigger_conditions: Record<string, unknown>;
+  is_active: boolean;
+  position: number;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
 
-export interface StepDefinitionBrick {
+export interface PlaybookPlay {
   id: string;
-  step_definition_id: string;
-  brick_id: string;
+  pattern_id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  brick_id: string | null;
+  config: Record<string, unknown>;
+  input_mapping: Record<string, unknown>;
+  output_mapping: Record<string, unknown>;
+  execution_conditions: Record<string, unknown>;
+  is_active: boolean;
   position: number;
-  input_config: BrickInputConfig;
-  output_mapping: BrickOutputMapping;
-  execution_condition: BrickExecutionCondition | null;
+  estimated_duration_minutes: number | null;
+  sla_hours: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// WORKFLOW DAG TYPES
+// ============================================================================
+
+export type WorkflowNodeType = 'start' | 'brick' | 'fork' | 'join' | 'end' | 'decision';
+
+export interface WorkflowNode {
+  id: string;
+  play_id: string;
+  node_type: WorkflowNodeType;
+  brick_id: string | null;
+  config: Record<string, unknown>;
+  position_x: number;
+  position_y: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export type WorkflowEdgeType = 'default' | 'conditional' | 'error';
+
+export interface WorkflowEdge {
+  id: string;
+  play_id: string;
+  source_node_id: string;
+  target_node_id: string;
+  edge_type: WorkflowEdgeType;
+  condition: Record<string, unknown> | null;
+  label: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+// ============================================================================
+// EXECUTION SYSTEM TYPES
+// ============================================================================
+
+export type HandoffType = 'spawn' | 'transfer' | 'parallel' | 'merge';
+export type HandoffStatus = 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled';
+
+export interface WorkstreamHandoff {
+  id: string;
+  source_workstream_id: string;
+  target_workstream_id: string | null;
+  handoff_type: HandoffType;
+  status: HandoffStatus;
+  handoff_data: Record<string, unknown>;
+  initiated_by: string | null;
+  accepted_by: string | null;
+  initiated_at: string;
+  completed_at: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export type NodeExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting' | 'cancelled';
+
+export interface NodeExecutionState {
+  id: string;
+  workstream_id: string;
+  play_id: string;
+  node_id: string;
+  status: NodeExecutionStatus;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  executed_by: string | null;
+  retry_count: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  actor_id: string | null;
+  actor_role: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  context: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface BrickLibraryReference {
+  id: string;
+  play_id: string;
+  artifact_id: string;
+  reference_type: 'template' | 'document' | 'clause' | 'reference';
+  config: Record<string, unknown>;
   created_at: string;
 }
 
@@ -67,12 +249,11 @@ export interface StepDefinitionBrick {
 
 export interface BrickInputField {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'uuid' | 'timestamp' | 'any' | 'enum';
-  required: boolean;
-  description: string;
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'uuid' | 'timestamp' | 'any';
+  required?: boolean;
+  description?: string;
   default?: unknown;
-  options?: string[]; // For enum types
-  schema?: Record<string, unknown>; // For nested object types
+  options?: string[];
 }
 
 export interface BrickInputSchema {
@@ -81,10 +262,8 @@ export interface BrickInputSchema {
 
 export interface BrickOutputField {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'uuid' | 'timestamp' | 'enum';
-  description: string;
-  options?: string[]; // For enum types
-  schema?: Record<string, unknown>; // For nested object types
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'uuid' | 'timestamp' | 'any';
+  description?: string;
 }
 
 export interface BrickOutputSchema {
@@ -96,7 +275,7 @@ export interface BrickOutputSchema {
 // ============================================================================
 
 export interface InputSource {
-  source: 'step_config' | 'previous_output' | 'workstream' | 'context' | 'template' | 'literal';
+  source: 'play_config' | 'previous_output' | 'workstream' | 'context' | 'template' | 'literal';
   field?: string;
   default?: unknown;
   transform?: string;
@@ -109,7 +288,7 @@ export type BrickInputConfig = Record<string, InputSource | unknown>;
 export type BrickOutputMapping = Record<string, string>;
 
 export interface BrickExecutionCondition {
-  when: string; // Expression to evaluate
+  when: string;
 }
 
 // ============================================================================
@@ -125,32 +304,27 @@ export interface WorkstreamContext {
   annual_value: number | null;
   tier: string | null;
   stage: string | null;
-  [key: string]: unknown; // Additional workstream fields
+  play_id: string | null;
+  playbook_id: string | null;
+  current_node_ids: string[];
+  [key: string]: unknown;
 }
 
 export interface ExecutionContext {
-  // Workstream data
   workstream: WorkstreamContext;
-
-  // Step configuration (from workstream_steps.config)
-  step_config: Record<string, unknown>;
-
-  // Accumulated outputs from previous bricks in this step
+  play_config: Record<string, unknown>;
   previous_outputs: Record<string, unknown>;
-
-  // Current user information
   user: {
     id: string;
     email: string;
     role: string | null;
   } | null;
-
-  // Execution metadata
   execution: {
-    step_id: string;
-    step_definition_id: string;
+    play_id: string;
+    pattern_id: string;
+    playbook_id: string | null;
+    node_id: string;
     started_at: string;
-    brick_index: number;
   };
 }
 
@@ -170,6 +344,7 @@ export type BrickStatus =
 export interface BrickExecutionResult {
   brick_id: string;
   brick_name: string;
+  node_id: string;
   status: BrickStatus;
   outputs: Record<string, unknown>;
   error?: string;
@@ -178,22 +353,24 @@ export interface BrickExecutionResult {
   duration_ms?: number;
 }
 
-export interface StepExecutionResult {
-  step_definition_id: string;
+export interface PlayExecutionResult {
+  play_id: string;
   status: BrickStatus;
-  brick_results: BrickExecutionResult[];
+  node_results: BrickExecutionResult[];
   final_outputs: Record<string, unknown>;
   error?: string;
   started_at: string;
   completed_at?: string;
   requires_user_action?: boolean;
   pending_action?: PendingAction;
+  current_node_ids?: string[];
 }
 
 export interface PendingAction {
-  type: 'approval' | 'input' | 'document' | 'signature' | 'event';
+  type: 'approval' | 'input' | 'document' | 'signature' | 'event' | 'review';
   brick_id: string;
   brick_name: string;
+  node_id: string;
   description: string;
   config: Record<string, unknown>;
 }
@@ -223,16 +400,10 @@ export interface BrickRegistry {
 // ============================================================================
 
 export interface EngineConfig {
-  // Whether to continue execution on non-fatal errors
   continueOnError: boolean;
-
-  // Maximum execution time per brick (ms)
   brickTimeoutMs: number;
-
-  // Maximum total execution time (ms)
   totalTimeoutMs: number;
-
-  // Whether to log execution details
+  maxParallelNodes: number;
   debug: boolean;
 }
 
@@ -240,5 +411,25 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   continueOnError: false,
   brickTimeoutMs: 30000,
   totalTimeoutMs: 300000,
+  maxParallelNodes: 10,
   debug: false,
 };
+
+// ============================================================================
+// DAG TRAVERSAL TYPES
+// ============================================================================
+
+export interface DAGNode {
+  id: string;
+  node: WorkflowNode;
+  brick: Brick | null;
+  incomingEdges: WorkflowEdge[];
+  outgoingEdges: WorkflowEdge[];
+}
+
+export interface DAG {
+  nodes: Map<string, DAGNode>;
+  startNode: DAGNode | null;
+  endNodes: DAGNode[];
+  play: PlaybookPlay;
+}

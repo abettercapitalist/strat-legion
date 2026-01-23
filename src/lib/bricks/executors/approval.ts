@@ -2,133 +2,13 @@
  * Approval Brick Executors
  *
  * Executors for approval workflow bricks.
- * Bricks: check_threshold, check_criteria, require_approval, auto_approve,
- *         multi_stage_approval, delegate_approval, record_decision
+ * Bricks: require_approval, auto_approve, escalate_approval, delegate_approval
  */
 
 import type { BrickExecutor, BrickRegistry } from '../types';
 
 // ============================================================================
-// CHECK THRESHOLD (Brick #6)
-// ============================================================================
-
-const checkThreshold: BrickExecutor = async (inputs, context) => {
-  const { field, operator, threshold, unit } = inputs;
-
-  const value = context.previous_outputs[String(field)] ??
-                context.workstream[String(field)];
-
-  let exceeds = false;
-  const numValue = Number(value);
-  const numThreshold = Number(threshold);
-
-  if (!isNaN(numValue) && !isNaN(numThreshold)) {
-    switch (operator) {
-      case '>':
-        exceeds = numValue > numThreshold;
-        break;
-      case '>=':
-        exceeds = numValue >= numThreshold;
-        break;
-      case '<':
-        exceeds = numValue < numThreshold;
-        break;
-      case '<=':
-        exceeds = numValue <= numThreshold;
-        break;
-      case '=':
-      case '==':
-        exceeds = numValue === numThreshold;
-        break;
-      case '!=':
-        exceeds = numValue !== numThreshold;
-        break;
-      default:
-        exceeds = numValue > numThreshold;
-    }
-  }
-
-  return {
-    status: 'completed',
-    outputs: {
-      exceeds_threshold: exceeds,
-      actual_value: numValue,
-      threshold_value: numThreshold,
-      comparison: `${numValue} ${operator || '>'} ${numThreshold}`,
-    },
-  };
-};
-
-// ============================================================================
-// CHECK CRITERIA (Brick #7)
-// ============================================================================
-
-const checkCriteria: BrickExecutor = async (inputs, context) => {
-  const { criteria_list, match_mode } = inputs;
-
-  const criteriaArray = Array.isArray(criteria_list) ? criteria_list : [];
-  const results: boolean[] = [];
-
-  for (const criterion of criteriaArray) {
-    const { field, operator, value } = criterion as {
-      field: string;
-      operator: string;
-      value: unknown;
-    };
-
-    const actualValue = context.previous_outputs[field] ?? context.workstream[field];
-    let met = false;
-
-    switch (operator) {
-      case '=':
-      case '==':
-        met = actualValue === value;
-        break;
-      case '!=':
-        met = actualValue !== value;
-        break;
-      case '>':
-        met = Number(actualValue) > Number(value);
-        break;
-      case '>=':
-        met = Number(actualValue) >= Number(value);
-        break;
-      case '<':
-        met = Number(actualValue) < Number(value);
-        break;
-      case '<=':
-        met = Number(actualValue) <= Number(value);
-        break;
-      case 'contains':
-        met = String(actualValue).includes(String(value));
-        break;
-      case 'in':
-        met = Array.isArray(value) && value.includes(actualValue);
-        break;
-      default:
-        met = actualValue === value;
-    }
-
-    results.push(met);
-  }
-
-  const allMet = results.every(Boolean);
-  const anyMet = results.some(Boolean);
-  const criteriaMet = match_mode === 'any' ? anyMet : allMet;
-
-  return {
-    status: 'completed',
-    outputs: {
-      all_criteria_met: allMet,
-      any_criteria_met: anyMet,
-      criteria_met: criteriaMet,
-      results_by_criterion: results,
-    },
-  };
-};
-
-// ============================================================================
-// REQUIRE APPROVAL (Brick #8)
+// REQUIRE APPROVAL
 // ============================================================================
 
 const requireApproval: BrickExecutor = async (inputs, context) => {
@@ -138,8 +18,23 @@ const requireApproval: BrickExecutor = async (inputs, context) => {
     sla_hours,
     escalation_rules,
     approval_context,
-    info_request_config,
   } = inputs;
+
+  // Check if approval has already been provided
+  const existingDecision = context.play_config.approval_decision ??
+                          context.previous_outputs.approval_decision;
+
+  if (existingDecision) {
+    return {
+      status: 'completed',
+      outputs: {
+        decision: existingDecision,
+        reasoning: context.play_config.approval_reasoning,
+        decided_by: context.play_config.approved_by ?? context.user?.id,
+        decided_at: context.play_config.approved_at ?? new Date().toISOString(),
+      },
+    };
+  }
 
   // This brick pauses execution waiting for approval
   return {
@@ -149,6 +44,7 @@ const requireApproval: BrickExecutor = async (inputs, context) => {
       type: 'approval',
       brick_id: 'require_approval',
       brick_name: 'Require Approval',
+      node_id: context.execution.node_id,
       description: `Approval required from ${approver_role}`,
       config: {
         approver_role,
@@ -156,16 +52,15 @@ const requireApproval: BrickExecutor = async (inputs, context) => {
         sla_hours,
         escalation_rules,
         approval_context,
-        info_request_config,
         workstream_id: context.workstream.id,
-        step_id: context.execution.step_id,
+        play_id: context.execution.play_id,
       },
     },
   };
 };
 
 // ============================================================================
-// AUTO APPROVE (Brick #9)
+// AUTO APPROVE
 // ============================================================================
 
 const autoApprove: BrickExecutor = async (inputs, context) => {
@@ -189,7 +84,7 @@ const autoApprove: BrickExecutor = async (inputs, context) => {
 
     const actualValue = context.previous_outputs[field] ??
                        context.workstream[field] ??
-                       context.step_config[field];
+                       context.play_config[field];
 
     let met = false;
 
@@ -219,6 +114,12 @@ const autoApprove: BrickExecutor = async (inputs, context) => {
       case 'not_in':
         met = Array.isArray(value) && !value.includes(actualValue);
         break;
+      case 'exists':
+        met = actualValue !== undefined && actualValue !== null;
+        break;
+      case 'not_exists':
+        met = actualValue === undefined || actualValue === null;
+        break;
       default:
         met = actualValue === value;
     }
@@ -227,12 +128,11 @@ const autoApprove: BrickExecutor = async (inputs, context) => {
   }
 
   const logic = condition_logic === 'OR' ? 'OR' : 'AND';
-  const conditionsMet = logic === 'OR'
-    ? results.some(Boolean)
-    : results.every(Boolean);
+  const conditionsMet = conditionArray.length === 0 ? true :
+    logic === 'OR' ? results.some(Boolean) : results.every(Boolean);
 
   // If conditions are met, auto-approve
-  if (conditionsMet || conditionArray.length === 0) {
+  if (conditionsMet) {
     return {
       status: 'completed',
       outputs: {
@@ -274,92 +174,47 @@ const autoApprove: BrickExecutor = async (inputs, context) => {
 };
 
 // ============================================================================
-// MULTI STAGE APPROVAL (Brick #10)
+// ESCALATE APPROVAL
 // ============================================================================
 
-const multiStageApproval: BrickExecutor = async (inputs, context) => {
-  const { stages, current_stage, require_all_stages } = inputs;
+const escalateApproval: BrickExecutor = async (inputs, context) => {
+  const { escalate_to_role, escalation_reason, urgency } = inputs;
 
-  const stageArray = Array.isArray(stages) ? stages : [];
-  const currentIdx = typeof current_stage === 'number' ? current_stage : 0;
-
-  if (currentIdx >= stageArray.length) {
-    // All stages complete
-    return {
-      status: 'completed',
-      outputs: {
-        all_stages_complete: true,
-        current_stage: currentIdx,
-        total_stages: stageArray.length,
-      },
-    };
-  }
-
-  const currentStage = stageArray[currentIdx] as {
-    approver_role: string;
-    stage_name: string;
-  };
+  const escalationId = `escalation_${Date.now()}`;
 
   return {
-    status: 'waiting_for_input',
+    status: 'completed',
     outputs: {
-      all_stages_complete: false,
-      current_stage: currentIdx,
-      total_stages: stageArray.length,
-    },
-    pending_action: {
-      type: 'approval',
-      brick_id: 'multi_stage_approval',
-      brick_name: `Stage ${currentIdx + 1}: ${currentStage.stage_name || 'Approval'}`,
-      description: `Stage ${currentIdx + 1} of ${stageArray.length}: Approval required from ${currentStage.approver_role}`,
-      config: {
-        stage: currentStage,
-        stage_index: currentIdx,
-        total_stages: stageArray.length,
-        workstream_id: context.workstream.id,
-      },
+      escalation_status: true,
+      escalation_id: escalationId,
+      escalated_to_role: escalate_to_role,
+      escalation_reason: escalation_reason,
+      urgency: urgency || 'medium',
+      escalated_at: new Date().toISOString(),
+      escalated_by: context.user?.id,
     },
   };
 };
 
 // ============================================================================
-// DELEGATE APPROVAL (Brick #11)
+// DELEGATE APPROVAL
 // ============================================================================
 
 const delegateApproval: BrickExecutor = async (inputs, context) => {
-  const { original_approver, delegate_to, reason, expires_at } = inputs;
+  const { delegate_to, delegation_reason, retain_visibility } = inputs;
 
-  // Record the delegation
+  const delegationId = `delegation_${Date.now()}`;
+
   return {
     status: 'completed',
     outputs: {
-      delegation_recorded: true,
-      original_approver: original_approver,
+      delegation_status: true,
+      delegation_id: delegationId,
       delegated_to: delegate_to,
-      delegation_reason: reason,
-      delegation_expires: expires_at,
+      delegation_reason: delegation_reason,
+      retain_visibility: retain_visibility !== false,
       delegated_at: new Date().toISOString(),
-    },
-  };
-};
-
-// ============================================================================
-// RECORD DECISION (Brick #38)
-// ============================================================================
-
-const recordDecision: BrickExecutor = async (inputs, context) => {
-  const { decision_type, decision_value, decision_by, rationale, evidence } = inputs;
-
-  return {
-    status: 'completed',
-    outputs: {
-      decision_recorded: true,
-      decision_type: decision_type,
-      decision_value: decision_value,
-      decided_by: decision_by || context.user?.id,
-      rationale: rationale,
-      evidence: evidence,
-      recorded_at: new Date().toISOString(),
+      delegated_by: context.user?.id,
     },
   };
 };
@@ -369,11 +224,8 @@ const recordDecision: BrickExecutor = async (inputs, context) => {
 // ============================================================================
 
 export const approvalExecutors: BrickRegistry = {
-  check_threshold: checkThreshold,
-  check_criteria: checkCriteria,
   require_approval: requireApproval,
   auto_approve: autoApprove,
-  multi_stage_approval: multiStageApproval,
+  escalate_approval: escalateApproval,
   delegate_approval: delegateApproval,
-  record_decision: recordDecision,
 };

@@ -1,52 +1,97 @@
 /**
  * Brick Architecture - Main Entry Point
  *
- * Exports all types, engine, and registry for the brick-based workflow system.
+ * Exports all types, engine, and registry for the refined brick-based workflow system.
+ * Supports 26 bricks, 6 categories, patterns/plays model, and Library system.
  */
 
-// Types
+// Types - Library System
 export type {
-  // Database types
+  Library,
+  LibraryArtifact,
+  LibraryTemplate,
+  LibraryPackage,
+} from './types';
+
+// Types - Playbook System
+export type {
   BrickCategory,
   Brick,
-  StepDefinition,
-  StepDefinitionBrick,
-  // Schema types
+  Playbook,
+  PlaybookPattern,
+  PlaybookPlay,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowNodeType,
+  WorkflowEdgeType,
+} from './types';
+
+// Types - Execution System
+export type {
+  WorkstreamHandoff,
+  HandoffType,
+  HandoffStatus,
+  NodeExecutionState,
+  NodeExecutionStatus,
+  AuditLogEntry,
+  BrickLibraryReference,
+} from './types';
+
+// Types - Schema
+export type {
   BrickInputField,
   BrickInputSchema,
   BrickOutputField,
   BrickOutputSchema,
-  // Configuration types
+} from './types';
+
+// Types - Configuration
+export type {
   InputSource,
   BrickInputConfig,
   BrickOutputMapping,
   BrickExecutionCondition,
-  // Context types
+} from './types';
+
+// Types - Context
+export type {
   WorkstreamContext,
   ExecutionContext,
-  // Result types
+} from './types';
+
+// Types - Results
+export type {
   BrickStatus,
   BrickExecutionResult,
-  StepExecutionResult,
+  PlayExecutionResult,
   PendingAction,
-  // Executor types
+} from './types';
+
+// Types - Executor
+export type {
   BrickExecutor,
   BrickExecutorResult,
   BrickRegistry,
-  // Configuration
+} from './types';
+
+// Types - Engine
+export type {
   EngineConfig,
+  DAG,
+  DAGNode,
 } from './types';
 
 export { DEFAULT_ENGINE_CONFIG } from './types';
 
 // Engine
 export {
-  BrickEngine,
   createBrickEngine,
   resolveInputs,
   evaluateCondition,
   mapOutputs,
 } from './engine';
+
+export type { BrickEngine } from './engine';
 
 // Registry
 export {
@@ -55,37 +100,58 @@ export {
   hasExecutor,
   getExecutor,
   listRegisteredBricks,
+  clearRegistry,
 } from './registry';
 
-// Services
+// Services - Data Layer
 export {
-  // Supabase data layer
+  // Brick loading
   loadAllBricks,
   loadBrickById,
+  loadBrickByName,
   loadBricksByIds,
-  loadBrickCategories,
-  loadStepDefinitionById,
-  loadStepDefinitionByLegacyType,
-  loadTemplateStepDefinitions,
-  loadStepDefinitionBricks,
-  loadStepDefinitionWithBricks,
-  loadLegacyStepWithBricks,
-  normalizeLegacyStepType,
+  loadBricksByCategory,
   getBricks,
   getBrickByName,
-  getCategories,
+  getBrickCategories,
   clearBrickCache,
-  // Step executor
-  executeWorkstreamStep,
-  resumeStepExecution,
-  hasBrickDefinition,
-  getPendingAction,
+  // Playbook loading
+  loadPlaybooks,
+  loadPlaybookById,
+  loadPlaybookTemplates,
+  loadPlaybookByWorkstreamType,
+  // Pattern loading
+  loadPlaybookPatterns,
+  loadPatternById,
+  // Play loading
+  loadPlaybookPlays,
+  loadPlayById,
+  // Workflow DAG
+  loadWorkflowNodes,
+  loadWorkflowEdges,
+  buildPlayDAG,
+  // Node execution state
+  loadNodeExecutionStates,
+  saveNodeExecutionState,
+  updateNodeExecutionStatus,
+  // Library loading
+  loadLibraries,
+  loadLibraryArtifacts,
+  loadLibraryTemplates,
+} from './services';
+
+// Services - Play Executor
+export {
+  executePlay,
+  resumePlayExecution,
+  hasActivePlay,
+  getPendingPlayAction,
+  assignPlayToWorkstream,
 } from './services';
 
 export type {
-  WorkstreamStep,
   Workstream,
   CurrentUser,
-  StepExecutionOptions,
-  StepExecutionOutcome,
+  PlayExecutionOptions,
+  PlayExecutionOutcome,
 } from './services';

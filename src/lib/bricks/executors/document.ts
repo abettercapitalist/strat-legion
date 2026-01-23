@@ -2,21 +2,20 @@
  * Document Brick Executors
  *
  * Executors for document generation, storage, and management bricks.
- * Bricks: generate_document, request_signature, require_document,
- *         extract_from_document, store_document
+ * Bricks: generate_document, collect_document, validate_document,
+ *         store_document, send_document, collect_signature
  */
 
 import type { BrickExecutor, BrickRegistry } from '../types';
 
 // ============================================================================
-// GENERATE DOCUMENT (Brick #12)
+// GENERATE DOCUMENT
 // ============================================================================
 
 const generateDocument: BrickExecutor = async (inputs, context) => {
   const { template_id, data_mapping, output_format, output_name } = inputs;
 
   // In a real implementation, this would call the document generation service
-  // For now, return a placeholder response
   const documentId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   return {
@@ -33,43 +32,26 @@ const generateDocument: BrickExecutor = async (inputs, context) => {
 };
 
 // ============================================================================
-// REQUEST SIGNATURE (Brick #13)
+// COLLECT DOCUMENT
 // ============================================================================
 
-const requestSignature: BrickExecutor = async (inputs, context) => {
-  const { document_id, signers, signature_order, due_date, reminder_frequency } = inputs;
+const collectDocument: BrickExecutor = async (inputs, context) => {
+  const { document_type, required, accepted_formats, max_size_mb } = inputs;
 
-  // This brick pauses execution waiting for signatures
-  return {
-    status: 'waiting_for_event',
-    outputs: {
-      signature_request_id: `sig_${Date.now()}`,
-      document_id: document_id,
-      requested_at: new Date().toISOString(),
-    },
-    pending_action: {
-      type: 'signature',
-      brick_id: 'request_signature',
-      brick_name: 'Request Signature',
-      description: 'Document signature required',
-      config: {
-        document_id,
-        signers: signers || [],
-        signature_order: signature_order || 'parallel',
-        due_date,
-        reminder_frequency,
-        workstream_id: context.workstream.id,
+  // Check if document has already been provided
+  const existingDocument = context.play_config.uploaded_document_id ??
+                          context.previous_outputs.document_id;
+
+  if (existingDocument) {
+    return {
+      status: 'completed',
+      outputs: {
+        document_id: existingDocument,
+        document_metadata: context.play_config.document_metadata || {},
+        uploaded_at: context.play_config.uploaded_at ?? new Date().toISOString(),
       },
-    },
-  };
-};
-
-// ============================================================================
-// REQUIRE DOCUMENT (Brick #14)
-// ============================================================================
-
-const requireDocument: BrickExecutor = async (inputs, context) => {
-  const { document_type, description, required_fields, validation_rules } = inputs;
+    };
+  }
 
   // This brick pauses execution waiting for document upload
   return {
@@ -77,13 +59,15 @@ const requireDocument: BrickExecutor = async (inputs, context) => {
     outputs: {},
     pending_action: {
       type: 'document',
-      brick_id: 'require_document',
-      brick_name: 'Require Document',
-      description: description || `Please upload: ${document_type}`,
+      brick_id: 'collect_document',
+      brick_name: 'Collect Document',
+      node_id: context.execution.node_id,
+      description: `Please upload: ${document_type}`,
       config: {
         document_type,
-        required_fields: required_fields || [],
-        validation_rules,
+        required: required !== false,
+        accepted_formats: accepted_formats || ['pdf', 'docx', 'doc'],
+        max_size_mb: max_size_mb || 10,
         workstream_id: context.workstream.id,
       },
     },
@@ -91,32 +75,34 @@ const requireDocument: BrickExecutor = async (inputs, context) => {
 };
 
 // ============================================================================
-// EXTRACT FROM DOCUMENT (Brick #50)
+// VALIDATE DOCUMENT
 // ============================================================================
 
-const extractFromDocument: BrickExecutor = async (inputs, context) => {
-  const { document_id, extraction_fields, extraction_method } = inputs;
+const validateDocument: BrickExecutor = async (inputs, context) => {
+  const { document_id, validation_criteria, required_fields } = inputs;
 
-  // In a real implementation, this would use OCR/AI to extract data
-  // For now, return a placeholder
+  // In a real implementation, this would validate the document content
+  // For now, return a successful validation
   return {
     status: 'completed',
     outputs: {
-      extracted_data: {},
-      extraction_confidence: 0,
-      extraction_method: extraction_method || 'manual',
+      is_valid: true,
+      validation_details: {
+        criteria_checked: validation_criteria || {},
+        required_fields_present: required_fields || [],
+      },
       document_id: document_id,
-      extracted_at: new Date().toISOString(),
+      validated_at: new Date().toISOString(),
     },
   };
 };
 
 // ============================================================================
-// STORE DOCUMENT (Brick #15)
+// STORE DOCUMENT
 // ============================================================================
 
 const storeDocument: BrickExecutor = async (inputs, context) => {
-  const { document_id, repository, folder, metadata, access_permissions } = inputs;
+  const { document_id, repository, folder, access_permissions } = inputs;
 
   // In a real implementation, this would move/copy the document to storage
   const storageLocation = `${repository || 'default'}/${folder || context.workstream.id}/${document_id}`;
@@ -125,53 +111,86 @@ const storeDocument: BrickExecutor = async (inputs, context) => {
     status: 'completed',
     outputs: {
       storage_location: storageLocation,
+      storage_status: true,
       document_id: document_id,
       repository: repository || 'default',
       folder: folder || context.workstream.id,
+      access_permissions: access_permissions || {},
       stored_at: new Date().toISOString(),
     },
   };
 };
 
 // ============================================================================
-// VERSION DOCUMENT (Brick #51)
+// SEND DOCUMENT
 // ============================================================================
 
-const versionDocument: BrickExecutor = async (inputs, context) => {
-  const { document_id, version_label, change_description } = inputs;
+const sendDocument: BrickExecutor = async (inputs, context) => {
+  const { document_id, recipients, delivery_method, message } = inputs;
 
-  const versionId = `v_${Date.now()}`;
+  const deliveryId = `delivery_${Date.now()}`;
+  const recipientList = Array.isArray(recipients) ? recipients : [recipients];
 
+  // In a real implementation, this would send the document via the specified method
   return {
     status: 'completed',
     outputs: {
-      version_id: versionId,
+      delivery_status: true,
+      delivery_id: deliveryId,
       document_id: document_id,
-      version_label: version_label || versionId,
-      change_description: change_description,
-      versioned_at: new Date().toISOString(),
+      recipients: recipientList,
+      delivery_method: delivery_method || 'email',
+      message: message,
+      sent_at: new Date().toISOString(),
     },
   };
 };
 
 // ============================================================================
-// COMPARE DOCUMENTS (Brick #52)
+// COLLECT SIGNATURE
 // ============================================================================
 
-const compareDocuments: BrickExecutor = async (inputs, context) => {
-  const { document_a_id, document_b_id, comparison_type } = inputs;
+const collectSignature: BrickExecutor = async (inputs, context) => {
+  const { document_id, signers, signature_order, due_date } = inputs;
 
-  // In a real implementation, this would perform document comparison
+  // Check if signatures have been collected
+  const signaturesComplete = context.play_config.signatures_complete;
+
+  if (signaturesComplete) {
+    return {
+      status: 'completed',
+      outputs: {
+        all_signed: true,
+        signatures: context.play_config.signatures || [],
+        completed_at: new Date().toISOString(),
+      },
+    };
+  }
+
+  const signatureRequestId = `sig_${Date.now()}`;
+  const signerList = Array.isArray(signers) ? signers : [signers];
+
+  // This brick pauses waiting for signatures
   return {
-    status: 'completed',
+    status: 'waiting_for_event',
     outputs: {
-      comparison_id: `cmp_${Date.now()}`,
-      document_a: document_a_id,
-      document_b: document_b_id,
-      differences: [],
-      similarity_score: 1.0,
-      comparison_type: comparison_type || 'text',
-      compared_at: new Date().toISOString(),
+      signature_request_id: signatureRequestId,
+      document_id: document_id,
+      requested_at: new Date().toISOString(),
+    },
+    pending_action: {
+      type: 'signature',
+      brick_id: 'collect_signature',
+      brick_name: 'Collect Signature',
+      node_id: context.execution.node_id,
+      description: 'Document signature required',
+      config: {
+        document_id,
+        signers: signerList,
+        signature_order: signature_order || 'parallel',
+        due_date,
+        workstream_id: context.workstream.id,
+      },
     },
   };
 };
@@ -182,10 +201,9 @@ const compareDocuments: BrickExecutor = async (inputs, context) => {
 
 export const documentExecutors: BrickRegistry = {
   generate_document: generateDocument,
-  request_signature: requestSignature,
-  require_document: requireDocument,
-  extract_from_document: extractFromDocument,
+  collect_document: collectDocument,
+  validate_document: validateDocument,
   store_document: storeDocument,
-  version_document: versionDocument,
-  compare_documents: compareDocuments,
+  send_document: sendDocument,
+  collect_signature: collectSignature,
 };
