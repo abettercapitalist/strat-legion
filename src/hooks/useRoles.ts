@@ -49,7 +49,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
     queryKey: ["roles", options?.workRoutingOnly],
     queryFn: async () => {
       let query = supabase
-        .from("custom_roles")
+        .from("roles")
         .select("*")
         .order("is_system_role", { ascending: false })
         .order("name", { ascending: true });
@@ -67,7 +67,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
   const createRole = useMutation({
     mutationFn: async (input: CreateRoleInput) => {
       const { data, error } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .insert({
           name: input.name,
           display_name: input.display_name || input.name,
@@ -84,7 +84,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
     },
     onSuccess: (newRole) => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
-      queryClient.invalidateQueries({ queryKey: ["custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
       toast({
         title: "Role created",
         description: `${newRole.display_name || newRole.name} has been added successfully.`,
@@ -102,7 +102,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
   const updateRole = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: UpdateRoleInput }) => {
       const { data, error } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .update(updates)
         .eq("id", id)
         .select()
@@ -113,7 +113,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
-      queryClient.invalidateQueries({ queryKey: ["custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
     },
     onError: (error: Error) => {
       toast({
@@ -127,7 +127,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
   const deleteRole = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .delete()
         .eq("id", id);
 
@@ -135,7 +135,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
-      queryClient.invalidateQueries({ queryKey: ["custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
       queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
     },
     onError: (error: Error) => {

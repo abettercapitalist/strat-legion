@@ -462,16 +462,21 @@ Deno.serve(async (req) => {
         );
         primaryRole = 'team_member'; // Generic role for team-based approvals
       } else {
-        // Legacy: Resolve from user_roles table
-        const { data: roleUsers } = await supabaseAdmin
+        // Resolve from roles system
+        const { data: customRoleUsers } = await supabaseAdmin
           .from("user_roles")
-          .select("user_id, role")
-          .in("role", approverConfig.values);
-        
-        resolvedApproverIds = (roleUsers || [])
-          .map(u => u.user_id)
-          .filter(id => id !== excludeUserId);
-        
+          .select(`
+            user_id,
+            roles!inner (
+              name
+            )
+          `)
+          .in("roles.name", approverConfig.values);
+
+        resolvedApproverIds = (customRoleUsers || [])
+          .map((u: any) => u.user_id)
+          .filter((id: string) => id !== excludeUserId);
+
         primaryRole = approverConfig.values[0] || 'approver';
       }
       

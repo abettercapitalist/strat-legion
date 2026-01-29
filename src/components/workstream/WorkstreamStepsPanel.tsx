@@ -1,25 +1,28 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { 
-  HelpCircle, 
-  CheckCircle2, 
-  ClipboardList, 
-  FileText, 
-  ChevronDown, 
+import {
+  HelpCircle,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  ChevronDown,
   ChevronUp,
   ExternalLink,
-  PartyPopper
+  PartyPopper,
+  Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CompleteRequestInfoModal } from "./step-modals/CompleteRequestInfoModal";
 import { CompleteTaskModal } from "./step-modals/CompleteTaskModal";
 import { CompleteDocumentModal } from "./step-modals/CompleteDocumentModal";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
+import { usePlayExecution } from "@/hooks/usePlayExecution";
+import type { Workstream, CurrentUser } from "@/lib/bricks/services/playExecutor";
 
 interface WorkstreamStep {
   id: string;
@@ -78,18 +81,56 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     },
   });
 
-  // Check if user owns the workstream
+  // Load full workstream data for brick execution
   const { data: workstream } = useQuery({
-    queryKey: ["workstream-owner", workstreamId],
+    queryKey: ["workstream", workstreamId],
     queryFn: async () => {
       const { data } = await supabase
         .from("workstreams")
-        .select("owner_id")
+        .select("*")
         .eq("id", workstreamId)
         .single();
-      return data;
+      return data as Workstream | null;
     },
   });
+
+  // Load current user data
+  const { data: currentUser } = useQuery({
+    queryKey: ["current-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      return {
+        id: user.id,
+        email: user.email || "",
+        role: profile?.role || null,
+      } as CurrentUser;
+    },
+  });
+
+  // Play execution hook
+  const {
+    isExecuting: isPlayExecuting,
+    executePlay: executePlayAction,
+    checkActivePlay,
+  } = usePlayExecution();
+
+  // Track whether workstream has an active play
+  const [hasPlay, setHasPlay] = useState(false);
+
+  // Check if workstream has an active play
+  useEffect(() => {
+    const checkPlay = async () => {
+      const active = await checkActivePlay(workstreamId);
+      setHasPlay(active);
+    };
+    checkPlay();
+  }, [workstreamId, checkActivePlay]);
 
   const isOwner = workstream?.owner_id === userId;
   const canSeeAllSteps = isOwner || isManager;
@@ -106,7 +147,10 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
         return workRoutingRoleIds.includes(assignedRole);
       });
 
-  const handleCompleteClick = (step: WorkstreamStep) => {
+  // Handle step completion - uses modal for now until play-based UI is built
+  const handleStepComplete = async (step: WorkstreamStep) => {
+    // For now, always use modal until play execution UI is ready
+    // In the future, this will check if the step is part of a play and execute accordingly
     setSelectedStep(step);
     setModalType(step.step_type);
   };
@@ -254,8 +298,19 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
                           {getRequirementLabel(step)}
                           {!step.config?.assigned_role && " • Anyone can complete"}
                         </p>
-                        <Button size="sm" onClick={() => handleCompleteClick(step)}>
-                          Complete This Step
+                        <Button
+                          size="sm"
+                          onClick={() => handleStepComplete(step)}
+                          disabled={isPlayExecuting}
+                        >
+                          {isPlayExecuting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Executing...
+                            </>
+                          ) : (
+                            "Complete This Step"
+                          )}
                         </Button>
                       </>
                     )}

@@ -35,7 +35,7 @@ export function PlayApprovalSection({ config, onChange }: PlayApprovalSectionPro
   const [showAdvanced, setShowAdvanced] = useState(false);
   const { roles, isLoading } = useRoles({ workRoutingOnly: true });
   
-  // Dynamic roles from custom_roles table
+  // Dynamic roles from roles table
   const approverRoles = roles.map(r => ({
     value: r.id,
     label: r.display_name || r.name,

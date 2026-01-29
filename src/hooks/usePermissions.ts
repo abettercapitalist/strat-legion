@@ -51,10 +51,10 @@ export function usePermissions() {
 // Fetch all custom roles with their permissions
 export function useCustomRoles() {
   return useQuery({
-    queryKey: ["custom_roles"],
+    queryKey: ["roles"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .select("*")
         .order("name", { ascending: true });
       
@@ -82,10 +82,10 @@ export function useRolePermissions() {
 // Fetch user-role mappings
 export function useUserCustomRoles() {
   return useQuery({
-    queryKey: ["user_custom_roles"],
+    queryKey: ["user_roles"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("user_custom_roles")
+        .from("user_roles")
         .select("*");
       
       if (error) throw error;
@@ -101,7 +101,7 @@ export function useCreateRole() {
   return useMutation({
     mutationFn: async (role: { name: string; description: string; is_system_role?: boolean }) => {
       const { data, error } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .insert(role)
         .select()
         .single();
@@ -110,7 +110,7 @@ export function useCreateRole() {
       return data as CustomRole;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
     },
   });
 }
@@ -121,7 +121,7 @@ export function useUpdateRole() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CustomRole> }) => {
       const { data, error } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .update(updates)
         .eq("id", id)
         .select()
@@ -131,7 +131,7 @@ export function useUpdateRole() {
       return data as CustomRole;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
     },
   });
 }
@@ -142,14 +142,14 @@ export function useDeleteRole() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
       queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
     },
   });
@@ -189,7 +189,7 @@ export function useAssignUserRole() {
   return useMutation({
     mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
       const { data, error } = await supabase
-        .from("user_custom_roles")
+        .from("user_roles")
         .insert({ user_id: userId, role_id: roleId })
         .select()
         .single();
@@ -198,7 +198,7 @@ export function useAssignUserRole() {
       return data as UserCustomRole;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user_custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user_roles"] });
     },
   });
 }
@@ -209,7 +209,7 @@ export function useRemoveUserRole() {
   return useMutation({
     mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
       const { error } = await supabase
-        .from("user_custom_roles")
+        .from("user_roles")
         .delete()
         .eq("user_id", userId)
         .eq("role_id", roleId);
@@ -217,7 +217,7 @@ export function useRemoveUserRole() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user_custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user_roles"] });
     },
   });
 }
@@ -229,21 +229,21 @@ export function useSetUserRoles() {
     mutationFn: async ({ userId, roleIds }: { userId: string; roleIds: string[] }) => {
       // Delete existing roles for this user
       await supabase
-        .from("user_custom_roles")
+        .from("user_roles")
         .delete()
         .eq("user_id", userId);
       
       // Insert new roles
       if (roleIds.length > 0) {
         const { error } = await supabase
-          .from("user_custom_roles")
+          .from("user_roles")
           .insert(roleIds.map(rid => ({ user_id: userId, role_id: rid })));
         
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user_custom_roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user_roles"] });
     },
   });
 }

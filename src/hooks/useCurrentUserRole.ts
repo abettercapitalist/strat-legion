@@ -37,23 +37,12 @@ export function useCurrentUserRole(): UseCurrentUserRoleResult {
 
   const fetchUserRoles = useCallback(async (uid: string) => {
     try {
-      // Fetch legacy role
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", uid)
-        .maybeSingle();
-
-      if (!roleError && roleData) {
-        setRole(roleData.role);
-      }
-
       // Fetch custom roles (unified system)
       const { data: userCustomRoles, error: customError } = await supabase
-        .from("user_custom_roles")
+        .from("user_roles")
         .select(`
           role_id,
-          custom_roles (
+          roles (
             id,
             name,
             display_name,
@@ -66,9 +55,16 @@ export function useCurrentUserRole(): UseCurrentUserRoleResult {
 
       if (!customError && userCustomRoles) {
         const roles = userCustomRoles
-          .map((ucr: any) => ucr.custom_roles)
+          .map((ucr: any) => ucr.roles)
           .filter((r: any): r is CustomRole => r !== null);
         setCustomRoles(roles);
+
+        // Derive legacy role from custom roles for backward compatibility
+        const legacyRoleNames = ['general_counsel', 'legal_ops', 'contract_counsel', 'account_executive', 'sales_manager', 'finance_reviewer'];
+        const matchingRole = roles.find(r => legacyRoleNames.includes(r.name));
+        if (matchingRole) {
+          setRole(matchingRole.name as AppRole);
+        }
       }
     } catch (err) {
       console.error("Error in useCurrentUserRole:", err);

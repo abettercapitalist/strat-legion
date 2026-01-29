@@ -57,17 +57,26 @@ export default function Auth() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Get user's role
-    const { data: roleData } = await supabase
+    // Get user's role from roles (unified system)
+    const { data: userCustomRoles } = await supabase
       .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      .select(`
+        roles (
+          name
+        )
+      `)
+      .eq('user_id', user.id);
 
-    const userRole = roleData?.role as AppRole | null;
+    const roleNames = (userCustomRoles || [])
+      .map((ucr: any) => ucr.roles?.name)
+      .filter(Boolean);
 
-    // Redirect based on role
-    if (userRole === 'general_counsel' || userRole === 'legal_ops' || userRole === 'contract_counsel') {
+    // Redirect based on role - law roles go to /law, others go to /sales
+    const isLawRole = roleNames.some((name: string) =>
+      ['general_counsel', 'legal_ops', 'contract_counsel'].includes(name)
+    );
+
+    if (isLawRole) {
       navigate('/law');
     } else {
       navigate('/sales/deals');

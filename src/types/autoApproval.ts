@@ -46,7 +46,7 @@ export const DEVIATION_LABELS: Record<DeviationType, string> = {
 };
 
 export interface DeviationRoute {
-  approver_role: string; // Now stores role UUID from custom_roles
+  approver_role: string; // Now stores role UUID from roles
 }
 
 export interface AutoApprovalConfig {
@@ -64,7 +64,7 @@ export const DEFAULT_TIER_STANDARDS: TierStandards = {
 };
 
 /**
- * @deprecated Use RoleCombobox component instead which fetches roles dynamically from custom_roles table
+ * @deprecated Use RoleCombobox component instead which fetches roles dynamically from roles table
  */
 export const APPROVER_ROLE_OPTIONS = [
   { value: 'finance', label: 'Finance' },
