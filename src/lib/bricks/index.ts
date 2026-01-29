@@ -109,7 +109,7 @@ export type {
   DAGNode,
 } from './types';
 
-export { DEFAULT_ENGINE_CONFIG } from './types';
+export { DEFAULT_ENGINE_CONFIG, BRICK_CATEGORY_IDS, BRICK_CATEGORY_NAMES } from './types';
 
 // Engine
 export {

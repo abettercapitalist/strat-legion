@@ -23,6 +23,7 @@ import type {
   DAG,
   DAGNode,
 } from '../types';
+import { BRICK_CATEGORY_IDS, BRICK_CATEGORY_NAMES } from '../types';
 
 // ============================================================================
 // TYPE CONVERTERS
@@ -32,17 +33,21 @@ import type {
  * Converts database row to Brick type with proper JSON parsing.
  */
 function toBrick(row: Record<string, unknown>): Brick {
+  const categoryId = String(row.category_id);
   return {
     id: String(row.id),
     name: String(row.name),
     display_name: String(row.display_name),
     purpose: String(row.purpose),
-    brick_category: String(row.brick_category) as BrickCategory,
+    category_id: categoryId,
+    category: BRICK_CATEGORY_NAMES[categoryId] ?? ('collection' as BrickCategory),
+    brick_number: Number(row.brick_number) || 0,
+    dependency_level: String(row.dependency_level ?? 'none'),
+    dependencies: (row.dependencies as string[] | null) ?? null,
+    is_container: Boolean(row.is_container),
     input_schema: (row.input_schema as BrickInputSchema) || { fields: [] },
     output_schema: (row.output_schema as BrickOutputSchema) || { fields: [] },
     is_active: Boolean(row.is_active),
-    is_system: Boolean(row.is_system),
-    metadata: (row.metadata as Record<string, unknown>) || {},
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
@@ -182,7 +187,7 @@ export async function loadAllBricks(): Promise<Brick[]> {
     .from('bricks')
     .select('*')
     .eq('is_active', true)
-    .order('brick_category')
+    .order('brick_number')
     .order('name');
 
   if (error) {
@@ -260,10 +265,11 @@ export async function loadBricksByIds(brickIds: string[]): Promise<Map<string, B
  * Loads bricks by category.
  */
 export async function loadBricksByCategory(category: BrickCategory): Promise<Brick[]> {
+  const uuid = BRICK_CATEGORY_IDS[category];
   const { data, error } = await supabase
     .from('bricks')
     .select('*')
-    .eq('brick_category', category)
+    .eq('category_id', uuid)
     .eq('is_active', true)
     .order('name');
 
@@ -766,13 +772,8 @@ export async function getBrickByName(name: string): Promise<Brick | undefined> {
 /**
  * Gets all unique brick categories.
  */
-export async function getBrickCategories(): Promise<BrickCategory[]> {
-  const bricks = await getBricks();
-  const categories = new Set<BrickCategory>();
-  for (const brick of bricks.values()) {
-    categories.add(brick.brick_category);
-  }
-  return Array.from(categories).sort();
+export function getBrickCategories(): BrickCategory[] {
+  return ['collection', 'review', 'approval', 'documentation', 'commitment'];
 }
 
 /**

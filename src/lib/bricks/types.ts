@@ -11,6 +11,23 @@
 
 export type BrickCategory = 'collection' | 'review' | 'approval' | 'documentation' | 'commitment';
 
+/**
+ * Well-known UUIDs for brick_categories rows.
+ * These match the seed data in the consolidate_5_brick_types migration.
+ */
+export const BRICK_CATEGORY_IDS: Record<BrickCategory, string> = {
+  collection:    'a0000000-0000-0000-0000-000000000001',
+  review:        'a0000000-0000-0000-0000-000000000002',
+  approval:      'a0000000-0000-0000-0000-000000000003',
+  documentation: 'a0000000-0000-0000-0000-000000000004',
+  commitment:    'a0000000-0000-0000-0000-000000000005',
+} as const;
+
+/** Reverse map: UUID → BrickCategory name */
+export const BRICK_CATEGORY_NAMES: Record<string, BrickCategory> = Object.fromEntries(
+  Object.entries(BRICK_CATEGORY_IDS).map(([name, id]) => [id, name as BrickCategory])
+) as Record<string, BrickCategory>;
+
 // ============================================================================
 // SHARED BRICK CONFIG TYPES
 // ============================================================================
@@ -278,12 +295,15 @@ export interface Brick {
   name: string;
   display_name: string;
   purpose: string;
-  brick_category: BrickCategory;
+  category_id: string;
+  category: BrickCategory;
+  brick_number: number;
+  dependency_level: string;
+  dependencies: string[] | null;
+  is_container: boolean;
   input_schema: BrickInputSchema;
   output_schema: BrickOutputSchema;
   is_active: boolean;
-  is_system: boolean;
-  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
