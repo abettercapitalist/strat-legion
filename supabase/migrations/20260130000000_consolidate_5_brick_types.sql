@@ -2,39 +2,48 @@
 -- CONSOLIDATE 5 BRICK TYPES
 -- Migration: 20260130000000_consolidate_5_brick_types.sql
 --
--- Consolidates the 26-brick / 6-category architecture down to 5 brick types:
+-- Consolidates the 26-brick / 18-category architecture down to 5 brick types:
 --   collection, review, approval, documentation, commitment
 --
 -- Changes:
--- 1. Delete all 26 existing brick rows
--- 2. Update brick_category CHECK constraint to 5 types
--- 3. Insert 5 new bricks with rich input/output schemas
+-- 1. Clear dependent tables (step_definition_bricks)
+-- 2. Delete all existing bricks and brick_categories
+-- 3. Insert 5 new categories
+-- 4. Insert 5 new bricks with rich input/output schemas
 -- ============================================================================
 
+BEGIN;
+
 -- ============================================================================
--- STEP 1: DELETE EXISTING BRICKS
+-- STEP 1: CLEAR DEPENDENT DATA
 -- ============================================================================
 
+DELETE FROM public.step_definition_bricks;
 DELETE FROM public.bricks;
+DELETE FROM public.brick_categories;
 
 -- ============================================================================
--- STEP 2: UPDATE CATEGORY CONSTRAINT
+-- STEP 2: INSERT 5 NEW CATEGORIES
 -- ============================================================================
 
-ALTER TABLE public.bricks DROP CONSTRAINT IF EXISTS bricks_brick_category_check;
-ALTER TABLE public.bricks ADD CONSTRAINT bricks_brick_category_check
-  CHECK (brick_category IN ('collection', 'review', 'approval', 'documentation', 'commitment'));
+INSERT INTO public.brick_categories (id, name, display_name, description, display_order, icon) VALUES
+  ('a0000000-0000-0000-0000-000000000001', 'collection',    'Collection',    'Gather structured information, documents, or decisions from users',                  1, '📋'),
+  ('a0000000-0000-0000-0000-000000000002', 'review',        'Review',        'Evaluate information against defined criteria with pass/fail routing',                2, '🔍'),
+  ('a0000000-0000-0000-0000-000000000003', 'approval',      'Approval',      'Request and track authorization decisions with auto-approval and escalation',         3, '✅'),
+  ('a0000000-0000-0000-0000-000000000004', 'documentation', 'Documentation', 'Generate documents from templates, store in repositories, and distribute',            4, '📄'),
+  ('a0000000-0000-0000-0000-000000000005', 'commitment',    'Commitment',    'Manage e-signature workflows including signer ordering and completion tracking',      5, '✍️');
 
 -- ============================================================================
--- STEP 3: INSERT 5 NEW BRICK TYPES
+-- STEP 3: INSERT 5 NEW BRICKS
 -- ============================================================================
 
 -- COLLECTION: Gather structured information from users
-INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_schema, output_schema, metadata) VALUES (
+INSERT INTO public.bricks (name, display_name, purpose, category_id, brick_number, input_schema, output_schema, dependencies, dependency_level, is_container, is_active) VALUES (
   'collection',
   'Collection',
   'Gather structured information, documents, or decisions from a user via configurable form fields with validation',
-  'collection',
+  'a0000000-0000-0000-0000-000000000001',
+  1,
   '{
     "fields": [
       {"name": "owner_assignment", "type": "object", "required": false, "description": "Who is responsible for completing this collection (role or user ID)"},
@@ -52,15 +61,19 @@ INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_sc
       {"name": "validation_passed", "type": "boolean", "description": "Whether all validation rules passed"}
     ]
   }'::jsonb,
-  '{"absorbs": ["collect_data", "validate_data", "retrieve_data", "collect_document", "request_meeting", "record_decision", "assign_ownership"]}'::jsonb
+  '{}'::text[],
+  'none',
+  false,
+  true
 );
 
 -- REVIEW: Evaluate collected information against defined criteria
-INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_schema, output_schema, metadata) VALUES (
+INSERT INTO public.bricks (name, display_name, purpose, category_id, brick_number, input_schema, output_schema, dependencies, dependency_level, is_container, is_active) VALUES (
   'review',
   'Review',
   'Evaluate information against defined criteria using checklist, scored, or qualitative review methods with pass/fail routing',
-  'review',
+  'a0000000-0000-0000-0000-000000000002',
+  2,
   '{
     "fields": [
       {"name": "review_type", "type": "string", "required": true, "description": "Type of review: checklist, scored, or qualitative", "options": ["checklist", "scored", "qualitative"]},
@@ -80,15 +93,19 @@ INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_sc
       {"name": "reviewed_at", "type": "timestamp", "description": "When review was completed"}
     ]
   }'::jsonb,
-  '{"absorbs": ["require_peer_review", "validate_document"]}'::jsonb
+  '{}'::text[],
+  'none',
+  false,
+  true
 );
 
 -- APPROVAL: Get authorization/decision from an approver
-INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_schema, output_schema, metadata) VALUES (
+INSERT INTO public.bricks (name, display_name, purpose, category_id, brick_number, input_schema, output_schema, dependencies, dependency_level, is_container, is_active) VALUES (
   'approval',
   'Approval',
   'Request and track authorization decisions with support for auto-approval rules, escalation, and delegation',
-  'approval',
+  'a0000000-0000-0000-0000-000000000003',
+  3,
   '{
     "fields": [
       {"name": "approver", "type": "object", "required": true, "description": "Approver assignment: role-based or specific user ID"},
@@ -110,15 +127,19 @@ INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_sc
       {"name": "delegated", "type": "boolean", "description": "Whether the approval was delegated"}
     ]
   }'::jsonb,
-  '{"absorbs": ["require_approval", "auto_approve", "escalate_approval", "delegate_approval"]}'::jsonb
+  '{}'::text[],
+  'none',
+  false,
+  true
 );
 
 -- DOCUMENTATION: Generate and distribute documents from workflow data
-INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_schema, output_schema, metadata) VALUES (
+INSERT INTO public.bricks (name, display_name, purpose, category_id, brick_number, input_schema, output_schema, dependencies, dependency_level, is_container, is_active) VALUES (
   'documentation',
   'Documentation',
   'Generate documents from templates, store in repositories, and distribute to stakeholders',
-  'documentation',
+  'a0000000-0000-0000-0000-000000000004',
+  4,
   '{
     "fields": [
       {"name": "template_id", "type": "uuid", "required": false, "description": "Library template ID for document generation"},
@@ -139,15 +160,19 @@ INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_sc
       {"name": "generated_at", "type": "timestamp", "description": "When the document was generated"}
     ]
   }'::jsonb,
-  '{"absorbs": ["generate_document", "store_document", "send_document", "validate_document"]}'::jsonb
+  '{}'::text[],
+  'none',
+  false,
+  true
 );
 
 -- COMMITMENT: Obtain signatures and final commitments
-INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_schema, output_schema, metadata) VALUES (
+INSERT INTO public.bricks (name, display_name, purpose, category_id, brick_number, input_schema, output_schema, dependencies, dependency_level, is_container, is_active) VALUES (
   'commitment',
   'Commitment',
   'Manage e-signature workflows including signer ordering, reminders, and completion tracking',
-  'commitment',
+  'a0000000-0000-0000-0000-000000000005',
+  5,
   '{
     "fields": [
       {"name": "provider", "type": "string", "required": false, "description": "Signature provider: docusign or manual", "options": ["docusign", "manual"]},
@@ -166,5 +191,10 @@ INSERT INTO public.bricks (name, display_name, purpose, brick_category, input_sc
       {"name": "completed_at", "type": "timestamp", "description": "When all signatures were collected"}
     ]
   }'::jsonb,
-  '{"absorbs": ["collect_signature"]}'::jsonb
+  '{}'::text[],
+  'none',
+  false,
+  true
 );
+
+COMMIT;
