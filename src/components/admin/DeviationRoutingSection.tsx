@@ -40,7 +40,7 @@ export function DeviationRoutingSection({
   const [newRuleName, setNewRuleName] = useState("");
   const { roles, isLoading } = useRoles({ workRoutingOnly: true });
   
-  // Dynamic roles from custom_roles table
+  // Dynamic roles from roles table
   const approverRoleOptions = roles.map(r => ({
     value: r.id,
     label: r.display_name || r.name,

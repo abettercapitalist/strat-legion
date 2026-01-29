@@ -1,9 +1,37 @@
 /**
  * Brick Architecture - Main Entry Point
  *
- * Exports all types, engine, and registry for the refined brick-based workflow system.
- * Supports 26 bricks, 6 categories, patterns/plays model, and Library system.
+ * Exports all types, engine, and registry for the brick-based workflow system.
+ * Supports 5 brick types: collection, review, approval, documentation, commitment.
  */
+
+// Types - Brick Config (5 brick types)
+export type {
+  BrickConfig,
+  CollectionBrickConfig,
+  ReviewBrickConfig,
+  ApprovalBrickConfig,
+  DocumentationBrickConfig,
+  CommitmentBrickConfig,
+} from './types';
+
+// Types - Shared Config
+export type {
+  OwnerAssignment,
+  SLAConfig,
+  NotificationConfig,
+  CollectionField,
+  CollectionFieldType,
+  ReviewCriterion,
+  AutoApprovalRule,
+  EscalationConfig,
+  DelegationConfig,
+  StorageConfig,
+  DistributionConfig,
+  SignerConfig,
+  SignaturePlacement,
+  ReminderConfig,
+} from './types';
 
 // Types - Library System
 export type {
@@ -155,3 +183,12 @@ export type {
   PlayExecutionOptions,
   PlayExecutionOutcome,
 } from './services';
+
+// Engine Utilities
+export {
+  sendNotification,
+  checkEventReceived,
+  checkDurationElapsed,
+  calculateValue,
+  transformValue,
+} from './engine/utilities';

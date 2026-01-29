@@ -60,23 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData);
       }
 
-      // Fetch legacy role (for backward compatibility)
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (roleData) {
-        setRole(roleData.role as AppRole);
-      }
-
-      // Fetch custom roles (new unified system)
+      // Fetch custom roles (unified system)
       const { data: userCustomRoles } = await supabase
-        .from('user_custom_roles')
+        .from('user_roles')
         .select(`
           role_id,
-          custom_roles (
+          roles (
             id,
             name,
             display_name,
@@ -89,9 +78,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (userCustomRoles) {
         const roles = userCustomRoles
-          .map((ucr: any) => ucr.custom_roles)
+          .map((ucr: any) => ucr.roles)
           .filter((r: any): r is CustomRole => r !== null);
         setCustomRoles(roles);
+
+        // Derive legacy role from custom roles for backward compatibility
+        const legacyRoleNames = ['general_counsel', 'legal_ops', 'contract_counsel', 'account_executive', 'sales_manager', 'finance_reviewer'];
+        const matchingRole = roles.find(r => legacyRoleNames.includes(r.name));
+        if (matchingRole) {
+          setRole(matchingRole.name as AppRole);
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error);

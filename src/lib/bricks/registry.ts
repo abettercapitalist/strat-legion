@@ -2,18 +2,17 @@
  * Brick Registry
  *
  * Central registry that maps brick names to their executor functions.
- * Supports the refined architecture with 26 bricks across 6 categories.
+ * Supports the consolidated architecture with 5 brick types.
  */
 
 import type { BrickExecutor, BrickRegistry } from './types';
 
-// Import executors by category (6 categories, 26 bricks)
-import { dataExecutors } from './executors/data';           // 7 bricks
-import { approvalExecutors } from './executors/approval';   // 4 bricks
-import { documentExecutors } from './executors/document';   // 6 bricks
-import { workflowExecutors } from './executors/workflow';   // 5 bricks
-import { communicationExecutors } from './executors/communication'; // 3 bricks
-import { qualityExecutors } from './executors/quality';     // 1 brick
+// Import executors (5 brick types)
+import { collectionExecutor } from './executors/collection';
+import { reviewExecutor } from './executors/review';
+import { approvalExecutor } from './executors/approval';
+import { documentationExecutor } from './executors/documentation';
+import { commitmentExecutor } from './executors/commitment';
 
 // ============================================================================
 // REGISTRY BUILDER
@@ -21,31 +20,21 @@ import { qualityExecutors } from './executors/quality';     // 1 brick
 
 /**
  * Combines all executor modules into a single registry.
- * Total: 26 bricks
+ * Total: 5 brick types
  *
- * data (7): collect_data, validate_data, calculate_value, store_data,
- *           retrieve_data, transform_data, delete_data
- *
- * approval (4): require_approval, auto_approve, escalate_approval, delegate_approval
- *
- * document (6): generate_document, collect_document, validate_document,
- *               store_document, send_document, collect_signature
- *
- * workflow (5): handoff_workstream, wait_for_event, wait_for_duration,
- *               send_notification, schedule_task
- *
- * communication (3): request_meeting, record_decision, assign_ownership
- *
- * quality (1): require_peer_review
+ * collection — form fields, validation, data gathering
+ * review     — checklist/scored/qualitative assessment
+ * approval   — authorize/reject with auto-approve, escalation, delegation
+ * documentation — template merge, storage, distribution
+ * commitment — e-signature workflow
  */
 function buildRegistry(): BrickRegistry {
   return {
-    ...dataExecutors,
-    ...approvalExecutors,
-    ...documentExecutors,
-    ...workflowExecutors,
-    ...communicationExecutors,
-    ...qualityExecutors,
+    collection: collectionExecutor,
+    review: reviewExecutor,
+    approval: approvalExecutor,
+    documentation: documentationExecutor,
+    commitment: commitmentExecutor,
   };
 }
 

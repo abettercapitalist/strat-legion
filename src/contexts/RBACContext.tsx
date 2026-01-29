@@ -67,8 +67,8 @@ export function RBACProvider({ children }: { children: ReactNode }) {
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["all_profiles"],
     queryFn: async () => {
-      // Get all user_custom_roles first to find relevant users
-      const { data: ucr } = await supabase.from("user_custom_roles").select("user_id");
+      // Get all user_roles first to find relevant users
+      const { data: ucr } = await supabase.from("user_roles").select("user_id");
       if (!ucr || ucr.length === 0) return [];
       
       const userIds = [...new Set(ucr.map(r => r.user_id))];
@@ -135,7 +135,7 @@ export function RBACProvider({ children }: { children: ReactNode }) {
     }));
   }, [dbPermissions]);
   
-  // User management - these update profiles and user_custom_roles
+  // User management - these update profiles and user_roles
   const addUser = async (user: Omit<SystemUser, "id" | "createdAt">) => {
     // Note: Creating users should go through Supabase Auth
     // This function primarily assigns roles to existing users

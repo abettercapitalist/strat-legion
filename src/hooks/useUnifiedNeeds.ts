@@ -158,7 +158,7 @@ export function useUnifiedNeeds(
   useEffect(() => {
     async function fetchRoles() {
       const { data: roles } = await supabase
-        .from("custom_roles")
+        .from("roles")
         .select("id, name, display_name")
         .eq("is_work_routing", true);
       

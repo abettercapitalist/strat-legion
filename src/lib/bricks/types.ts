@@ -1,15 +1,192 @@
 /**
  * Brick Architecture - Type Definitions
  *
- * Core types for the refined brick-based workflow execution engine.
- * Supports 26 bricks, 6 categories, patterns/plays model, and Library system.
+ * Core types for the brick-based workflow execution engine.
+ * Supports 5 brick types: collection, review, approval, documentation, commitment.
  */
 
 // ============================================================================
-// BRICK CATEGORIES
+// BRICK CATEGORIES (5 types)
 // ============================================================================
 
-export type BrickCategory = 'data' | 'approval' | 'document' | 'workflow' | 'communication' | 'quality';
+export type BrickCategory = 'collection' | 'review' | 'approval' | 'documentation' | 'commitment';
+
+// ============================================================================
+// SHARED BRICK CONFIG TYPES
+// ============================================================================
+
+export interface OwnerAssignment {
+  type: 'role' | 'user' | 'workstream_owner';
+  role_id?: string;
+  user_id?: string;
+}
+
+export interface SLAConfig {
+  deadline_hours?: number;
+  warning_hours?: number;
+  escalation?: {
+    escalate_to_role?: string;
+    escalate_after_hours?: number;
+  };
+}
+
+export interface NotificationConfig {
+  on_assigned?: boolean;
+  on_sla_warning?: boolean;
+  on_completed?: boolean;
+  channels?: ('in_app' | 'email')[];
+}
+
+export type CollectionFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'currency'
+  | 'date'
+  | 'select'
+  | 'multi_select'
+  | 'checkbox'
+  | 'file'
+  | 'meeting_request'
+  | 'decision'
+  | 'assignment';
+
+export interface CollectionField {
+  name: string;
+  label: string;
+  field_type: CollectionFieldType;
+  required?: boolean;
+  description?: string;
+  default_value?: unknown;
+  options?: string[];
+  validation?: {
+    type?: string;
+    pattern?: string;
+    min?: number;
+    max?: number;
+    min_length?: number;
+    max_length?: number;
+    error_message?: string;
+  };
+}
+
+export interface ReviewCriterion {
+  id: string;
+  label: string;
+  description?: string;
+  weight?: number;
+  required?: boolean;
+}
+
+export interface AutoApprovalRule {
+  field: string;
+  operator: '=' | '!=' | '>' | '>=' | '<' | '<=' | 'in' | 'not_in' | 'exists' | 'not_exists';
+  value: unknown;
+}
+
+export interface EscalationConfig {
+  escalate_after_hours?: number;
+  escalate_to_role?: string;
+  escalation_reason?: string;
+}
+
+export interface DelegationConfig {
+  allow_delegation?: boolean;
+  delegate_to_roles?: string[];
+}
+
+export interface StorageConfig {
+  repository?: string;
+  folder?: string;
+  access_permissions?: Record<string, unknown>;
+}
+
+export interface DistributionConfig {
+  recipients?: string[];
+  delivery_method?: 'email' | 'link';
+  message?: string;
+}
+
+export interface SignerConfig {
+  name?: string;
+  email?: string;
+  role?: string;
+  order?: number;
+}
+
+export interface SignaturePlacement {
+  page?: number;
+  x?: number;
+  y?: number;
+  signer_index?: number;
+}
+
+export interface ReminderConfig {
+  frequency_hours?: number;
+  max_reminders?: number;
+  final_warning_hours?: number;
+}
+
+// ============================================================================
+// BRICK-SPECIFIC CONFIG INTERFACES
+// ============================================================================
+
+export interface CollectionBrickConfig {
+  owner_assignment?: OwnerAssignment;
+  fields: CollectionField[];
+  validation_rules?: Record<string, unknown>;
+  sla?: SLAConfig;
+  notifications?: NotificationConfig;
+}
+
+export interface ReviewBrickConfig {
+  review_type: 'checklist' | 'scored' | 'qualitative';
+  criteria: ReviewCriterion[];
+  outcome_routing?: {
+    on_pass?: 'continue' | 'route';
+    on_fail?: 'stop' | 'send_back' | 'alternate_path';
+    pass_target_node_id?: string;
+    fail_target_node_id?: string;
+  };
+  reviewer_assignment?: OwnerAssignment;
+  sla?: SLAConfig;
+}
+
+export interface ApprovalBrickConfig {
+  approver: OwnerAssignment;
+  conditional_logic?: AutoApprovalRule[];
+  condition_logic?: 'AND' | 'OR';
+  decision_options?: string[];
+  escalation?: EscalationConfig;
+  delegation?: DelegationConfig;
+  sla?: SLAConfig;
+}
+
+export interface DocumentationBrickConfig {
+  template_id?: string;
+  field_mapping?: Record<string, string>;
+  output_format?: 'pdf' | 'docx' | 'html';
+  output_name?: string;
+  storage?: StorageConfig;
+  distribution?: DistributionConfig;
+  validation_rules?: Record<string, unknown>;
+}
+
+export interface CommitmentBrickConfig {
+  provider?: 'docusign' | 'manual';
+  signers: SignerConfig[];
+  document_source: 'previous_brick' | 'template' | 'upload';
+  document_id?: string;
+  signature_placement?: SignaturePlacement[];
+  reminders?: ReminderConfig;
+}
+
+export type BrickConfig =
+  | CollectionBrickConfig
+  | ReviewBrickConfig
+  | ApprovalBrickConfig
+  | DocumentationBrickConfig
+  | CommitmentBrickConfig;
 
 // ============================================================================
 // LIBRARY SYSTEM TYPES
@@ -367,7 +544,7 @@ export interface PlayExecutionResult {
 }
 
 export interface PendingAction {
-  type: 'approval' | 'input' | 'document' | 'signature' | 'event' | 'review';
+  type: 'approval' | 'input' | 'document' | 'signature' | 'review' | 'collection' | 'commitment' | 'documentation';
   brick_id: string;
   brick_name: string;
   node_id: string;
