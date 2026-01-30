@@ -20,8 +20,10 @@ import { formatDistanceToNow } from "date-fns";
 import { CompleteRequestInfoModal } from "./step-modals/CompleteRequestInfoModal";
 import { CompleteTaskModal } from "./step-modals/CompleteTaskModal";
 import { CompleteDocumentModal } from "./step-modals/CompleteDocumentModal";
+import { PlaySelectionModal } from "./PlaySelectionModal";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
 import { usePlayExecution } from "@/hooks/usePlayExecution";
+import { assignPlayToWorkstream } from "@/lib/bricks/services/playExecutor";
 import type { Workstream, CurrentUser } from "@/lib/bricks/services/playExecutor";
 
 interface WorkstreamStep {
@@ -122,6 +124,7 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
 
   // Track whether workstream has an active play
   const [hasPlay, setHasPlay] = useState(false);
+  const [showPlayModal, setShowPlayModal] = useState(false);
 
   // Check if workstream has an active play
   useEffect(() => {
@@ -131,6 +134,20 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     };
     checkPlay();
   }, [workstreamId, checkActivePlay]);
+
+  const handlePlaySelected = async (playId: string, playbookId: string) => {
+    if (!workstream || !currentUser) return;
+    try {
+      await assignPlayToWorkstream(workstreamId, playId, playbookId);
+      await executePlayAction(workstream, playId, currentUser);
+      setHasPlay(true);
+      setShowPlayModal(false);
+      queryClient.invalidateQueries({ queryKey: ["workstream", workstreamId] });
+      queryClient.invalidateQueries({ queryKey: ["workstream-steps", workstreamId] });
+    } catch (err) {
+      console.error("Failed to launch play:", err);
+    }
+  };
 
   const isOwner = workstream?.owner_id === userId;
   const canSeeAllSteps = isOwner || isManager;
@@ -234,8 +251,25 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-lg">Workflow Steps</CardTitle>
+        {!hasPlay ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowPlayModal(true)}
+            disabled={isPlayExecuting}
+          >
+            Select Play
+          </Button>
+        ) : isPlayExecuting ? (
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Executing...
+          </Badge>
+        ) : (
+          <Badge variant="secondary">Play Active</Badge>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* All Complete Celebration */}
@@ -380,6 +414,14 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
           step={selectedStep}
           onClose={handleModalClose}
           onComplete={handleStepCompleted}
+        />
+      )}
+      {showPlayModal && (
+        <PlaySelectionModal
+          workstreamId={workstreamId}
+          workstreamTypeId={workstream?.workstream_type_id ?? null}
+          onPlaySelected={handlePlaySelected}
+          onClose={() => setShowPlayModal(false)}
         />
       )}
     </Card>

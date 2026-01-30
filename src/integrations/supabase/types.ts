@@ -1343,11 +1343,14 @@ export type Database = {
           business_objective: string | null
           counterparty_id: string | null
           created_at: string
+          current_node_ids: string[] | null
           expected_close_date: string | null
           id: string
           name: string
           notes: string | null
           owner_id: string | null
+          play_id: string | null
+          playbook_id: string | null
           stage: string | null
           template_id: string | null
           tier: string | null
@@ -1360,11 +1363,14 @@ export type Database = {
           business_objective?: string | null
           counterparty_id?: string | null
           created_at?: string
+          current_node_ids?: string[] | null
           expected_close_date?: string | null
           id?: string
           name: string
           notes?: string | null
           owner_id?: string | null
+          play_id?: string | null
+          playbook_id?: string | null
           stage?: string | null
           template_id?: string | null
           tier?: string | null
@@ -1377,11 +1383,14 @@ export type Database = {
           business_objective?: string | null
           counterparty_id?: string | null
           created_at?: string
+          current_node_ids?: string[] | null
           expected_close_date?: string | null
           id?: string
           name?: string
           notes?: string | null
           owner_id?: string | null
+          play_id?: string | null
+          playbook_id?: string | null
           stage?: string | null
           template_id?: string | null
           tier?: string | null
@@ -1394,6 +1403,20 @@ export type Database = {
             columns: ["counterparty_id"]
             isOneToOne: false
             referencedRelation: "counterparties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstreams_play_id_fkey"
+            columns: ["play_id"]
+            isOneToOne: false
+            referencedRelation: "playbook_plays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstreams_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
             referencedColumns: ["id"]
           },
           {
