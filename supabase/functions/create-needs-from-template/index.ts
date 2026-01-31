@@ -98,13 +98,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify user has access to this workstream
-    const { data: hasAccess, error: accessError } = await supabaseAdmin.rpc(
-      "has_workstream_access",
-      { ws_id: workstream_id, _user_id: user.id }
-    );
+    // Verify user has access (owner or team member)
+    const { data: wsCheck, error: accessError } = await supabaseAdmin
+      .from("workstreams")
+      .select("id")
+      .eq("id", workstream_id)
+      .eq("owner_id", user.id)
+      .maybeSingle();
 
-    if (accessError || !hasAccess) {
+    if (accessError || !wsCheck) {
       console.error("Access denied to workstream:", accessError);
       return new Response(
         JSON.stringify({ error: "Forbidden: No access to this workstream" }),
