@@ -66,8 +66,8 @@ const App = () => (
             <Route path="/law" element={<ProtectedRoute><LawLayout /></ProtectedRoute>}>
               <Route index element={<Navigate to="/law/home" replace />} />
               <Route path="home" element={<LawHome />} />
-              <Route path="new" element={<SelectPlay />} />
-              <Route path="new/:playId" element={<CreateWorkstream />} />
+              <Route path="new" element={<SelectPlay module="law" />} />
+              <Route path="new/:playId" element={<CreateWorkstream module="law" />} />
               <Route path="matters" element={<LawActiveMatters />} />
               <Route path="matters/:id" element={<WorkstreamDetail module="law" />} />
               <Route path="review" element={<LawMatterReview />} />
@@ -94,8 +94,8 @@ const App = () => (
             {/* Sales Module Routes */}
             <Route path="/sales" element={<ProtectedRoute><SalesLayout /></ProtectedRoute>}>
               <Route index element={<SalesHome />} />
-              <Route path="new" element={<SelectPlay />} />
-              <Route path="new/:playId" element={<CreateWorkstream />} />
+              <Route path="new" element={<SelectPlay module="sales" />} />
+              <Route path="new/:playId" element={<CreateWorkstream module="sales" />} />
               <Route path="deals" element={<SalesDeals />} />
               <Route path="deals/new" element={<CreateDeal />} />
               <Route path=":id" element={<WorkstreamDetail module="sales" />} />

@@ -168,8 +168,13 @@ function WizardContent({ module, playName }: { module: string; playName: string 
   );
 }
 
-export default function CreateWorkstream() {
-  const { module, playId } = useParams<{ module: string; playId: string }>();
+interface CreateWorkstreamProps {
+  module?: string;
+}
+
+export default function CreateWorkstream({ module: moduleProp }: CreateWorkstreamProps) {
+  const { module: moduleParam, playId } = useParams<{ module: string; playId: string }>();
+  const module = moduleProp || moduleParam;
   const navigate = useNavigate();
 
   const config = module ? moduleConfig[module] : null;

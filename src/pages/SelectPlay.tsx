@@ -62,34 +62,49 @@ interface WorkstreamType {
   default_workflow: unknown;
 }
 
-export default function SelectPlay() {
-  const { module } = useParams<{ module: string }>();
+interface SelectPlayProps {
+  module?: string;
+}
+
+export default function SelectPlay({ module: moduleProp }: SelectPlayProps) {
+  const { module: moduleParam } = useParams<{ module: string }>();
+  const module = moduleProp || moduleParam;
   const navigate = useNavigate();
   
   const config = module ? moduleConfig[module] : null;
   const ModuleIcon = config?.icon || Briefcase;
 
+  // Map module URL slug to team display name for lookup
+  const moduleToTeamName: Record<string, string> = {
+    sales: "Sales",
+    law: "Law",
+    finance: "Finance",
+    "pro-services": "Pro Services",
+  };
+
   // Fetch active plays for the current module
   const { data: plays, isLoading, error } = useQuery({
     queryKey: ["plays", module],
     queryFn: async () => {
-      // Map module URL to team_category in database
-      const teamCategoryMap: Record<string, string> = {
-        sales: "Sales",
-        law: "Law",
-        finance: "Finance",
-        "pro-services": "Pro Services",
-      };
-      
-      const teamCategory = module ? teamCategoryMap[module] : null;
-      
+      const teamName = module ? moduleToTeamName[module] : null;
+      if (!teamName) return [];
+
+      // Look up team IDs that match this module (parent + subgroups)
+      const { data: matchingTeams } = await supabase
+        .from("teams")
+        .select("id")
+        .ilike("display_name", teamName);
+
+      const teamIds = (matchingTeams || []).map((t) => t.id);
+      if (teamIds.length === 0) return [];
+
       const { data, error } = await supabase
         .from("workstream_types")
         .select("*")
         .eq("status", "Active")
-        .eq("team_category", teamCategory || "")
+        .in("team_category", teamIds)
         .order("display_name", { ascending: true, nullsFirst: false });
-      
+
       if (error) throw error;
       return data as WorkstreamType[];
     },

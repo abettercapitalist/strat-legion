@@ -110,7 +110,7 @@ export default function LawHome() {
                 <NavLink to="/law/new">
                   <Button className="gap-2">
                     <Plus className="h-4 w-4" />
-                    New {labels.workstream}
+                    New {labels.matter}
                   </Button>
                 </NavLink>
                 <NavLink to="/law/matters">

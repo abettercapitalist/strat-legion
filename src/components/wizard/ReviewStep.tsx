@@ -140,7 +140,8 @@ export function ReviewStep({ module, displayName, playId }: ReviewStepProps) {
 
       // Reset wizard and redirect
       resetWizard();
-      navigate(`/${module}/${workstream.id}`);
+      const detailPath = module === "law" ? `/${module}/matters/${workstream.id}` : `/${module}/${workstream.id}`;
+      navigate(detailPath);
       
     } catch (error) {
       console.error("Error creating workstream:", error);

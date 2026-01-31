@@ -297,6 +297,7 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
         }
       }
     } catch (error) {
+      console.error("[CreatePlaybook] Save failed:", error);
       toast({
         title: "Error",
         description: "Failed to save play. Please try again.",
