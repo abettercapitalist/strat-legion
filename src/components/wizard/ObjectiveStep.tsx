@@ -28,6 +28,7 @@ const moduleExamples: Record<string, string[]> = {
 };
 
 const MAX_CHARS = 500;
+const MIN_CHARS = 10;
 
 export function ObjectiveStep({ module, displayName }: ObjectiveStepProps) {
   const { state, setBusinessObjective } = useWorkstreamWizard();
@@ -35,6 +36,7 @@ export function ObjectiveStep({ module, displayName }: ObjectiveStepProps) {
 
   const examples = moduleExamples[module] || moduleExamples.sales;
   const charCount = objective.length;
+  const belowMinimum = charCount > 0 && charCount < MIN_CHARS;
 
   // Sync wizard context → local state (e.g. on reset)
   useEffect(() => {
@@ -70,10 +72,13 @@ export function ObjectiveStep({ module, displayName }: ObjectiveStepProps) {
           className="min-h-[80px] max-h-[240px] resize-y"
           rows={3}
         />
-        <div className="flex justify-end">
-          <span className={`text-sm ${charCount > MAX_CHARS * 0.9 ? 'text-warning' : 'text-muted-foreground'}`}>
-            {charCount}/{MAX_CHARS}
+        <div className="flex justify-end flex-col items-end gap-0.5">
+          <span className={`text-sm ${belowMinimum ? 'text-destructive' : charCount > MAX_CHARS * 0.9 ? 'text-warning' : 'text-muted-foreground'}`}>
+            {charCount}/{MAX_CHARS} (min {MIN_CHARS})
           </span>
+          {belowMinimum && (
+            <span className="text-xs text-destructive">Please provide proper context</span>
+          )}
         </div>
       </div>
 

@@ -41,7 +41,7 @@ const moduleConfig: Record<string, { displayName: string; itemName: string }> = 
 
 function WizardContent({ module, playName }: { module: string; playName: string }) {
   const navigate = useNavigate();
-  const { state, nextStep, prevStep, goToStep, canProceed, isSalesModule, totalSteps, getDisplayStep } = useWorkstreamWizard();
+  const { state, nextStep, prevStep, goToStep, canProceed, isSalesModule, hasOptionalSteps, totalSteps, getDisplayStep } = useWorkstreamWizard();
   const config = moduleConfig[module];
 
   const handleContinue = () => {
@@ -56,7 +56,7 @@ function WizardContent({ module, playName }: { module: string; playName: string 
 
   // Determine if user can navigate to a step (using actual step numbers)
   const canNavigateTo = (step: number): boolean => {
-    // Don't allow navigating to step 4 for non-sales modules
+    if (!hasOptionalSteps && step === 3) return false;
     if (!isSalesModule && step === 4) return false;
     // Can always go back to completed steps
     if (step < state.current_step) return true;

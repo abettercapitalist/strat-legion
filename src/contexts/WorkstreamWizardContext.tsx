@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface WizardState {
   play_id: string;
@@ -15,6 +16,7 @@ interface WizardContextValue {
   state: WizardState;
   module: string;
   isSalesModule: boolean;
+  hasOptionalSteps: boolean;
   totalSteps: number;
   setCounterparty: (id: string, name: string) => void;
   setBusinessObjective: (objective: string) => void;
@@ -62,8 +64,47 @@ export function WorkstreamWizardProvider({
   });
 
   const isSalesModule = module === "sales";
-  // Non-sales modules skip step 4, so they have 4 effective steps
-  const totalSteps = isSalesModule ? BASE_TOTAL_STEPS : BASE_TOTAL_STEPS - 1;
+  const [hasOptionalSteps, setHasOptionalSteps] = useState(true); // default true until loaded
+
+  // Check if the play has optional steps
+  useEffect(() => {
+    const checkOptionalSteps = async () => {
+      try {
+        const { data } = await supabase
+          .from("workstream_types")
+          .select("default_workflow")
+          .eq("id", playId)
+          .single();
+
+        if (data?.default_workflow) {
+          try {
+            const parsed = JSON.parse(data.default_workflow);
+            const steps = Array.isArray(parsed) ? parsed : parsed.steps || [];
+            const optional = steps.filter(
+              (s: { requirement_type?: string }) =>
+                s.requirement_type === "optional" || s.requirement_type === "required_deferred"
+            );
+            setHasOptionalSteps(optional.length > 0);
+          } catch {
+            setHasOptionalSteps(false);
+          }
+        } else {
+          setHasOptionalSteps(false);
+        }
+      } catch {
+        setHasOptionalSteps(false);
+      }
+    };
+    checkOptionalSteps();
+  }, [playId]);
+
+  // Steps to skip
+  const skipStep3 = !hasOptionalSteps;
+  const skipStep4 = !isSalesModule;
+
+  let totalSteps = BASE_TOTAL_STEPS;
+  if (skipStep3) totalSteps--;
+  if (skipStep4) totalSteps--;
 
   const setCounterparty = (id: string, name: string) => {
     setState((prev) => ({ ...prev, counterparty_id: id, counterparty_name: name }));
@@ -84,42 +125,27 @@ export function WorkstreamWizardProvider({
     setState((prev) => ({ ...prev, commercial_terms: terms }));
   };
 
+  const shouldSkip = (step: number) =>
+    (skipStep3 && step === 3) || (skipStep4 && step === 4);
+
   const nextStep = () => {
     setState((prev) => {
-      let nextStepNum = prev.current_step + 1;
-      
-      // Skip step 4 for non-sales modules
-      if (!isSalesModule && nextStepNum === 4) {
-        nextStepNum = 5;
-      }
-      
-      return {
-        ...prev,
-        current_step: Math.min(nextStepNum, BASE_TOTAL_STEPS),
-      };
+      let next = prev.current_step + 1;
+      while (next <= BASE_TOTAL_STEPS && shouldSkip(next)) next++;
+      return { ...prev, current_step: Math.min(next, BASE_TOTAL_STEPS) };
     });
   };
 
   const prevStep = () => {
     setState((prev) => {
-      let prevStepNum = prev.current_step - 1;
-      
-      // Skip step 4 for non-sales modules
-      if (!isSalesModule && prevStepNum === 4) {
-        prevStepNum = 3;
-      }
-      
-      return {
-        ...prev,
-        current_step: Math.max(prevStepNum, 1),
-      };
+      let prev_ = prev.current_step - 1;
+      while (prev_ >= 1 && shouldSkip(prev_)) prev_--;
+      return { ...prev, current_step: Math.max(prev_, 1) };
     });
   };
 
   const goToStep = (step: number) => {
-    // For non-sales, don't allow going to step 4
-    if (!isSalesModule && step === 4) return;
-    
+    if (shouldSkip(step)) return;
     if (step >= 1 && step <= BASE_TOTAL_STEPS) {
       setState((prev) => ({ ...prev, current_step: step }));
     }
@@ -156,26 +182,25 @@ export function WorkstreamWizardProvider({
     }
   };
 
+  // Build the ordered list of active (non-skipped) step IDs
+  const activeStepIds = [1, 2, 3, 4, 5].filter((s) => !shouldSkip(s));
+
   // Convert actual step number to display step number (1-indexed for display)
   const getDisplayStep = (actualStep: number): number => {
-    if (!isSalesModule && actualStep >= 5) {
-      return actualStep - 1; // Step 5 becomes display step 4
-    }
-    return actualStep;
+    const idx = activeStepIds.indexOf(actualStep);
+    return idx >= 0 ? idx + 1 : actualStep;
   };
 
   // Convert display step to actual step
   const getActualStep = (displayStep: number): number => {
-    if (!isSalesModule && displayStep >= 4) {
-      return displayStep + 1; // Display step 4 is actual step 5
-    }
-    return displayStep;
+    return activeStepIds[displayStep - 1] ?? displayStep;
   };
 
   const value = useMemo(() => ({
     state,
     module,
     isSalesModule,
+    hasOptionalSteps,
     totalSteps,
     setCounterparty,
     setBusinessObjective,
@@ -188,7 +213,7 @@ export function WorkstreamWizardProvider({
     canProceed,
     getDisplayStep,
     getActualStep,
-  }), [state, module, isSalesModule, totalSteps]);
+  }), [state, module, isSalesModule, hasOptionalSteps, totalSteps]);
 
   return (
     <WorkstreamWizardContext.Provider value={value}>
