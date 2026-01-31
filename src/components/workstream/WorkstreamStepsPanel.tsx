@@ -4,15 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   HelpCircle,
   CheckCircle2,
   ClipboardList,
   FileText,
   Bell,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
   PartyPopper,
 } from "lucide-react";
@@ -60,7 +57,6 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: WorkstreamStepsPanelProps) {
-  const [showCompleted, setShowCompleted] = useState(false);
   const [selectedStep, setSelectedStep] = useState<WorkstreamStep | null>(null);
   const [modalType, setModalType] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -78,8 +74,7 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     },
   });
 
-  const completedSteps = steps.filter(s => s.status === "complete");
-  const incompleteSteps = steps.filter(s => s.status !== "complete");
+  const allComplete = steps.length > 0 && steps.every(s => s.status === "complete");
 
   // Handle step completion - uses modal for now until play-based UI is built
   const handleStepComplete = async (step: WorkstreamStep) => {
@@ -140,6 +135,23 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     return `Pending ${pendingRole.replace(/_/g, " ")} review`;
   };
 
+  /** Whether this step can be acted on by an internal user */
+  const canInternalUserComplete = (step: WorkstreamStep): boolean => {
+    if (step.status === "complete") return false;
+    if (step.step_type === "approval_gate") return false;
+    if (step.step_type === "send_notification") return false;
+    if (step.config?.request_from === "counterparty") return false;
+    return true;
+  };
+
+  const getOwnerLabel = (step: WorkstreamStep): string => {
+    const config = step.config || {};
+    if (config.assigned_role) return `Assigned: ${(config.assigned_role as string).replace(/_/g, " ")}`;
+    if (config.notify_team) return `Team: ${(config.notify_team as string).replace(/_/g, " ")}`;
+    if (config.request_from) return `From: ${(config.request_from as string).replace(/_/g, " ")}`;
+    return "Anyone can complete";
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -171,14 +183,12 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     );
   }
 
-  const allComplete = incompleteSteps.length === 0 && completedSteps.length > 0;
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">Workflow Steps</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {/* All Complete Celebration */}
         {allComplete && (
           <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
@@ -192,111 +202,84 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
           </div>
         )}
 
-        {/* Active Steps */}
-        {incompleteSteps.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Active Steps ({incompleteSteps.length})
-            </h3>
-            {incompleteSteps.map((step) => (
-              <div
-                key={step.id}
-                className="p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5">{STEP_ICONS[step.step_type]}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">
-                        {STEP_LABELS[step.step_type] || step.step_type}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        {step.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {getStepDescription(step)}
-                    </p>
-                    
-                    {step.step_type === "approval_gate" ? (
-                      <>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Status: {getApprovalStatus(step)}
-                        </p>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-primary"
-                          onClick={onSwitchToApprovals}
-                        >
-                          View in Approvals Tab
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          {getRequirementLabel(step)}
-                          {step.config?.assigned_role
-                            ? ` • Assigned: ${(step.config.assigned_role as string).replace(/_/g, " ")}`
-                            : step.config?.notify_team
-                            ? ` • Team: ${(step.config.notify_team as string).replace(/_/g, " ")}`
-                            : step.config?.request_from
-                            ? ` • From: ${(step.config.request_from as string).replace(/_/g, " ")}`
-                            : " • Anyone can complete"}
-                        </p>
-                        <Button
-                          size="sm"
-                          onClick={() => handleStepComplete(step)}
-                        >
-                          Complete This Step
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* All steps in position order */}
+        {steps.map((step) => {
+          const isComplete = step.status === "complete";
+          const isApproval = step.step_type === "approval_gate";
+          const completable = canInternalUserComplete(step);
 
-        {/* Completed Steps */}
-        {completedSteps.length > 0 && (
-          <Collapsible open={showCompleted} onOpenChange={setShowCompleted}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full justify-between h-auto py-2">
-                <span className="text-sm text-muted-foreground">
-                  Completed Steps ({completedSteps.length})
-                </span>
-                {showCompleted ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-2 mt-2">
-              {completedSteps.map((step) => (
-                <div
-                  key={step.id}
-                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30"
-                >
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm text-muted-foreground">
-                      {getStepDescription(step)}
-                    </span>
-                  </div>
-                  {step.completed_at && (
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(step.completed_at), { addSuffix: true })}
-                    </span>
+          return (
+            <div
+              key={step.id}
+              className={`p-4 border rounded-lg transition-colors ${
+                isComplete
+                  ? "bg-muted/30 border-muted"
+                  : "bg-card hover:bg-accent/50"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5">
+                  {isComplete ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  ) : (
+                    STEP_ICONS[step.step_type] || <ClipboardList className="h-5 w-5 text-muted-foreground" />
                   )}
                 </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`font-medium ${isComplete ? "text-muted-foreground" : ""}`}>
+                      {STEP_LABELS[step.step_type] || step.step_type}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${isComplete ? "border-green-300 text-green-600" : ""}`}
+                    >
+                      {step.status}
+                    </Badge>
+                    {step.completed_at && (
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatDistanceToNow(new Date(step.completed_at), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-sm mb-1 ${isComplete ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
+                    {getStepDescription(step)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {getRequirementLabel(step)} • {getOwnerLabel(step)}
+                  </p>
+
+                  {/* Action area — only for incomplete steps */}
+                  {!isComplete && isApproval && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Status: {getApprovalStatus(step)}
+                      </p>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-primary"
+                        onClick={onSwitchToApprovals}
+                      >
+                        View in Approvals Tab
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                  )}
+                  {completable && (
+                    <Button
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => handleStepComplete(step)}
+                    >
+                      Complete This Step
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
 
       {/* Modals */}
