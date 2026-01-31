@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from "react";
 
 export interface WizardState {
   play_id: string;
@@ -69,9 +69,12 @@ export function WorkstreamWizardProvider({
     setState((prev) => ({ ...prev, counterparty_id: id, counterparty_name: name }));
   };
 
-  const setBusinessObjective = (objective: string) => {
-    setState((prev) => ({ ...prev, business_objective: objective }));
-  };
+  const setBusinessObjective = useCallback((objective: string) => {
+    setState((prev) => {
+      if (prev.business_objective === objective) return prev;
+      return { ...prev, business_objective: objective };
+    });
+  }, []);
 
   const setOptionalSteps = (steps: string[]) => {
     setState((prev) => ({ ...prev, optional_steps: steps }));

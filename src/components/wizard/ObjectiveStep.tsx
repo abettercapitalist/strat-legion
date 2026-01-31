@@ -36,19 +36,16 @@ export function ObjectiveStep({ module, displayName }: ObjectiveStepProps) {
   const examples = moduleExamples[module] || moduleExamples.sales;
   const charCount = objective.length;
 
+  // Sync wizard context → local state (e.g. on reset)
   useEffect(() => {
-    setObjective(state.business_objective);
+    setObjective((prev) => prev === state.business_objective ? prev : state.business_objective);
   }, [state.business_objective]);
-
-  // Update wizard state on change so parent can check validity
-  useEffect(() => {
-    setBusinessObjective(objective);
-  }, [objective, setBusinessObjective]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     if (value.length <= MAX_CHARS) {
       setObjective(value);
+      setBusinessObjective(value);
     }
   };
 
