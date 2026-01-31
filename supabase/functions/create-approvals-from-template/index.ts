@@ -593,8 +593,9 @@ Deno.serve(async (req) => {
           ...(step.icon ? { icon: step.icon } : {}),
         };
 
-        // Auto-complete steps that fire at creation time (e.g. send_notification)
-        const isAutoComplete = step.trigger_timing === "workflow_creation" && step.step_type === "send_notification";
+        // Auto-complete steps that fire at creation time (notifications, document generation)
+        const isAutoComplete = step.trigger_timing === "workflow_creation" &&
+          (step.step_type === "send_notification" || step.step_type === "generate_document");
 
         const { error: stepError } = await supabaseAdmin
           .from("workstream_steps")

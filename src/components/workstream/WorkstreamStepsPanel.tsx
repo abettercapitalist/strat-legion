@@ -139,7 +139,10 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
   const canInternalUserComplete = (step: WorkstreamStep): boolean => {
     if (step.status === "complete") return false;
     if (step.step_type === "approval_gate") return false;
+    // System-automated step types
     if (step.step_type === "send_notification") return false;
+    if (step.step_type === "generate_document") return false;
+    // Counterparty-facing steps
     if (step.config?.request_from === "counterparty") return false;
     return true;
   };
