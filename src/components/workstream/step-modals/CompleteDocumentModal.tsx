@@ -92,15 +92,33 @@ export function CompleteDocumentModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="p-3 bg-muted rounded-lg flex items-center gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Document Type</p>
-              <p className="text-sm text-muted-foreground">
-                {config.document_type || "Required document"}
-              </p>
+          {/* Show each required document from the step config */}
+          {config.documents && Array.isArray(config.documents) && config.documents.length > 0 ? (
+            config.documents.map((doc: { id?: string; document_type?: string; template_name?: string; is_mandatory?: boolean }, idx: number) => (
+              <div key={doc.id || idx} className="p-3 bg-muted rounded-lg flex items-start gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{doc.document_type || "Required document"}</p>
+                  {doc.template_name && (
+                    <p className="text-xs text-muted-foreground">Template: {doc.template_name}</p>
+                  )}
+                  {doc.is_mandatory && (
+                    <p className="text-xs text-destructive mt-0.5">Mandatory</p>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-3 bg-muted rounded-lg flex items-center gap-3">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Document Type</p>
+                <p className="text-sm text-muted-foreground">
+                  {config.document_type || "Required document"}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {config.template_id && (
             <Button variant="outline" className="w-full justify-start gap-2">

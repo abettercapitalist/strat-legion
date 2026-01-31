@@ -586,6 +586,16 @@ Deno.serve(async (req) => {
     if (nonApprovalSteps.length > 0) {
       console.log(`Creating ${nonApprovalSteps.length} non-approval workflow steps`);
       for (const step of nonApprovalSteps.sort((a, b) => a.position - b.position)) {
+        // Merge documents into config so the UI has full context
+        const fullConfig = {
+          ...step.config,
+          ...(step.documents && step.documents.length > 0 ? { documents: step.documents } : {}),
+          ...(step.icon ? { icon: step.icon } : {}),
+        };
+
+        // Auto-complete steps that fire at creation time (e.g. send_notification)
+        const isAutoComplete = step.trigger_timing === "workflow_creation" && step.step_type === "send_notification";
+
         const { error: stepError } = await supabaseAdmin
           .from("workstream_steps")
           .insert({
@@ -596,12 +606,15 @@ Deno.serve(async (req) => {
             requirement_type: step.requirement_type,
             required_before: step.required_before,
             trigger_timing: step.trigger_timing,
-            status: "pending",
-            config: step.config,
+            status: isAutoComplete ? "complete" : "pending",
+            completed_at: isAutoComplete ? new Date().toISOString() : null,
+            config: fullConfig,
           });
 
         if (stepError) {
           console.error(`Error creating workstream_step for ${step.step_id}:`, stepError);
+        } else if (isAutoComplete) {
+          console.log(`Auto-completed ${step.step_type} step ${step.step_id}`);
         }
       }
       console.log(`Created ${nonApprovalSteps.length} non-approval steps`);

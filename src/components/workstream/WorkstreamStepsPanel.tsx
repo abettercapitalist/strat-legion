@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardList,
   FileText,
+  Bell,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -47,6 +48,7 @@ const STEP_ICONS: Record<string, React.ReactNode> = {
   approval_gate: <CheckCircle2 className="h-5 w-5 text-primary" />,
   task_assignment: <ClipboardList className="h-5 w-5 text-blue-500" />,
   generate_document: <FileText className="h-5 w-5 text-purple-500" />,
+  send_notification: <Bell className="h-5 w-5 text-orange-500" />,
 };
 
 const STEP_LABELS: Record<string, string> = {
@@ -54,6 +56,7 @@ const STEP_LABELS: Record<string, string> = {
   approval_gate: "Approval Gate",
   task_assignment: "Task",
   generate_document: "Generate Document",
+  send_notification: "Send Notification",
 };
 
 export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: WorkstreamStepsPanelProps) {
@@ -99,6 +102,7 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
 
   const getStepDescription = (step: WorkstreamStep): string => {
     const config = step.config || {};
+    const docs = config.documents as Array<{ document_type?: string; template_name?: string }> | undefined;
     switch (step.step_type) {
       case "request_information":
         return config.info_needed || "Provide required information";
@@ -106,8 +110,14 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
         return config.gate_name || "Approval required";
       case "task_assignment":
         return config.task_description || "Complete assigned task";
-      case "generate_document":
+      case "generate_document": {
+        if (docs && docs.length > 0) {
+          return docs.map(d => d.document_type).filter(Boolean).join(", ") || "Generate required document";
+        }
         return config.document_type || "Generate required document";
+      }
+      case "send_notification":
+        return config.message || "Send notification";
       default:
         return "Complete this step";
     }
@@ -227,7 +237,13 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
                       <>
                         <p className="text-xs text-muted-foreground mb-3">
                           {getRequirementLabel(step)}
-                          {!step.config?.assigned_role && " • Anyone can complete"}
+                          {step.config?.assigned_role
+                            ? ` • Assigned: ${(step.config.assigned_role as string).replace(/_/g, " ")}`
+                            : step.config?.notify_team
+                            ? ` • Team: ${(step.config.notify_team as string).replace(/_/g, " ")}`
+                            : step.config?.request_from
+                            ? ` • From: ${(step.config.request_from as string).replace(/_/g, " ")}`
+                            : " • Anyone can complete"}
                         </p>
                         <Button
                           size="sm"
