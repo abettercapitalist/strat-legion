@@ -576,6 +576,35 @@ Deno.serve(async (req) => {
 
     console.log(`Created ${approvalsCreated.length} approvals, auto-approved ${autoApprovalLogs.length}, skipped ${skippedSteps.length}`);
 
+    // Insert non-approval workflow steps into workstream_steps
+    const nonApprovalSteps = workflowSteps.filter(
+      step => step.step_type !== "approval" && step.step_type !== "approval_gate"
+    );
+
+    if (nonApprovalSteps.length > 0) {
+      console.log(`Creating ${nonApprovalSteps.length} non-approval workflow steps`);
+      for (const step of nonApprovalSteps.sort((a, b) => a.position - b.position)) {
+        const { error: stepError } = await supabaseAdmin
+          .from("workstream_steps")
+          .insert({
+            workstream_id,
+            step_id: step.step_id,
+            step_type: step.step_type,
+            position: step.position,
+            requirement_type: step.requirement_type,
+            required_before: step.required_before,
+            trigger_timing: step.trigger_timing,
+            status: "pending",
+            config: step.config,
+          });
+
+        if (stepError) {
+          console.error(`Error creating workstream_step for ${step.step_id}:`, stepError);
+        }
+      }
+      console.log(`Created ${nonApprovalSteps.length} non-approval steps`);
+    }
+
     // Update workstream stage to pending_approval when approvals are created
     if (approvalsCreated.length > 0) {
       const { error: stageError } = await supabaseAdmin

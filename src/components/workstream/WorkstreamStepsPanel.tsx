@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,15 +14,11 @@ import {
   ChevronUp,
   ExternalLink,
   PartyPopper,
-  Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CompleteRequestInfoModal } from "./step-modals/CompleteRequestInfoModal";
 import { CompleteTaskModal } from "./step-modals/CompleteTaskModal";
 import { CompleteDocumentModal } from "./step-modals/CompleteDocumentModal";
-import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
-import { usePlayExecution } from "@/hooks/usePlayExecution";
-import type { Workstream, CurrentUser } from "@/lib/bricks/services/playExecutor";
 
 interface WorkstreamStep {
   id: string;
@@ -65,8 +61,6 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
   const [selectedStep, setSelectedStep] = useState<WorkstreamStep | null>(null);
   const [modalType, setModalType] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { userId, workRoutingRoleIds, isManager } = useCurrentUserRole();
-
   const { data: steps = [], isLoading } = useQuery({
     queryKey: ["workstream-steps", workstreamId],
     queryFn: async () => {
@@ -81,66 +75,8 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
     },
   });
 
-  // Load full workstream data for brick execution
-  const { data: workstream } = useQuery({
-    queryKey: ["workstream", workstreamId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("workstreams")
-        .select("*")
-        .eq("id", workstreamId)
-        .single();
-      return data as Workstream | null;
-    },
-  });
-
-  // Load current user data
-  const { data: currentUser } = useQuery({
-    queryKey: ["current-user"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      return {
-        id: user.id,
-        email: user.email || "",
-        role: null,
-      } as CurrentUser;
-    },
-  });
-
-  // Play execution hook
-  const {
-    isExecuting: isPlayExecuting,
-    executePlay: executePlayAction,
-    checkActivePlay,
-  } = usePlayExecution();
-
-  // Track whether workstream has an active play
-  const [hasPlay, setHasPlay] = useState(false);
-
-  // Check if workstream has an active play
-  useEffect(() => {
-    const checkPlay = async () => {
-      const active = await checkActivePlay(workstreamId);
-      setHasPlay(active);
-    };
-    checkPlay();
-  }, [workstreamId, checkActivePlay]);
-
-  const isOwner = workstream?.owner_id === userId;
-  const canSeeAllSteps = isOwner || isManager;
-
   const completedSteps = steps.filter(s => s.status === "complete");
   const incompleteSteps = steps.filter(s => s.status !== "complete");
-
-  // Filter steps based on visibility rules
-  const visibleIncompleteSteps = canSeeAllSteps 
-    ? incompleteSteps 
-    : incompleteSteps.filter(step => {
-        const assignedRole = step.config?.assigned_role;
-        if (!assignedRole) return true; // Unassigned = visible to all
-        return workRoutingRoleIds.includes(assignedRole);
-      });
 
   // Handle step completion - uses modal for now until play-based UI is built
   const handleStepComplete = async (step: WorkstreamStep) => {
@@ -247,12 +183,12 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
         )}
 
         {/* Active Steps */}
-        {visibleIncompleteSteps.length > 0 && (
+        {incompleteSteps.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground">
-              Active Steps ({visibleIncompleteSteps.length})
+              Active Steps ({incompleteSteps.length})
             </h3>
-            {visibleIncompleteSteps.map((step) => (
+            {incompleteSteps.map((step) => (
               <div
                 key={step.id}
                 className="p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors"
@@ -296,16 +232,8 @@ export function WorkstreamStepsPanel({ workstreamId, onSwitchToApprovals }: Work
                         <Button
                           size="sm"
                           onClick={() => handleStepComplete(step)}
-                          disabled={isPlayExecuting}
                         >
-                          {isPlayExecuting ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Executing...
-                            </>
-                          ) : (
-                            "Complete This Step"
-                          )}
+                          Complete This Step
                         </Button>
                       </>
                     )}

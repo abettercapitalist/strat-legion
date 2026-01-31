@@ -205,9 +205,7 @@ export function WorkflowStepsSection({
   };
 
   const updateStep = (stepId: string, updates: Partial<WorkflowStep>) => {
-    console.log(`[WorkflowStepsSection] updateStep ${stepId}:`, updates);
     const newSteps = steps.map((s) => (s.step_id === stepId ? { ...s, ...updates } : s));
-    console.log(`[WorkflowStepsSection] newSteps:`, newSteps.map(s => ({ id: s.step_id, config: s.config })));
     onStepsChange(newSteps);
   };
 
@@ -587,7 +585,6 @@ function StepTypeFields({
 }) {
   const updateConfig = (key: string, value: unknown) => {
     const newConfig = { ...step.config, [key]: value };
-    console.log(`[WorkflowStep ${step.step_id}] updateConfig: ${key} =`, value, "full config:", newConfig);
     onUpdate({ config: newConfig });
   };
 
