@@ -13,14 +13,14 @@ export function WorkstreamDocumentsTab({ workstreamId }: WorkstreamDocumentsTabP
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["workstream_documents", workstreamId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("workstream_documents")
         .select("*")
         .eq("workstream_id", workstreamId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     refetchInterval: (query) => {
       const docs = query.state.data;

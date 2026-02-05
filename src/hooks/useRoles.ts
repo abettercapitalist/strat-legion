@@ -48,7 +48,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
   const { data: roles = [], isLoading, error } = useQuery({
     queryKey: ["roles", options?.workRoutingOnly],
     queryFn: async () => {
-      let query = supabase
+      let query = (supabase as any)
         .from("roles")
         .select("*")
         .order("is_system_role", { ascending: false })
@@ -66,7 +66,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
 
   const createRole = useMutation({
     mutationFn: async (input: CreateRoleInput) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("roles")
         .insert({
           name: input.name,
@@ -101,7 +101,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
 
   const updateRole = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: UpdateRoleInput }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("roles")
         .update(updates)
         .eq("id", id)
@@ -126,7 +126,7 @@ export function useRoles(options?: { workRoutingOnly?: boolean }) {
 
   const deleteRole = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("roles")
         .delete()
         .eq("id", id);

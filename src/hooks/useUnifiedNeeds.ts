@@ -157,7 +157,7 @@ export function useUnifiedNeeds(
   // Fetch role display names on mount
   useEffect(() => {
     async function fetchRoles() {
-      const { data: roles } = await supabase
+      const { data: roles } = await (supabase as any)
         .from("roles")
         .select("id, name, display_name")
         .eq("is_work_routing", true);

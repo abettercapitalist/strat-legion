@@ -550,9 +550,9 @@ class BrickEngineImpl implements BrickEngine {
     }
 
     // Handle control nodes
-    if (nodeType === 'start' || nodeType === 'end' || nodeType === 'fork' || nodeType === 'decision') {
+    if (['start', 'end', 'fork', 'decision', 'join'].includes(nodeType)) {
       const mergedOutputs: Record<string, unknown> = {};
-      if (nodeType === 'join') {
+      if (nodeType === 'join' as string) {
         for (const edge of dagNode.incomingEdges) {
           const sourceOutputs = nodeOutputs.get(edge.source_node_id);
           if (sourceOutputs) Object.assign(mergedOutputs, sourceOutputs);
@@ -571,7 +571,7 @@ class BrickEngineImpl implements BrickEngine {
       };
     }
 
-    if (nodeType === 'join') {
+    if ((nodeType as string) === 'join') {
       const mergedOutputs: Record<string, unknown> = {};
       for (const edge of dagNode.incomingEdges) {
         const sourceOutputs = nodeOutputs.get(edge.source_node_id);

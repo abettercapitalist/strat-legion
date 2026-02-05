@@ -53,7 +53,7 @@ export function useCustomRoles() {
   return useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("roles")
         .select("*")
         .order("name", { ascending: true });
@@ -84,7 +84,7 @@ export function useUserCustomRoles() {
   return useQuery({
     queryKey: ["user_roles"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("user_roles")
         .select("*");
       
@@ -100,7 +100,7 @@ export function useCreateRole() {
   
   return useMutation({
     mutationFn: async (role: { name: string; description: string; is_system_role?: boolean }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("roles")
         .insert(role)
         .select()
@@ -120,7 +120,7 @@ export function useUpdateRole() {
   
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CustomRole> }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("roles")
         .update(updates)
         .eq("id", id)
@@ -141,7 +141,7 @@ export function useDeleteRole() {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("roles")
         .delete()
         .eq("id", id);
@@ -188,7 +188,7 @@ export function useAssignUserRole() {
   
   return useMutation({
     mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("user_roles")
         .insert({ user_id: userId, role_id: roleId })
         .select()
@@ -208,7 +208,7 @@ export function useRemoveUserRole() {
   
   return useMutation({
     mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("user_roles")
         .delete()
         .eq("user_id", userId)
@@ -228,14 +228,14 @@ export function useSetUserRoles() {
   return useMutation({
     mutationFn: async ({ userId, roleIds }: { userId: string; roleIds: string[] }) => {
       // Delete existing roles for this user
-      await supabase
+      await (supabase as any)
         .from("user_roles")
         .delete()
         .eq("user_id", userId);
       
       // Insert new roles
       if (roleIds.length > 0) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from("user_roles")
           .insert(roleIds.map(rid => ({ user_id: userId, role_id: rid })));
         
