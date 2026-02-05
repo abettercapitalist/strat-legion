@@ -1109,6 +1109,76 @@ export type Database = {
         }
         Relationships: []
       }
+      workstream_documents: {
+        Row: {
+          id: string
+          workstream_id: string
+          step_id: string | null
+          template_id: string | null
+          document_type: string
+          title: string
+          storage_path: string | null
+          file_format: string | null
+          status: string
+          error_message: string | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workstream_id: string
+          step_id?: string | null
+          template_id?: string | null
+          document_type: string
+          title: string
+          storage_path?: string | null
+          file_format?: string | null
+          status?: string
+          error_message?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workstream_id?: string
+          step_id?: string | null
+          template_id?: string | null
+          document_type?: string
+          title?: string
+          storage_path?: string | null
+          file_format?: string | null
+          status?: string
+          error_message?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workstream_documents_workstream_id_fkey"
+            columns: ["workstream_id"]
+            isOneToOne: false
+            referencedRelation: "workstreams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstream_documents_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "workstream_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstream_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workstream_activity: {
         Row: {
           activity_type: string

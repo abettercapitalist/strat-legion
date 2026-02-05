@@ -617,6 +617,50 @@ Deno.serve(async (req) => {
         } else if (isAutoComplete) {
           console.log(`Auto-completed ${step.step_type} step ${step.step_id}`);
         }
+
+        // Fire document generation for generate_document steps
+        if (step.step_type === "generate_document" && fullConfig.documents && Array.isArray(fullConfig.documents)) {
+          // Get the inserted step's UUID for linking
+          const { data: insertedStep } = await supabaseAdmin
+            .from("workstream_steps")
+            .select("id")
+            .eq("workstream_id", workstream_id)
+            .eq("step_id", step.step_id)
+            .maybeSingle();
+
+          const insertedStepId = insertedStep?.id;
+
+          for (const doc of fullConfig.documents) {
+            if (!doc.template_id) {
+              console.log(`Skipping document ${doc.document_type}: no template_id`);
+              continue;
+            }
+
+            const docTitle = `${doc.document_type} - ${workstream.name}`;
+            console.log(`Triggering document generation: ${docTitle}`);
+
+            try {
+              const genResp = await fetch(`${supabaseUrl}/functions/v1/generate-document`, {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${supabaseServiceKey}`,
+                  "apikey": supabaseServiceKey,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  workstream_id,
+                  step_id: insertedStepId || null,
+                  template_id: doc.template_id,
+                  document_type: doc.document_type,
+                  title: docTitle,
+                }),
+              });
+              console.log(`generate-document response: ${genResp.status}`);
+            } catch (err) {
+              console.error(`Error calling generate-document for ${doc.document_type}:`, err);
+            }
+          }
+        }
       }
       console.log(`Created ${nonApprovalSteps.length} non-approval steps`);
     }
