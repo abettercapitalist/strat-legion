@@ -1,6 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, LevelFormat, convertInchesToTwip } from "https://esm.sh/docx@9.1.1";
-import * as cheerio from "https://esm.sh/cheerio@1.0.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, LevelFormat, convertInchesToTwip } from "npm:docx@9.1.1";
+import * as cheerio from "npm:cheerio@1.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
