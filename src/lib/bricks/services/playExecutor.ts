@@ -304,7 +304,7 @@ async function updateWorkstreamCurrentNodes(
   workstreamId: string,
   currentNodeIds: string[]
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('workstreams')
     .update({
       current_node_ids: currentNodeIds,
@@ -353,7 +353,7 @@ async function logPlayActivity(
  * Checks if a workstream has an active play.
  */
 export async function hasActivePlay(workstreamId: string): Promise<boolean> {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('workstreams')
     .select('play_id')
     .eq('id', workstreamId)
@@ -375,7 +375,7 @@ export async function getPendingPlayAction(
   config: Record<string, unknown>;
 } | null> {
   // Get workstream with play info
-  const { data: workstream } = await supabase
+  const { data: workstream } = await (supabase as any)
     .from('workstreams')
     .select('play_id, current_node_ids')
     .eq('id', workstreamId)
@@ -387,7 +387,7 @@ export async function getPendingPlayAction(
   const currentNodeIds = (workstream.current_node_ids as string[]) || [];
   if (currentNodeIds.length === 0) return null;
 
-  const { data: states } = await supabase
+  const { data: states } = await (supabase as any)
     .from('node_execution_state')
     .select('*')
     .eq('workstream_id', workstreamId)
@@ -418,7 +418,7 @@ export async function assignPlayToWorkstream(
   playId: string,
   playbookId?: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('workstreams')
     .update({
       play_id: playId,

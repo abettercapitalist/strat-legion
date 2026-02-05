@@ -289,7 +289,7 @@ export async function loadBricksByCategory(category: BrickCategory): Promise<Bri
  * Loads all active playbooks.
  */
 export async function loadPlaybooks(): Promise<Playbook[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbooks')
     .select('*')
     .eq('is_active', true)
@@ -307,7 +307,7 @@ export async function loadPlaybooks(): Promise<Playbook[]> {
  * Loads a playbook by ID.
  */
 export async function loadPlaybookById(playbookId: string): Promise<Playbook | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbooks')
     .select('*')
     .eq('id', playbookId)
@@ -326,7 +326,7 @@ export async function loadPlaybookById(playbookId: string): Promise<Playbook | n
  * Loads playbook templates.
  */
 export async function loadPlaybookTemplates(): Promise<Playbook[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbooks')
     .select('*')
     .eq('is_template', true)
@@ -345,7 +345,7 @@ export async function loadPlaybookTemplates(): Promise<Playbook[]> {
  * Loads playbook by workstream type.
  */
 export async function loadPlaybookByWorkstreamType(workstreamTypeId: string): Promise<Playbook | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbooks')
     .select('*')
     .eq('workstream_type_id', workstreamTypeId)
@@ -369,7 +369,7 @@ export async function loadPlaybookByWorkstreamType(workstreamTypeId: string): Pr
  * Loads patterns for a playbook.
  */
 export async function loadPlaybookPatterns(playbookId: string): Promise<PlaybookPattern[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbook_patterns')
     .select('*')
     .eq('playbook_id', playbookId)
@@ -388,7 +388,7 @@ export async function loadPlaybookPatterns(playbookId: string): Promise<Playbook
  * Loads a pattern by ID.
  */
 export async function loadPatternById(patternId: string): Promise<PlaybookPattern | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbook_patterns')
     .select('*')
     .eq('id', patternId)
@@ -411,7 +411,7 @@ export async function loadPatternById(patternId: string): Promise<PlaybookPatter
  * Loads plays for a pattern.
  */
 export async function loadPlaybookPlays(patternId: string): Promise<PlaybookPlay[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbook_plays')
     .select('*')
     .eq('pattern_id', patternId)
@@ -430,7 +430,7 @@ export async function loadPlaybookPlays(patternId: string): Promise<PlaybookPlay
  * Loads a play by ID.
  */
 export async function loadPlayById(playId: string): Promise<PlaybookPlay | null> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('playbook_plays')
     .select('*')
     .eq('id', playId)
@@ -453,7 +453,7 @@ export async function loadPlayById(playId: string): Promise<PlaybookPlay | null>
  * Loads workflow nodes for a play.
  */
 export async function loadWorkflowNodes(playId: string): Promise<WorkflowNode[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('workflow_nodes')
     .select('*')
     .eq('play_id', playId);
@@ -470,7 +470,7 @@ export async function loadWorkflowNodes(playId: string): Promise<WorkflowNode[]>
  * Loads workflow edges for a play.
  */
 export async function loadWorkflowEdges(playId: string): Promise<WorkflowEdge[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('workflow_edges')
     .select('*')
     .eq('play_id', playId);
@@ -544,7 +544,7 @@ export async function loadNodeExecutionStates(
   workstreamId: string,
   playId: string
 ): Promise<NodeExecutionState[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('node_execution_state')
     .select('*')
     .eq('workstream_id', workstreamId)
@@ -564,7 +564,7 @@ export async function loadNodeExecutionStates(
 export async function saveNodeExecutionState(
   state: Omit<NodeExecutionState, 'id' | 'created_at' | 'updated_at'>
 ): Promise<NodeExecutionState> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('node_execution_state')
     .upsert(
       {
@@ -626,7 +626,7 @@ export async function updateNodeExecutionStatus(
     updateData.completed_at = new Date().toISOString();
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await (supabase as any)
     .from('node_execution_state')
     .update(updateData)
     .eq('workstream_id', workstreamId)
@@ -647,7 +647,7 @@ export async function updateNodeExecutionStatus(
  * Loads all active libraries.
  */
 export async function loadLibraries(): Promise<Library[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('libraries')
     .select('*')
     .eq('is_active', true)
@@ -676,7 +676,7 @@ export async function loadLibraries(): Promise<Library[]> {
  * Loads artifacts from a library.
  */
 export async function loadLibraryArtifacts(libraryId: string): Promise<LibraryArtifact[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('library_artifacts')
     .select('*')
     .eq('library_id', libraryId)
@@ -710,7 +710,7 @@ export async function loadLibraryArtifacts(libraryId: string): Promise<LibraryAr
  * Loads templates from a library.
  */
 export async function loadLibraryTemplates(libraryId: string): Promise<LibraryTemplate[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('library_templates')
     .select('*')
     .eq('library_id', libraryId)
