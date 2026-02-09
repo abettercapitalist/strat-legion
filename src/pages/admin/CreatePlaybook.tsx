@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,15 +13,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkstreamTypes } from "@/hooks/useWorkstreamTypes";
 import { useTeams } from "@/hooks/useTeams";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  WorkflowStepsSection,
-  WorkflowStep,
-  StepValidationError,
-} from "@/components/admin/WorkflowStepsSection";
 import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
 import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
 import { TeamCombobox } from "@/components/admin/TeamCombobox";
 import { PlayApprovalSection, PlayApprovalConfig } from "@/components/admin/PlayApprovalSection";
+import {
+  WorkflowCanvasSection,
+  type WorkflowCanvasSectionHandle,
+} from "@/components/admin/workflow-builder/WorkflowCanvasSection";
+import type { WorkflowRFNode, WorkflowRFEdge } from "@/components/admin/workflow-builder/types";
+import { useWorkflowPersistence } from "@/components/admin/workflow-builder/hooks/useWorkflowPersistence";
 
 const playbookSchema = z.object({
   name: z
@@ -52,15 +53,21 @@ export default function CreatePlaybook() {
   const { createWorkstreamType, updateWorkstreamType } = useWorkstreamTypes();
   const { hasSubgroups, getTeamById } = useTeams();
   const isEditing = Boolean(id);
-  
+
   const [currentStep, setCurrentStep] = useState<FormStep>("basics");
   const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set());
-  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([]);
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
-const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>({
+  const [existingStatus, setExistingStatus] = useState<string | null>(null);
+  const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>({
     required_roles: [],
     approval_mode: "all",
   });
+
+  // Workflow canvas ref and state
+  const canvasRef = useRef<WorkflowCanvasSectionHandle>(null);
+  const [initialNodes, setInitialNodes] = useState<WorkflowRFNode[]>([]);
+  const [initialEdges, setInitialEdges] = useState<WorkflowRFEdge[]>([]);
+  const persistence = useWorkflowPersistence();
 
   const {
     register,
@@ -100,6 +107,7 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
         if (error) throw error;
 
         if (data) {
+          setExistingStatus(data.status);
           reset({
             name: data.name,
             display_name: data.display_name || "",
@@ -107,21 +115,16 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
             team_category: data.team_category as PlaybookFormData["team_category"],
           });
 
-          // Parse workflow steps from default_workflow JSON
-          if (data.default_workflow) {
-            try {
-              const workflow = JSON.parse(data.default_workflow);
-              if (workflow.steps && Array.isArray(workflow.steps)) {
-                setWorkflowSteps(workflow.steps);
-              }
-            } catch (e) {
-              console.error("Failed to parse workflow:", e);
-            }
-          }
-
           // Load play approval config
           if (data.play_approval_config) {
             setPlayApprovalConfig(data.play_approval_config as unknown as PlayApprovalConfig);
+          }
+
+          // Load DAG workflow from relational tables
+          const dagState = await persistence.loadWorkflow(id);
+          if (dagState) {
+            setInitialNodes(dagState.nodes);
+            setInitialEdges(dagState.edges);
           }
         }
       } catch (error) {
@@ -141,50 +144,14 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
   }, [id, reset, toast, navigate]);
 
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
-  const [stepErrors, setStepErrors] = useState<StepValidationError[]>([]);
-
-  const STEP_VALIDATION_RULES: Record<string, { field: string; label: string; conditional?: (config: Record<string, unknown>) => boolean }[]> = {
-    generate_document: [{ field: "template_id", label: "Template" }],
-    approval: [
-      { field: "approves", label: "Steps to Approve" },
-      { field: "approvers", label: "Approvers" },
-    ],
-    send_notification: [{ field: "notify_team", label: "Recipient" }],
-    assign_task: [
-      { field: "assign_to", label: "Assignee" },
-      { field: "description", label: "Task Description" },
-      { field: "internal_owner", label: "Internal Owner", conditional: (config) => config.assign_to === "counterparty" },
-    ],
-    request_information: [
-      { field: "request_from", label: "Request From" },
-      { field: "info_needed", label: "Information Needed" },
-    ],
-    send_reminder: [
-      { field: "remind_who", label: "Remind Who" },
-      { field: "about", label: "About" },
-    ],
-  };
-
-  const getStepLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      generate_document: "Generate Document",
-      approval: "Approval",
-      send_notification: "Send Notification",
-      assign_task: "Assign Task",
-      request_information: "Request Information",
-      send_reminder: "Send Reminder",
-    };
-    return labels[type] || type;
-  };
 
   const validateForActivation = useCallback((): boolean => {
-    const errors: ValidationError[] = [];
-    const stepErrs: StepValidationError[] = [];
+    const errs: ValidationError[] = [];
 
     // Validate team category - check if a parent with sub-groups was selected
     const selectedTeam = teamCategory ? getTeamById(teamCategory) : null;
     if (selectedTeam && hasSubgroups(selectedTeam.id)) {
-      errors.push({
+      errs.push({
         id: "team-subgroup",
         section: "basics",
         field: "team_category",
@@ -192,71 +159,42 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
       });
     }
 
-    // Validate workflow steps have at least one immediate step
-    const hasImmediateStep = workflowSteps.some((step) => step.requirement_type === "required_immediate");
-    if (!hasImmediateStep) {
-      errors.push({
-        id: "workflow-immediate",
-        section: "workflow",
-        field: "requirement_type",
-        message: "At least one step must be 'Required (immediate)' to activate",
-      });
+    // Validate workflow DAG
+    if (canvasRef.current) {
+      const dagErrors = canvasRef.current.validate();
+      for (const dagErr of dagErrors) {
+        if (dagErr.severity === 'error') {
+          errs.push({
+            id: dagErr.id,
+            section: "workflow",
+            field: "dag",
+            message: dagErr.message,
+          });
+        }
+      }
     }
 
-    // Validate each step's required fields
-    workflowSteps.forEach((step, index) => {
-      const rules = STEP_VALIDATION_RULES[step.step_type] || [];
-      rules.forEach((rule) => {
-        const shouldValidate = !rule.conditional || rule.conditional(step.config);
-        if (shouldValidate && !step.config[rule.field]) {
-          const error: ValidationError = {
-            id: `${step.step_id}-${rule.field}`,
-            section: "workflow",
-            stepId: step.step_id,
-            stepNumber: index + 1,
-            stepType: getStepLabel(step.step_type),
-            field: rule.field,
-            message: `${rule.label} is required`,
-          };
-          errors.push(error);
-          stepErrs.push({ stepId: step.step_id, field: rule.field, message: `${rule.label} is required` });
-        }
-      });
-
-      // Validate trigger_step_id when after_specific_step is selected
-      if (step.trigger_timing === "after_specific_step" && !step.trigger_step_id) {
-        errors.push({
-          id: `${step.step_id}-trigger_step_id`,
-          section: "workflow",
-          stepId: step.step_id,
-          stepNumber: index + 1,
-          stepType: getStepLabel(step.step_type),
-          field: "trigger_step_id",
-          message: "Trigger step must be selected",
-        });
-        stepErrs.push({ stepId: step.step_id, field: "trigger_step_id", message: "Trigger step must be selected" });
-      }
-    });
-
-    setValidationErrors(errors);
-    setStepErrors(stepErrs);
-    return errors.length === 0;
-  }, [workflowSteps, teamCategory, getTeamById, hasSubgroups]);
+    setValidationErrors(errs);
+    return errs.length === 0;
+  }, [teamCategory, getTeamById, hasSubgroups]);
 
   const handleErrorClick = (error: ValidationError) => {
     setCurrentStep(error.section);
   };
 
-  const onSubmit = async (data: PlaybookFormData, status: "Draft" | "Active") => {
+  const onSubmit = async (data: PlaybookFormData, requestedStatus: "Draft" | "Active") => {
     setValidationErrors([]);
-    setStepErrors([]);
-    
+
+    // When editing, preserve existing status unless explicitly activating
+    const status = requestedStatus === "Draft" && isEditing && existingStatus
+      ? existingStatus as "Draft" | "Active"
+      : requestedStatus;
+
     if (status === "Active" && !validateForActivation()) {
       const firstError = validationErrors[0];
       if (firstError) {
         setCurrentStep(firstError.section);
       }
-      // Validation errors shown via ValidationSummaryPanel - no toast needed
       return;
     }
 
@@ -267,33 +205,53 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
         description: data.description || null,
         team_category: data.team_category,
         status,
-        default_workflow: JSON.stringify({
-          steps: workflowSteps,
-        }),
+        default_workflow: JSON.stringify({ steps: [] }), // Legacy field - kept for backwards compat
         play_approval_config: playApprovalConfig,
       };
 
+      let workstreamTypeId: string;
+
       if (isEditing && id) {
         await updateWorkstreamType.mutateAsync({ id, ...payload });
+        workstreamTypeId = id;
         toast({
-          title: status === "Active" ? "Play activated" : "Draft saved",
+          title: "Play saved",
           description: `${data.name} has been updated successfully.`,
         });
-        // Only navigate to library when activating
+      } else {
+        const result = await createWorkstreamType.mutateAsync(payload);
+        workstreamTypeId = result?.id || "";
+        toast({
+          title: status === "Active" ? "New play activated successfully" : "Draft saved",
+        });
+      }
+
+      // Save workflow DAG to relational tables
+      if (canvasRef.current && workstreamTypeId) {
+        const nodes = canvasRef.current.getNodes();
+        const edges = canvasRef.current.getEdges();
+        if (nodes.length > 0) {
+          const result = await persistence.saveWorkflow(workstreamTypeId, data.name, nodes, edges);
+          if (!result) {
+            toast({
+              title: "Workflow save failed",
+              description: persistence.error || "Unknown error saving workflow DAG",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      }
+
+      if (isEditing && id) {
         if (status === "Active") {
           navigate("/admin/workstream-types");
         }
       } else {
-        const result = await createWorkstreamType.mutateAsync(payload);
-        toast({
-          title: status === "Active" ? "New play activated successfully" : "Draft saved",
-        });
-        
         if (status === "Active") {
           navigate("/admin/workstream-types");
-        } else if (result?.id) {
-          // Navigate to edit URL so subsequent saves update this draft
-          navigate(`/admin/workstream-types/${result.id}/edit`, { replace: true });
+        } else if (workstreamTypeId) {
+          navigate(`/admin/workstream-types/${workstreamTypeId}/edit`, { replace: true });
         }
       }
     } catch (error) {
@@ -331,7 +289,6 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
   };
 
   const handleStepClick = (step: FormStep) => {
-    // Allow navigation to any step in both directions
     setCurrentStep(step);
   };
 
@@ -352,8 +309,11 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
     );
   }
 
+  // Use full width for workflow step, constrained width for other steps
+  const isWorkflowStep = currentStep === "workflow";
+
   return (
-    <div className="max-w-[800px] mx-auto py-8">
+    <div className={isWorkflowStep ? "px-6 py-8" : "max-w-[800px] mx-auto py-8"}>
       {/* Header */}
       <div className="mb-8">
         <Button
@@ -485,16 +445,22 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
           </div>
         )}
 
-        {/* Step 2: Workflow Steps */}
-        {currentStep === "workflow" && (
-          <div className="space-y-2">
-            <WorkflowStepsSection
-              steps={workflowSteps}
-              onStepsChange={setWorkflowSteps}
-              stepErrors={stepErrors}
-            />
-          </div>
-        )}
+        {/* Step 2: Workflow DAG Builder — always mounted, hidden via CSS to preserve ref */}
+        <div className={currentStep === "workflow" ? "space-y-2" : "hidden"}>
+          <h2 className="text-lg font-medium text-foreground border-b pb-2">
+            Workflow Builder
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Design your workflow by dragging bricks from the palette and connecting them.
+            Behavior is determined by graph topology: nodes with no incoming edges start first,
+            multiple outgoing edges fork in parallel, and conditional edges branch on output.
+          </p>
+          <WorkflowCanvasSection
+            ref={canvasRef}
+            initialNodes={initialNodes}
+            initialEdges={initialEdges}
+          />
+        </div>
 
         {/* Step 3: Play Approval (who approves the play itself) */}
         {currentStep === "approval" && (
@@ -555,14 +521,14 @@ const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>
             type="button"
             variant="outline"
             onClick={handleSaveAsDraft}
-            disabled={isSubmitting}
+            disabled={isSubmitting || persistence.isSaving}
           >
-            Save as Draft
+            {persistence.isSaving ? "Saving..." : "Save as Draft"}
           </Button>
           <Button
             type="button"
             onClick={handleActivate}
-            disabled={isSubmitting}
+            disabled={isSubmitting || persistence.isSaving}
           >
             Activate This Play
           </Button>

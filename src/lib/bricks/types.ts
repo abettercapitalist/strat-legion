@@ -325,7 +325,8 @@ export interface PlaybookPattern {
 
 export interface PlaybookPlay {
   id: string;
-  pattern_id: string;
+  pattern_id: string | null;
+  playbook_id?: string | null;
   name: string;
   display_name: string;
   description: string | null;

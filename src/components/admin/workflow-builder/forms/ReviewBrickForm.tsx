@@ -1,0 +1,126 @@
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Plus, X } from 'lucide-react';
+import type { ReviewCriterion } from '@/lib/bricks/types';
+
+interface ReviewBrickFormProps {
+  config: Record<string, unknown>;
+  onConfigChange: (config: Record<string, unknown>) => void;
+}
+
+export function ReviewBrickForm({ config, onConfigChange }: ReviewBrickFormProps) {
+  const reviewType = (config.review_type as string) || 'checklist';
+  const criteria = (config.criteria as ReviewCriterion[]) || [];
+
+  const updateCriterion = (index: number, updates: Partial<ReviewCriterion>) => {
+    const newCriteria = criteria.map((c, i) => (i === index ? { ...c, ...updates } : c));
+    onConfigChange({ criteria: newCriteria });
+  };
+
+  const addCriterion = () => {
+    const newCriterion: ReviewCriterion = {
+      id: crypto.randomUUID(),
+      label: '',
+      required: true,
+    };
+    onConfigChange({ criteria: [...criteria, newCriterion] });
+  };
+
+  const removeCriterion = (index: number) => {
+    onConfigChange({ criteria: criteria.filter((_, i) => i !== index) });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Review Type</Label>
+        <RadioGroup
+          value={reviewType}
+          onValueChange={(value) => onConfigChange({ review_type: value })}
+          className="flex flex-col gap-2"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="checklist" id="review-checklist" />
+            <Label htmlFor="review-checklist" className="text-sm font-normal cursor-pointer">Checklist</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="scored" id="review-scored" />
+            <Label htmlFor="review-scored" className="text-sm font-normal cursor-pointer">Scored</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="qualitative" id="review-qualitative" />
+            <Label htmlFor="review-qualitative" className="text-sm font-normal cursor-pointer">Qualitative</Label>
+          </div>
+        </RadioGroup>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Reviewer</Label>
+        <Select
+          value={(config.reviewer_assignment as Record<string, unknown>)?.type as string || ''}
+          onValueChange={(value) => onConfigChange({ reviewer_assignment: { type: value } })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select reviewer type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="workstream_owner">Workstream Owner</SelectItem>
+            <SelectItem value="role">Specific Role</SelectItem>
+            <SelectItem value="user">Specific User</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">SLA (hours)</Label>
+        <Input
+          type="number"
+          placeholder="e.g., 48"
+          value={(config.sla?.deadline_hours as number) || ''}
+          onChange={(e) =>
+            onConfigChange({ sla: { ...((config.sla as Record<string, unknown>) || {}), deadline_hours: e.target.value ? Number(e.target.value) : undefined } })
+          }
+          className="w-32"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold">Review Criteria</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addCriterion} className="gap-1 h-7 text-xs">
+            <Plus className="h-3 w-3" />
+            Add Criterion
+          </Button>
+        </div>
+        {criteria.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No criteria defined. Add criteria for the review.</p>
+        )}
+        {criteria.map((criterion, index) => (
+          <div key={criterion.id} className="flex items-center gap-2">
+            <Input
+              placeholder="Criterion label"
+              value={criterion.label}
+              onChange={(e) => updateCriterion(index, { label: e.target.value })}
+              className="flex-1 h-8 text-sm"
+            />
+            {reviewType === 'scored' && (
+              <Input
+                type="number"
+                placeholder="Weight"
+                value={criterion.weight || ''}
+                onChange={(e) => updateCriterion(index, { weight: e.target.value ? Number(e.target.value) : undefined })}
+                className="w-20 h-8 text-sm"
+              />
+            )}
+            <Button type="button" variant="ghost" size="sm" onClick={() => removeCriterion(index)} className="h-8 w-8 p-0">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

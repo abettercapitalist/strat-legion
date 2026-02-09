@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.1"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -373,53 +398,6 @@ export type Database = {
         }
         Relationships: []
       }
-      custom_roles: {
-        Row: {
-          created_at: string
-          description: string | null
-          display_name: string | null
-          id: string
-          is_manager_role: boolean
-          is_system_role: boolean
-          is_work_routing: boolean
-          name: string
-          parent_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          display_name?: string | null
-          id?: string
-          is_manager_role?: boolean
-          is_system_role?: boolean
-          is_work_routing?: boolean
-          name: string
-          parent_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          display_name?: string | null
-          id?: string
-          is_manager_role?: boolean
-          is_system_role?: boolean
-          is_work_routing?: boolean
-          name?: string
-          parent_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "custom_roles_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       decision_outcomes: {
         Row: {
           approval_decision_id: string
@@ -530,25 +508,201 @@ export type Database = {
       }
       permissions: {
         Row: {
+          category: string | null
           created_at: string
           description: string | null
           id: string
-          module: string
+          module: string | null
           name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id: string
+          module?: string | null
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          module?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      playbook_patterns: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          metadata: Json | null
+          name: string
+          pattern_type: string
+          playbook_id: string
+          position: number
+          trigger_conditions: Json | null
+          updated_at: string
         }
         Insert: {
           created_at?: string
           description?: string | null
-          id: string
-          module: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json | null
           name: string
+          pattern_type: string
+          playbook_id: string
+          position?: number
+          trigger_conditions?: Json | null
+          updated_at?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          display_name?: string
           id?: string
-          module?: string
+          is_active?: boolean
+          metadata?: Json | null
           name?: string
+          pattern_type?: string
+          playbook_id?: string
+          position?: number
+          trigger_conditions?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbook_patterns_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playbook_plays: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          display_name: string
+          estimated_duration_minutes: number | null
+          execution_conditions: Json | null
+          id: string
+          input_mapping: Json | null
+          is_active: boolean
+          metadata: Json | null
+          name: string
+          output_mapping: Json | null
+          pattern_id: string | null
+          playbook_id: string | null
+          position: number
+          sla_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          display_name: string
+          estimated_duration_minutes?: number | null
+          execution_conditions?: Json | null
+          id?: string
+          input_mapping?: Json | null
+          is_active?: boolean
+          metadata?: Json | null
+          name: string
+          output_mapping?: Json | null
+          pattern_id?: string | null
+          playbook_id?: string | null
+          position?: number
+          sla_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          estimated_duration_minutes?: number | null
+          execution_conditions?: Json | null
+          id?: string
+          input_mapping?: Json | null
+          is_active?: boolean
+          metadata?: Json | null
+          name?: string
+          output_mapping?: Json | null
+          pattern_id?: string | null
+          playbook_id?: string | null
+          position?: number
+          sla_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbook_plays_pattern_id_fkey"
+            columns: ["pattern_id"]
+            isOneToOne: false
+            referencedRelation: "playbook_patterns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playbook_plays_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playbooks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          is_template: boolean
+          metadata: Json | null
+          name: string
+          updated_at: string
+          version: number
+          workstream_type_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          is_template?: boolean
+          metadata?: Json | null
+          name: string
+          updated_at?: string
+          version?: number
+          workstream_type_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          is_template?: boolean
+          metadata?: Json | null
+          name?: string
+          updated_at?: string
+          version?: number
+          workstream_type_id?: string | null
         }
         Relationships: []
       }
@@ -718,7 +872,54 @@ export type Database = {
             foreignKeyName: "role_permissions_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
-            referencedRelation: "custom_roles"
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string | null
+          id: string
+          is_manager_role: boolean | null
+          is_system_role: boolean
+          is_work_routing: boolean | null
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name?: string | null
+          id?: string
+          is_manager_role?: boolean | null
+          is_system_role?: boolean
+          is_work_routing?: boolean | null
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string | null
+          id?: string
+          is_manager_role?: boolean | null
+          is_system_role?: boolean
+          is_work_routing?: boolean | null
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_roles_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
@@ -853,38 +1054,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      team_members: {
-        Row: {
-          created_at: string
-          id: string
-          role_in_team: string | null
-          team_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role_in_team?: string | null
-          team_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role_in_team?: string | null
-          team_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "team_members_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1032,38 +1201,6 @@ export type Database = {
           },
         ]
       }
-      user_custom_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role_id: string
-          role_in_group: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role_id: string
-          role_in_group?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role_id?: string
-          role_in_group?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_custom_roles_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_customizations: {
         Row: {
           created_at: string
@@ -1092,22 +1229,132 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role_id: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
+          role_id: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role_id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_edges: {
+        Row: {
+          condition: Json | null
+          created_at: string
+          edge_type: string
+          id: string
+          label: string | null
+          metadata: Json | null
+          play_id: string
+          source_node_id: string
+          target_node_id: string
+        }
+        Insert: {
+          condition?: Json | null
+          created_at?: string
+          edge_type?: string
+          id?: string
+          label?: string | null
+          metadata?: Json | null
+          play_id: string
+          source_node_id: string
+          target_node_id: string
+        }
+        Update: {
+          condition?: Json | null
+          created_at?: string
+          edge_type?: string
+          id?: string
+          label?: string | null
+          metadata?: Json | null
+          play_id?: string
+          source_node_id?: string
+          target_node_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_edges_play_id_fkey"
+            columns: ["play_id"]
+            isOneToOne: false
+            referencedRelation: "playbook_plays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_nodes: {
+        Row: {
+          brick_id: string | null
+          config: Json
+          created_at: string
+          id: string
+          metadata: Json | null
+          node_type: string
+          play_id: string
+          position_x: number | null
+          position_y: number | null
+        }
+        Insert: {
+          brick_id?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          node_type: string
+          play_id: string
+          position_x?: number | null
+          position_y?: number | null
+        }
+        Update: {
+          brick_id?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          node_type?: string
+          play_id?: string
+          position_x?: number | null
+          position_y?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_nodes_play_id_fkey"
+            columns: ["play_id"]
+            isOneToOne: false
+            referencedRelation: "playbook_plays"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workstream_activity: {
         Row: {
@@ -1157,7 +1404,6 @@ export type Database = {
       workstream_approvals: {
         Row: {
           approval_template_id: string | null
-          approves_step_ids: string[] | null
           completed_at: string | null
           created_at: string
           current_gate: number | null
@@ -1169,7 +1415,6 @@ export type Database = {
         }
         Insert: {
           approval_template_id?: string | null
-          approves_step_ids?: string[] | null
           completed_at?: string | null
           created_at?: string
           current_gate?: number | null
@@ -1181,7 +1426,6 @@ export type Database = {
         }
         Update: {
           approval_template_id?: string | null
-          approves_step_ids?: string[] | null
           completed_at?: string | null
           created_at?: string
           current_gate?: number | null
@@ -1201,6 +1445,76 @@ export type Database = {
           },
           {
             foreignKeyName: "workstream_approvals_workstream_id_fkey"
+            columns: ["workstream_id"]
+            isOneToOne: false
+            referencedRelation: "workstreams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workstream_documents: {
+        Row: {
+          created_at: string | null
+          document_type: string
+          error_message: string | null
+          file_format: string | null
+          id: string
+          metadata: Json | null
+          status: string
+          step_id: string | null
+          storage_path: string | null
+          template_id: string | null
+          title: string
+          updated_at: string | null
+          workstream_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          document_type: string
+          error_message?: string | null
+          file_format?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string
+          step_id?: string | null
+          storage_path?: string | null
+          template_id?: string | null
+          title: string
+          updated_at?: string | null
+          workstream_id: string
+        }
+        Update: {
+          created_at?: string | null
+          document_type?: string
+          error_message?: string | null
+          file_format?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string
+          step_id?: string | null
+          storage_path?: string | null
+          template_id?: string | null
+          title?: string
+          updated_at?: string | null
+          workstream_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workstream_documents_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "workstream_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstream_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workstream_documents_workstream_id_fkey"
             columns: ["workstream_id"]
             isOneToOne: false
             referencedRelation: "workstreams"
@@ -1594,6 +1908,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [

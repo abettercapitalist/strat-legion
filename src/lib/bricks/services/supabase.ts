@@ -99,7 +99,8 @@ function toPlaybookPattern(row: Record<string, unknown>): PlaybookPattern {
 function toPlaybookPlay(row: Record<string, unknown>): PlaybookPlay {
   return {
     id: String(row.id),
-    pattern_id: String(row.pattern_id),
+    pattern_id: row.pattern_id ? String(row.pattern_id) : null,
+    playbook_id: row.playbook_id ? String(row.playbook_id) : null,
     name: String(row.name),
     display_name: String(row.display_name),
     description: row.description ? String(row.description) : null,
@@ -427,6 +428,25 @@ export async function loadPlaybookPlays(patternId: string): Promise<PlaybookPlay
 }
 
 /**
+ * Loads plays directly linked to a playbook (bypassing patterns).
+ */
+export async function loadPlaysByPlaybookId(playbookId: string): Promise<PlaybookPlay[]> {
+  const { data, error } = await supabase
+    .from('playbook_plays')
+    .select('*')
+    .eq('playbook_id', playbookId)
+    .eq('is_active', true)
+    .order('position');
+
+  if (error) {
+    console.error('[BrickService] Error loading plays by playbook:', error);
+    throw new Error(`Failed to load plays: ${error.message}`);
+  }
+
+  return (data || []).map(toPlaybookPlay);
+}
+
+/**
  * Loads a play by ID.
  */
 export async function loadPlayById(playId: string): Promise<PlaybookPlay | null> {
@@ -517,10 +537,12 @@ export async function buildPlayDAG(play: PlaybookPlay): Promise<DAG> {
 
     dagNodes.set(node.id, dagNode);
 
-    if (node.node_type === 'start') {
-      startNode = dagNode;
+    // Derive start/end from topology: nodes with no incoming edges are start nodes,
+    // nodes with no outgoing edges are end nodes. Falls back to node_type for legacy data.
+    if (node.node_type === 'start' || incomingEdges.length === 0) {
+      if (!startNode) startNode = dagNode;
     }
-    if (node.node_type === 'end') {
+    if (node.node_type === 'end' || outgoingEdges.length === 0) {
       endNodes.push(dagNode);
     }
   }

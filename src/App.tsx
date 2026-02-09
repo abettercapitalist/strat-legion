@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +8,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { RBACProvider } from "./contexts/RBACContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LawLayout } from "./components/LawLayout";
 import { SalesLayout } from "./components/SalesLayout";
 import { AdminLayout } from "./components/AdminLayout";
@@ -33,7 +35,7 @@ import WorkstreamDetail from "./pages/WorkstreamDetail";
 
 // Admin Module Pages
 import WorkstreamTypes from "./pages/admin/WorkstreamTypes";
-import CreatePlaybook from "./pages/admin/CreatePlaybook";
+const CreatePlaybook = lazy(() => import("./pages/admin/CreatePlaybook"));
 
 // Sales Module Pages
 import SalesHome from "./pages/sales/Home";
@@ -86,8 +88,8 @@ const App = () => (
             {/* Admin Module Routes */}
             <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
               <Route path="workstream-types" element={<WorkstreamTypes />} />
-              <Route path="workstream-types/new" element={<CreatePlaybook />} />
-              <Route path="workstream-types/:id/edit" element={<CreatePlaybook />} />
+              <Route path="workstream-types/new" element={<ErrorBoundary><Suspense fallback={<div className="flex items-center justify-center h-64">Loading...</div>}><CreatePlaybook /></Suspense></ErrorBoundary>} />
+              <Route path="workstream-types/:id/edit" element={<ErrorBoundary><Suspense fallback={<div className="flex items-center justify-center h-64">Loading...</div>}><CreatePlaybook /></Suspense></ErrorBoundary>} />
             </Route>
 
 

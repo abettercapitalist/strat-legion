@@ -102,8 +102,10 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
   const updateWorkstreamType = useMutation({
     mutationFn: async ({ id, ...data }: Partial<WorkstreamType> & { id: string; approval_template_id?: string | null }) => {
       // Build the update payload, converting auto_approval_config to Json type
-      const updatePayload: Record<string, unknown> = {};
-      
+      const updatePayload: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+
       if (data.name !== undefined) updatePayload.name = data.name;
       if (data.display_name !== undefined) updatePayload.display_name = data.display_name;
       if (data.description !== undefined) updatePayload.description = data.description;
