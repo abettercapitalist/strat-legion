@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -1605,6 +1606,7 @@ export type Database = {
           status: string | null
           team_category: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           approval_template_id?: string | null
@@ -1622,6 +1624,7 @@ export type Database = {
           status?: string | null
           team_category?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           approval_template_id?: string | null
@@ -1639,6 +1642,7 @@ export type Database = {
           status?: string | null
           team_category?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {

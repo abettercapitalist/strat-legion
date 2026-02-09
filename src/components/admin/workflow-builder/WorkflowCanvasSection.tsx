@@ -1,16 +1,11 @@
-import { useCallback, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
+import { useCallback, useImperativeHandle, forwardRef } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Button } from '@/components/ui/button';
-import { LayoutGrid, AlertCircle } from 'lucide-react';
 import type { BrickCategory } from '@/lib/bricks/types';
-import type { WorkflowRFNode, WorkflowRFEdge } from './types';
+import type { WorkflowRFNode, WorkflowRFEdge, WorkflowNodeData, WorkflowEdgeData } from './types';
 import { useWorkflowDAG } from './hooks/useWorkflowDAG';
 import { useAutoLayout } from './hooks/useAutoLayout';
 import { useWorkflowValidation, type WorkflowValidationError } from './hooks/useWorkflowValidation';
 import { WorkflowCanvas } from './WorkflowCanvas';
-import { NodePalette } from './NodePalette';
-import { NodeConfigPanel } from './NodeConfigPanel';
 
 export interface WorkflowCanvasSectionHandle {
   getNodes: () => WorkflowRFNode[];
@@ -18,34 +13,57 @@ export interface WorkflowCanvasSectionHandle {
   setNodes: (nodes: WorkflowRFNode[]) => void;
   setEdges: (edges: WorkflowRFEdge[]) => void;
   validate: () => WorkflowValidationError[];
+  /** Current selection state for driving the right panel */
+  getSelectedNodeId: () => string | null;
+  getSelectedEdgeId: () => string | null;
+  getSelectedNode: () => WorkflowRFNode | null;
+  getSelectedEdge: () => WorkflowRFEdge | null;
+  updateNodeData: (data: Partial<WorkflowNodeData>) => void;
+  updateNodeConfig: (config: Record<string, unknown>) => void;
+  updateEdgeData: (data: Partial<WorkflowEdgeData>) => void;
+  deleteNode: (nodeId: string) => void;
+  deleteEdge: (edgeId: string) => void;
+  autoLayout: () => void;
 }
 
 interface WorkflowCanvasSectionProps {
   initialNodes?: WorkflowRFNode[];
   initialEdges?: WorkflowRFEdge[];
+  onSelectionChange?: (selectedNodeId: string | null, selectedEdgeId: string | null) => void;
 }
 
 const WorkflowCanvasSectionInner = forwardRef<WorkflowCanvasSectionHandle, WorkflowCanvasSectionProps>(
-  function WorkflowCanvasSectionInner({ initialNodes = [], initialEdges = [] }, ref) {
+  function WorkflowCanvasSectionInner({ initialNodes = [], initialEdges = [], onSelectionChange }, ref) {
     const dag = useWorkflowDAG(initialNodes, initialEdges);
     const { layoutNodes } = useAutoLayout();
     const { validate } = useWorkflowValidation();
-
-    useImperativeHandle(ref, () => ({
-      getNodes: () => dag.nodes,
-      getEdges: () => dag.edges,
-      setNodes: dag.setNodes,
-      setEdges: dag.setEdges,
-      validate: () => validate(dag.nodes, dag.edges),
-    }), [dag.nodes, dag.edges, dag.setNodes, dag.setEdges, validate]);
 
     const handleDrop = useCallback(
       (category: BrickCategory, position: { x: number; y: number }) => {
         const newNode = dag.addNode(category, position);
         dag.setSelectedNodeId(newNode.id);
         dag.setSelectedEdgeId(null);
+        onSelectionChange?.(newNode.id, null);
       },
-      [dag]
+      [dag, onSelectionChange]
+    );
+
+    const handleNodeSelect = useCallback(
+      (nodeId: string | null) => {
+        dag.setSelectedNodeId(nodeId);
+        dag.setSelectedEdgeId(null);
+        onSelectionChange?.(nodeId, null);
+      },
+      [dag, onSelectionChange]
+    );
+
+    const handleEdgeSelect = useCallback(
+      (edgeId: string | null) => {
+        dag.setSelectedNodeId(null);
+        dag.setSelectedEdgeId(edgeId);
+        onSelectionChange?.(null, edgeId);
+      },
+      [dag, onSelectionChange]
     );
 
     const handleAutoLayout = useCallback(() => {
@@ -53,72 +71,42 @@ const WorkflowCanvasSectionInner = forwardRef<WorkflowCanvasSectionHandle, Workf
       dag.setNodes(layouted);
     }, [dag, layoutNodes]);
 
-    const selectedNode = dag.nodes.find((n) => n.id === dag.selectedNodeId) || null;
-    const selectedEdge = dag.edges.find((e) => e.id === dag.selectedEdgeId) || null;
+    useImperativeHandle(ref, () => ({
+      getNodes: () => dag.nodes,
+      getEdges: () => dag.edges,
+      setNodes: dag.setNodes,
+      setEdges: dag.setEdges,
+      validate: () => validate(dag.nodes, dag.edges),
+      getSelectedNodeId: () => dag.selectedNodeId,
+      getSelectedEdgeId: () => dag.selectedEdgeId,
+      getSelectedNode: () => dag.nodes.find((n) => n.id === dag.selectedNodeId) || null,
+      getSelectedEdge: () => dag.edges.find((e) => e.id === dag.selectedEdgeId) || null,
+      updateNodeData: (data) => {
+        if (dag.selectedNodeId) dag.updateNodeData(dag.selectedNodeId, data);
+      },
+      updateNodeConfig: (config) => {
+        if (dag.selectedNodeId) dag.updateNodeConfig(dag.selectedNodeId, config);
+      },
+      updateEdgeData: (data) => {
+        if (dag.selectedEdgeId) dag.updateEdgeData(dag.selectedEdgeId, data);
+      },
+      deleteNode: (nodeId) => dag.removeNode(nodeId),
+      deleteEdge: (edgeId) => dag.removeEdge(edgeId),
+      autoLayout: handleAutoLayout,
+    }), [dag, validate, handleAutoLayout]);
 
     return (
-      <div className="h-[600px] border rounded-lg overflow-hidden bg-background">
-        <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
-          <h3 className="text-sm font-semibold text-foreground">Workflow Builder</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {dag.nodes.length} node{dag.nodes.length !== 1 ? 's' : ''}, {dag.edges.length} edge{dag.edges.length !== 1 ? 's' : ''}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAutoLayout}
-              className="gap-1.5 h-7 text-xs"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Auto Layout
-            </Button>
-          </div>
-        </div>
-
-        <ResizablePanelGroup direction="horizontal" className="h-[calc(100%-41px)]">
-          <ResizablePanel defaultSize={15} minSize={12} maxSize={25}>
-            <NodePalette />
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          <ResizablePanel defaultSize={55} minSize={35}>
-            <WorkflowCanvas
-              nodes={dag.nodes}
-              edges={dag.edges}
-              onNodesChange={dag.onNodesChange}
-              onEdgesChange={dag.onEdgesChange}
-              onConnect={dag.onConnect}
-              onNodeSelect={dag.setSelectedNodeId}
-              onEdgeSelect={dag.setSelectedEdgeId}
-              onDrop={handleDrop}
-              onNodeDelete={dag.removeNode}
-            />
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          <ResizablePanel defaultSize={30} minSize={20} maxSize={45}>
-            <NodeConfigPanel
-              selectedNode={selectedNode}
-              selectedEdge={selectedEdge}
-              onNodeDataChange={(data) => {
-                if (dag.selectedNodeId) dag.updateNodeData(dag.selectedNodeId, data);
-              }}
-              onNodeConfigChange={(config) => {
-                if (dag.selectedNodeId) dag.updateNodeConfig(dag.selectedNodeId, config);
-              }}
-              onEdgeDataChange={(data) => {
-                if (dag.selectedEdgeId) dag.updateEdgeData(dag.selectedEdgeId, data);
-              }}
-              onDeleteNode={(nodeId) => dag.removeNode(nodeId)}
-              onDeleteEdge={(edgeId) => dag.removeEdge(edgeId)}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+      <WorkflowCanvas
+        nodes={dag.nodes}
+        edges={dag.edges}
+        onNodesChange={dag.onNodesChange}
+        onEdgesChange={dag.onEdgesChange}
+        onConnect={dag.onConnect}
+        onNodeSelect={handleNodeSelect}
+        onEdgeSelect={handleEdgeSelect}
+        onDrop={handleDrop}
+        onNodeDelete={dag.removeNode}
+      />
     );
   }
 );

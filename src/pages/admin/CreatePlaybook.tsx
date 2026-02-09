@@ -3,32 +3,35 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkstreamTypes } from "@/hooks/useWorkstreamTypes";
 import { useTeams } from "@/hooks/useTeams";
 import { supabase } from "@/integrations/supabase/client";
-import { PlayFormStepper, FormStep } from "@/components/admin/PlayFormStepper";
-import { ValidationSummaryPanel, ValidationError } from "@/components/admin/ValidationSummaryPanel";
-import { TeamCombobox } from "@/components/admin/TeamCombobox";
-import { PlayApprovalSection, PlayApprovalConfig } from "@/components/admin/PlayApprovalSection";
+import { ValidationSummaryPanel, type ValidationError } from "@/components/admin/ValidationSummaryPanel";
+import { PlayApprovalConfig } from "@/components/admin/PlayApprovalSection";
 import {
   WorkflowCanvasSection,
   type WorkflowCanvasSectionHandle,
 } from "@/components/admin/workflow-builder/WorkflowCanvasSection";
+import { NodePalette } from "@/components/admin/workflow-builder/NodePalette";
+import { NodeConfigPanel } from "@/components/admin/workflow-builder/NodeConfigPanel";
 import type { WorkflowRFNode, WorkflowRFEdge } from "@/components/admin/workflow-builder/types";
 import { useWorkflowPersistence } from "@/components/admin/workflow-builder/hooks/useWorkflowPersistence";
+import { BasicInfoPanel, type BasicInfoFormData } from "@/components/designer/panels/BasicInfoPanel";
 
 const playbookSchema = z.object({
   name: z
     .string()
     .min(1, "Name is required")
-    .max(100, "Name must be 100 characters or less")
+    .max(255, "Name must be 255 characters or less")
     .regex(
       /^[a-zA-Z0-9\s\-_]+$/,
       "Name can only contain letters, numbers, spaces, hyphens, and underscores"
@@ -54,14 +57,22 @@ export default function CreatePlaybook() {
   const { hasSubgroups, getTeamById } = useTeams();
   const isEditing = Boolean(id);
 
-  const [currentStep, setCurrentStep] = useState<FormStep>("basics");
-  const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set());
   const [isLoadingPlay, setIsLoadingPlay] = useState(false);
   const [existingStatus, setExistingStatus] = useState<string | null>(null);
+  const [existingCreatedAt, setExistingCreatedAt] = useState<string | null>(null);
+  const [existingUpdatedAt, setExistingUpdatedAt] = useState<string | null>(null);
+  const [existingVersion, setExistingVersion] = useState<number | null>(null);
   const [playApprovalConfig, setPlayApprovalConfig] = useState<PlayApprovalConfig>({
     required_roles: [],
     approval_mode: "all",
   });
+
+  // Selection state for right panel (palette vs config)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  // Bump to force re-render when config panel modifies node/edge data via ref
+  const [, setConfigTick] = useState(0);
+  const bumpConfigTick = useCallback(() => setConfigTick((t) => t + 1), []);
 
   // Workflow canvas ref and state
   const canvasRef = useRef<WorkflowCanvasSectionHandle>(null);
@@ -74,7 +85,6 @@ export default function CreatePlaybook() {
     handleSubmit,
     watch,
     setValue,
-    trigger,
     formState: { errors, isSubmitting },
     reset,
   } = useForm<PlaybookFormData>({
@@ -87,9 +97,8 @@ export default function CreatePlaybook() {
     },
   });
 
-  const descriptionValue = watch("description") || "";
-  const displayNameValue = watch("display_name") || "";
   const teamCategory = watch("team_category");
+  const displayNameValue = watch("display_name") || "";
 
   // Fetch existing play data for edit mode
   useEffect(() => {
@@ -108,6 +117,9 @@ export default function CreatePlaybook() {
 
         if (data) {
           setExistingStatus(data.status);
+          setExistingCreatedAt(data.created_at);
+          setExistingUpdatedAt(data.updated_at);
+          setExistingVersion(data.version ?? null);
           reset({
             name: data.name,
             display_name: data.display_name || "",
@@ -178,10 +190,6 @@ export default function CreatePlaybook() {
     return errs.length === 0;
   }, [teamCategory, getTeamById, hasSubgroups]);
 
-  const handleErrorClick = (error: ValidationError) => {
-    setCurrentStep(error.section);
-  };
-
   const onSubmit = async (data: PlaybookFormData, requestedStatus: "Draft" | "Active") => {
     setValidationErrors([]);
 
@@ -191,10 +199,6 @@ export default function CreatePlaybook() {
       : requestedStatus;
 
     if (status === "Active" && !validateForActivation()) {
-      const firstError = validationErrors[0];
-      if (firstError) {
-        setCurrentStep(firstError.section);
-      }
       return;
     }
 
@@ -267,40 +271,25 @@ export default function CreatePlaybook() {
   const handleSaveAsDraft = handleSubmit((data) => onSubmit(data, "Draft"));
   const handleActivate = handleSubmit((data) => onSubmit(data, "Active"));
 
-  const goToNextStep = async () => {
-    if (currentStep === "basics") {
-      const isValid = await trigger(["name", "display_name", "team_category"]);
-      if (isValid) {
-        setCompletedSteps((prev) => new Set([...prev, "basics"]));
-        setCurrentStep("workflow");
-      }
-    } else if (currentStep === "workflow") {
-      setCompletedSteps((prev) => new Set([...prev, "workflow"]));
-      setCurrentStep("approval");
-    }
-  };
+  // Selection change callback from canvas
+  const handleSelectionChange = useCallback(
+    (nodeId: string | null, edgeId: string | null) => {
+      setSelectedNodeId(nodeId);
+      setSelectedEdgeId(edgeId);
+    },
+    []
+  );
 
-  const goToPrevStep = () => {
-    if (currentStep === "workflow") {
-      setCurrentStep("basics");
-    } else if (currentStep === "approval") {
-      setCurrentStep("workflow");
-    }
-  };
-
-  const handleStepClick = (step: FormStep) => {
-    setCurrentStep(step);
-  };
+  // Derive selected node/edge objects for the config panel
+  const selectedNode = canvasRef.current?.getSelectedNode() ?? null;
+  const selectedEdge = canvasRef.current?.getSelectedEdge() ?? null;
 
   if (isLoadingPlay) {
     return (
-      <div className="max-w-[800px] mx-auto py-8">
-        <div className="mb-8">
-          <Skeleton className="h-8 w-32 mb-4" />
+      <div className="h-screen flex items-center justify-center">
+        <div className="space-y-4 w-96">
           <Skeleton className="h-8 w-48 mb-2" />
           <Skeleton className="h-4 w-72" />
-        </div>
-        <div className="space-y-6">
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-24 w-full" />
@@ -309,231 +298,156 @@ export default function CreatePlaybook() {
     );
   }
 
-  // Use full width for workflow step, constrained width for other steps
-  const isWorkflowStep = currentStep === "workflow";
+  const hasSelection = selectedNodeId !== null || selectedEdgeId !== null;
 
   return (
-    <div className={isWorkflowStep ? "px-6 py-8" : "max-w-[800px] mx-auto py-8"}>
-      {/* Header */}
-      <div className="mb-8">
+    <div className="h-screen flex flex-col">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-background shrink-0">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => navigate("/admin/workstream-types")}
-          className="mb-4 -ml-2"
+          className="gap-2"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="h-4 w-4" />
           Back to Play Library
         </Button>
-        <h1 className="text-2xl font-semibold text-foreground">
-          {isEditing ? "Edit Play" : "Create New Play"}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Define a workflow template for your business processes
-        </p>
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-foreground">
+            {displayNameValue || (isEditing ? "Edit Play" : "New Play")}
+          </h1>
+        </div>
+        {/* Spacer to balance the layout */}
+        <div className="w-[160px]" />
       </div>
 
-      {/* Stepper */}
-      <PlayFormStepper
-        currentStep={currentStep}
-        onStepClick={handleStepClick}
-        completedSteps={completedSteps}
-      />
-
-      {/* Validation Summary Panel */}
-      <ValidationSummaryPanel
-        errors={validationErrors}
-        onDismiss={() => setValidationErrors([])}
-        onErrorClick={handleErrorClick}
-      />
-
-      {/* Form */}
-      <form className="space-y-8">
-        {/* Step 1: Basic Information */}
-        {currentStep === "basics" && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-medium text-foreground border-b pb-2">
-              Basic Information
-            </h2>
-
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-semibold">
-                Name {!isEditing && <span className="text-destructive">*</span>}
-              </Label>
-              <p className="text-xs text-muted-foreground italic">
-                Internal identifier used in configuration and reporting
-              </p>
-              <Input
-                id="name"
-                placeholder="e.g., Enterprise SaaS Play"
-                {...register("name")}
-                disabled={isEditing}
-                className={`${isEditing ? "bg-muted cursor-not-allowed" : ""} ${errors.name ? "border-destructive" : ""}`}
-              />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="display_name" className="text-sm font-semibold">
-                Display Name <span className="text-destructive">*</span>
-              </Label>
-              <p className="text-xs text-muted-foreground italic">
-                What users see in the interface
-              </p>
-              <Input
-                id="display_name"
-                placeholder="e.g., Deal, Matter, Project"
-                {...register("display_name")}
-                className={errors.display_name ? "border-destructive" : ""}
-              />
-              {displayNameValue.length > 30 && (
-                <p className="text-xs text-amber-600">
-                  Display names longer than 30 characters may be truncated
-                </p>
-              )}
-              {errors.display_name && (
-                <p className="text-xs text-destructive">
-                  {errors.display_name.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-semibold">
-                Description <span className="text-muted-foreground font-normal">(optional)</span>
-              </Label>
-              <p className="text-xs text-muted-foreground italic">
-                Brief description of when to use this play
-              </p>
-              <Textarea
-                id="description"
-                placeholder="Brief description of when to use this play"
-                rows={3}
-                {...register("description")}
-                className={`resize-none ${errors.description ? "border-destructive" : ""}`}
-                style={{ minHeight: "76px", maxHeight: "240px" }}
-              />
-              <div className="flex justify-end">
-                <p className="text-xs text-muted-foreground">
-                  {descriptionValue.length}/500
-                </p>
-              </div>
-              {errors.description && (
-                <p className="text-xs text-destructive">
-                  {errors.description.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">
-                Assigned Team <span className="text-destructive">*</span>
-              </Label>
-              <p className="text-xs text-muted-foreground italic">
-                Primary team where this play will be used
-              </p>
-              <TeamCombobox
-                value={teamCategory}
-                onValueChange={(value) => setValue("team_category", value)}
-                placeholder="Select a team..."
-                error={errors.team_category?.message}
-                requireSubgroupWhenAvailable={true}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Workflow DAG Builder — always mounted, hidden via CSS to preserve ref */}
-        <div className={currentStep === "workflow" ? "space-y-2" : "hidden"}>
-          <h2 className="text-lg font-medium text-foreground border-b pb-2">
-            Workflow Builder
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Design your workflow by dragging bricks from the palette and connecting them.
-            Behavior is determined by graph topology: nodes with no incoming edges start first,
-            multiple outgoing edges fork in parallel, and conditional edges branch on output.
-          </p>
-          <WorkflowCanvasSection
-            ref={canvasRef}
-            initialNodes={initialNodes}
-            initialEdges={initialEdges}
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <div className="px-4 pt-2 shrink-0">
+          <ValidationSummaryPanel
+            errors={validationErrors}
+            onDismiss={() => setValidationErrors([])}
+            onErrorClick={() => {}}
           />
         </div>
+      )}
 
-        {/* Step 3: Play Approval (who approves the play itself) */}
-        {currentStep === "approval" && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-medium text-foreground border-b pb-2">
-              Play Approval
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Approval configuration for individual workflow steps is defined inline within each approval step in the Workflow section.
-            </p>
-            <PlayApprovalSection
-              config={playApprovalConfig}
-              onChange={setPlayApprovalConfig}
+      {/* 3-Panel Layout */}
+      <div className="flex-1 min-h-0">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          {/* Left Panel: Basic Info */}
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+            <BasicInfoPanel
+              register={register}
+              errors={errors}
+              setValue={setValue}
+              watch={watch}
+              isEditing={isEditing}
+              status={existingStatus}
+              createdAt={existingCreatedAt}
+              updatedAt={existingUpdatedAt}
+              version={existingVersion}
+              playApprovalConfig={playApprovalConfig}
+              onApprovalConfigChange={setPlayApprovalConfig}
             />
-          </div>
-        )}
+          </ResizablePanel>
 
-        {/* Navigation Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div>
-            {currentStep !== "basics" && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={goToPrevStep}
-                className="gap-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-            )}
-          </div>
-          <div>
-            {currentStep !== "approval" && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={goToNextStep}
-                className="gap-2"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
+          <ResizableHandle withHandle />
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 pt-2 border-t">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => navigate("/admin/workstream-types")}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleSaveAsDraft}
-            disabled={isSubmitting || persistence.isSaving}
-          >
-            {persistence.isSaving ? "Saving..." : "Save as Draft"}
-          </Button>
-          <Button
-            type="button"
-            onClick={handleActivate}
-            disabled={isSubmitting || persistence.isSaving}
-          >
-            Activate This Play
-          </Button>
-        </div>
-      </form>
+          {/* Center Panel: Canvas */}
+          <ResizablePanel defaultSize={55} minSize={35}>
+            <div className="h-full flex flex-col">
+              {/* Canvas toolbar */}
+              <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30 shrink-0">
+                <span className="text-xs text-muted-foreground">
+                  {canvasRef.current
+                    ? `${canvasRef.current.getNodes().length} node${canvasRef.current.getNodes().length !== 1 ? "s" : ""}, ${canvasRef.current.getEdges().length} edge${canvasRef.current.getEdges().length !== 1 ? "s" : ""}`
+                    : "0 nodes, 0 edges"}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => canvasRef.current?.autoLayout()}
+                  className="gap-1.5 h-7 text-xs"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Auto Layout
+                </Button>
+              </div>
+              <div className="flex-1 min-h-0">
+                <WorkflowCanvasSection
+                  ref={canvasRef}
+                  initialNodes={initialNodes}
+                  initialEdges={initialEdges}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right Panel: Palette or Config */}
+          <ResizablePanel defaultSize={25} minSize={15} maxSize={35}>
+            {hasSelection ? (
+              <NodeConfigPanel
+                selectedNode={selectedNode}
+                selectedEdge={selectedEdge}
+                onNodeDataChange={(data) => {
+                  canvasRef.current?.updateNodeData(data);
+                  bumpConfigTick();
+                }}
+                onNodeConfigChange={(config) => {
+                  canvasRef.current?.updateNodeConfig(config);
+                  bumpConfigTick();
+                }}
+                onEdgeDataChange={(data) => {
+                  canvasRef.current?.updateEdgeData(data);
+                  bumpConfigTick();
+                }}
+                onDeleteNode={(nodeId) => {
+                  canvasRef.current?.deleteNode(nodeId);
+                  setSelectedNodeId(null);
+                }}
+                onDeleteEdge={(edgeId) => {
+                  canvasRef.current?.deleteEdge(edgeId);
+                  setSelectedEdgeId(null);
+                }}
+              />
+            ) : (
+              <NodePalette />
+            )}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+
+      {/* Bottom Bar */}
+      <div className="flex items-center justify-end gap-3 px-4 py-3 border-t bg-background shrink-0">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => navigate("/admin/workstream-types")}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleSaveAsDraft}
+          disabled={isSubmitting || persistence.isSaving}
+        >
+          {persistence.isSaving ? "Saving..." : "Save as Draft"}
+        </Button>
+        <Button
+          type="button"
+          onClick={handleActivate}
+          disabled={isSubmitting || persistence.isSaving}
+        >
+          Activate
+        </Button>
+      </div>
     </div>
   );
 }
