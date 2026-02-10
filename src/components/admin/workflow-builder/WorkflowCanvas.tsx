@@ -10,7 +10,6 @@ import {
   type EdgeTypes,
   type Edge,
   type Connection,
-  type Node,
   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -18,13 +17,15 @@ import type { WorkflowRFNode, WorkflowRFEdge } from './types';
 import type { BrickCategory } from '@/lib/bricks/types';
 import { BrickNode } from './BrickNode';
 import { ConditionalEdge } from './edges/ConditionalEdge';
-import { BRICK_COLORS, getOptimalHandles } from './utils';
+import { AdjustableSmoothStepEdge } from './edges/AdjustableSmoothStepEdge';
+import { BRICK_COLORS } from './utils';
 
 const nodeTypes: NodeTypes = {
   brick: BrickNode,
 };
 
 const edgeTypes: EdgeTypes = {
+  smoothstep: AdjustableSmoothStepEdge,
   conditional: ConditionalEdge,
 };
 
@@ -139,38 +140,6 @@ export function WorkflowCanvas({
     [onSetEdges]
   );
 
-  // When a node stops moving, re-optimize handle assignments for connected edges
-  const handleNodeDragStop = useCallback(
-    (_: React.MouseEvent, draggedNode: Node) => {
-      onSetEdges((eds) => {
-        const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-        // Use the dragged node's latest position (from the event, not stale state)
-        nodeMap.set(draggedNode.id, draggedNode as WorkflowRFNode);
-
-        return eds.map((edge) => {
-          // Only re-optimize edges connected to the dragged node
-          if (edge.source !== draggedNode.id && edge.target !== draggedNode.id) return edge;
-
-          const sourceNode = nodeMap.get(edge.source);
-          const targetNode = nodeMap.get(edge.target);
-          if (!sourceNode || !targetNode) return edge;
-
-          const { sourceHandle, targetHandle } = getOptimalHandles(
-            sourceNode.position,
-            targetNode.position,
-          );
-
-          if (edge.sourceHandle === sourceHandle && edge.targetHandle === targetHandle) {
-            return edge;
-          }
-
-          return { ...edge, sourceHandle, targetHandle };
-        });
-      });
-    },
-    [nodes, onSetEdges]
-  );
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       // Don't intercept when typing in an input/textarea
@@ -211,7 +180,6 @@ export function WorkflowCanvas({
         onNodeClick={handleNodeClick}
         onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
-        onNodeDragStop={handleNodeDragStop}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         nodeTypes={nodeTypes}

@@ -77,16 +77,6 @@ export default function CreatePlaybook() {
   // Selection state for right panel (palette vs config)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  // Refresh selected node/edge after config panel modifies data via ref
-  const bumpConfigTick = useCallback(() => {
-    const nodes = canvasRef.current?.getNodes() ?? [];
-    const edges = canvasRef.current?.getEdges() ?? [];
-    const nodeId = canvasRef.current?.getSelectedNodeId() ?? null;
-    const edgeId = canvasRef.current?.getSelectedEdgeId() ?? null;
-    setSelectedNode(nodeId ? nodes.find((n) => n.id === nodeId) || null : null);
-    setSelectedEdge(edgeId ? edges.find((e) => e.id === edgeId) || null : null);
-  }, []);
-
   // Workflow canvas ref and state
   const canvasRef = useRef<WorkflowCanvasSectionHandle>(null);
   const [initialNodes, setInitialNodes] = useState<WorkflowRFNode[]>([]);
@@ -424,15 +414,23 @@ export default function CreatePlaybook() {
               selectedEdge={selectedEdge}
               onNodeDataChange={(data) => {
                 canvasRef.current?.updateNodeData(data);
-                bumpConfigTick();
+                setSelectedNode((prev) =>
+                  prev ? { ...prev, data: { ...prev.data, ...data } } : null
+                );
               }}
               onNodeConfigChange={(config) => {
                 canvasRef.current?.updateNodeConfig(config);
-                bumpConfigTick();
+                setSelectedNode((prev) =>
+                  prev
+                    ? { ...prev, data: { ...prev.data, config: { ...prev.data.config, ...config } } }
+                    : null
+                );
               }}
               onEdgeDataChange={(data) => {
                 canvasRef.current?.updateEdgeData(data);
-                bumpConfigTick();
+                setSelectedEdge((prev) =>
+                  prev ? { ...prev, data: { ...prev.data, ...data } as WorkflowRFEdge['data'] } : null
+                );
               }}
               onDeleteNode={(nodeId) => {
                 canvasRef.current?.deleteNode(nodeId);

@@ -354,14 +354,17 @@ export function BasicInfoPanel({
               />
             </div>
 
-            {/* Triggered By */}
+            {/* When to Use */}
             <div className="space-y-1.5">
               <Label className="text-sm font-semibold">
-                Triggered By{" "}
+                When to Use{" "}
                 <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
+              <p className="text-xs text-muted-foreground">
+                What event or condition should prompt starting this play
+              </p>
               <Input
-                placeholder="e.g., New deal > $100k"
+                placeholder="e.g., New enterprise deal > $100k"
                 value={playMetadata.triggered_by}
                 onChange={(e) => updateMeta({ triggered_by: e.target.value })}
               />

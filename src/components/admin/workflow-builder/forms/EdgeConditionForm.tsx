@@ -1,6 +1,7 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { WorkflowEdgeData } from '../types';
 import type { WorkflowEdgeType } from '@/lib/bricks/types';
@@ -51,6 +52,44 @@ export function EdgeConditionForm({ edgeData, onEdgeDataChange }: EdgeConditionF
           value={edgeData.label || ''}
           onChange={(e) => onEdgeDataChange({ label: e.target.value || null })}
         />
+      </div>
+
+      {/* Routing */}
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Routing Offset</Label>
+        <p className="text-xs text-muted-foreground">
+          Distance from handles before the first turn
+        </p>
+        <div className="flex items-center gap-3">
+          <Slider
+            value={[edgeData.offset ?? 20]}
+            onValueChange={([v]) => onEdgeDataChange({ offset: v })}
+            min={5}
+            max={120}
+            step={5}
+            className="flex-1"
+          />
+          <span className="text-xs text-muted-foreground w-8 text-right">
+            {edgeData.offset ?? 20}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Corner Radius</Label>
+        <div className="flex items-center gap-3">
+          <Slider
+            value={[edgeData.borderRadius ?? 8]}
+            onValueChange={([v]) => onEdgeDataChange({ borderRadius: v })}
+            min={0}
+            max={20}
+            step={1}
+            className="flex-1"
+          />
+          <span className="text-xs text-muted-foreground w-8 text-right">
+            {edgeData.borderRadius ?? 8}
+          </span>
+        </div>
       </div>
 
       {edgeData.edgeType === 'conditional' && (
