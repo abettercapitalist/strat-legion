@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Trash2, Link2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { WorkflowRFNode, WorkflowRFEdge, WorkflowNodeData, WorkflowEdgeData } from './types';
+import type { UpstreamOutput } from './outputSchemas';
 import { CollectionBrickForm } from './forms/CollectionBrickForm';
 import { ReviewBrickForm } from './forms/ReviewBrickForm';
 import { ApprovalBrickForm } from './forms/ApprovalBrickForm';
 import { DocumentationBrickForm } from './forms/DocumentationBrickForm';
 import { CommitmentBrickForm } from './forms/CommitmentBrickForm';
 import { EdgeConditionForm } from './forms/EdgeConditionForm';
+import { UpstreamContextSection } from './UpstreamContextSection';
 import { BRICK_COLORS, BRICK_LABELS } from './utils';
 
 interface NodeConfigPanelProps {
@@ -20,6 +22,7 @@ interface NodeConfigPanelProps {
   onEdgeDataChange: (data: Partial<WorkflowEdgeData>) => void;
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
+  getUpstreamOutputs?: (nodeId: string) => UpstreamOutput[];
 }
 
 export function NodeConfigPanel({
@@ -30,6 +33,7 @@ export function NodeConfigPanel({
   onEdgeDataChange,
   onDeleteNode,
   onDeleteEdge,
+  getUpstreamOutputs,
 }: NodeConfigPanelProps) {
   if (!selectedNode && !selectedEdge) {
     return (
@@ -78,6 +82,7 @@ export function NodeConfigPanel({
   if (selectedNode) {
     const category = selectedNode.data.brickCategory;
     const colors = BRICK_COLORS[category];
+    const upstreamOutputs = getUpstreamOutputs?.(selectedNode.id) ?? [];
 
     return (
       <ScrollArea className="h-full">
@@ -101,6 +106,9 @@ export function NodeConfigPanel({
             </Button>
           </div>
 
+          {/* Upstream context */}
+          <UpstreamContextSection upstreamOutputs={upstreamOutputs} />
+
           {/* Label */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Label</Label>
@@ -115,19 +123,19 @@ export function NodeConfigPanel({
           {/* Brick-specific form */}
           <div className="border-t pt-4">
             {category === 'collection' && (
-              <CollectionBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
+              <CollectionBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'review' && (
-              <ReviewBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
+              <ReviewBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'approval' && (
-              <ApprovalBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
+              <ApprovalBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'documentation' && (
-              <DocumentationBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
+              <DocumentationBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'commitment' && (
-              <CommitmentBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
+              <CommitmentBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
           </div>
         </div>

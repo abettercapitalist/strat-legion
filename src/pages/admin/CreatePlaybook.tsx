@@ -20,6 +20,7 @@ import {
 import { NodePalette } from "@/components/admin/workflow-builder/NodePalette";
 import { NodeConfigPanel } from "@/components/admin/workflow-builder/NodeConfigPanel";
 import type { WorkflowRFNode, WorkflowRFEdge } from "@/components/admin/workflow-builder/types";
+import { getAvailableUpstreamOutputs } from "@/components/admin/workflow-builder/upstreamContext";
 import { useWorkflowPersistence } from "@/components/admin/workflow-builder/hooks/useWorkflowPersistence";
 import { BasicInfoPanel, type BasicInfoFormData, type PlayMetadata, DEFAULT_PLAY_METADATA } from "@/components/designer/panels/BasicInfoPanel";
 
@@ -296,6 +297,13 @@ export default function CreatePlaybook() {
   const [selectedNode, setSelectedNode] = useState<WorkflowRFNode | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<WorkflowRFEdge | null>(null);
 
+  // Provide upstream outputs for the config panel — reads live state from canvas ref
+  const getUpstreamOutputs = useCallback((nodeId: string) => {
+    const nodes = canvasRef.current?.getNodes() ?? [];
+    const edges = canvasRef.current?.getEdges() ?? [];
+    return getAvailableUpstreamOutputs(nodeId, nodes, edges);
+  }, []);
+
   // Selection change callback from canvas — capture node/edge objects immediately
   const handleSelectionChange = useCallback(
     (nodeId: string | null, edgeId: string | null) => {
@@ -412,6 +420,7 @@ export default function CreatePlaybook() {
             <NodeConfigPanel
               selectedNode={selectedNode}
               selectedEdge={selectedEdge}
+              getUpstreamOutputs={getUpstreamOutputs}
               onNodeDataChange={(data) => {
                 canvasRef.current?.updateNodeData(data);
                 setSelectedNode((prev) =>

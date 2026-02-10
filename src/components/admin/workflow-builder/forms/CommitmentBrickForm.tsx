@@ -1,19 +1,44 @@
+import { useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Plus, X } from 'lucide-react';
 import type { SignerConfig } from '@/lib/bricks/types';
+import type { UpstreamOutput, InputRef } from '../outputSchemas';
+import { UpstreamBindingSelect } from './UpstreamBindingSelect';
 
 interface CommitmentBrickFormProps {
   config: Record<string, unknown>;
   onConfigChange: (config: Record<string, unknown>) => void;
+  upstreamOutputs?: UpstreamOutput[];
 }
 
-export function CommitmentBrickForm({ config, onConfigChange }: CommitmentBrickFormProps) {
+export function CommitmentBrickForm({ config, onConfigChange, upstreamOutputs = [] }: CommitmentBrickFormProps) {
   const signers = (config.signers as SignerConfig[]) || [];
   const provider = (config.provider as string) || 'manual';
   const documentSource = (config.document_source as string) || 'previous_brick';
+  const documentSourceRef = config.document_source_ref as InputRef | undefined;
+  const docUpstream = upstreamOutputs.filter((u) => u.brickCategory === 'documentation');
+
+  // Auto-bind when exactly one upstream documentation node exists and no ref is set
+  useEffect(() => {
+    if (docUpstream.length === 1 && !documentSourceRef) {
+      const doc = docUpstream[0];
+      const docField = doc.fields.find((f) => f.name === 'document_url');
+      if (docField) {
+        onConfigChange({
+          document_source_ref: {
+            node_id: doc.nodeId,
+            node_label: doc.nodeLabel,
+            output_key: 'document_url',
+            output_label: docField.description || 'document_url',
+          } satisfies InputRef,
+          document_source: 'previous_brick',
+        });
+      }
+    }
+  }, [docUpstream.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateSigner = (index: number, updates: Partial<SignerConfig>) => {
     const newSigners = signers.map((s, i) => (i === index ? { ...s, ...updates } : s));
@@ -67,6 +92,16 @@ export function CommitmentBrickForm({ config, onConfigChange }: CommitmentBrickF
             <SelectItem value="upload">Manual upload</SelectItem>
           </SelectContent>
         </Select>
+        {documentSource === 'previous_brick' && docUpstream.length > 0 && (
+          <UpstreamBindingSelect
+            upstreamOutputs={upstreamOutputs}
+            value={documentSourceRef}
+            onChange={(ref) => onConfigChange({ document_source_ref: ref })}
+            label="Source Document"
+            description="Select which upstream document to use for signing"
+            filterCategories={['documentation']}
+          />
+        )}
       </div>
 
       <div className="space-y-3">

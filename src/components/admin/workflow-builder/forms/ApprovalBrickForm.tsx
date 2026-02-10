@@ -13,18 +13,30 @@ import {
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 
+import type { UpstreamOutput } from '../outputSchemas';
+
 interface ApprovalBrickFormProps {
   config: Record<string, unknown>;
   onConfigChange: (config: Record<string, unknown>) => void;
+  upstreamOutputs?: UpstreamOutput[];
 }
 
-export function ApprovalBrickForm({ config, onConfigChange }: ApprovalBrickFormProps) {
+export function ApprovalBrickForm({ config, onConfigChange, upstreamOutputs = [] }: ApprovalBrickFormProps) {
   const approverTeams = (config.approver_teams as string[]) || [];
   const approvalMode = (config.approval_mode as string) || 'any';
   const escalationOpen = Boolean(config.escalation_role);
 
   return (
     <div className="space-y-4">
+      {upstreamOutputs.length > 0 && (
+        <div className="rounded-md bg-muted/50 px-3 py-2">
+          <p className="text-xs text-muted-foreground">
+            Auto-approval rules can evaluate data from {upstreamOutputs.length} upstream{' '}
+            {upstreamOutputs.length === 1 ? 'node' : 'nodes'} at runtime via <code className="text-[11px]">previous_outputs</code>.
+          </p>
+        </div>
+      )}
+
       {/* Approver Teams */}
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Approver Teams</Label>

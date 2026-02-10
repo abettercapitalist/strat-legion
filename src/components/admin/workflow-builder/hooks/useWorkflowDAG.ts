@@ -10,6 +10,7 @@ import {
 import type { WorkflowRFNode, WorkflowRFEdge, WorkflowNodeData, WorkflowEdgeData } from '../types';
 import type { BrickCategory, WorkflowEdgeType } from '@/lib/bricks/types';
 import { createNodeFromDrop, createEdgeFromConnection, getEdgeStyle, getEdgeMarkers, generateEdgeId } from '../utils';
+import { autoConfigureOnConnect } from '../autoConfig';
 
 interface UseWorkflowDAGReturn {
   nodes: WorkflowRFNode[];
@@ -60,8 +61,15 @@ export function useWorkflowDAG(
         connection.targetHandle ?? undefined,
       );
       setEdges((eds) => [...eds, newEdge]);
+
+      // Auto-configure the target node based on the source
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const targetNode = nodes.find((n) => n.id === connection.target);
+      if (sourceNode && targetNode) {
+        autoConfigureOnConnect(sourceNode, targetNode, setNodes);
+      }
     },
-    [edges, setEdges]
+    [edges, setEdges, nodes, setNodes]
   );
 
   const addNode = useCallback(
@@ -75,7 +83,20 @@ export function useWorkflowDAG(
 
   const removeNode = useCallback(
     (nodeId: string) => {
-      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+      setNodes((nds) =>
+        nds.filter((n) => n.id !== nodeId).map((n) => {
+          // Clear any *_ref fields pointing to the deleted node
+          const config = { ...n.data.config };
+          let changed = false;
+          for (const [key, val] of Object.entries(config)) {
+            if (key.endsWith('_ref') && val && typeof val === 'object' && (val as Record<string, unknown>).node_id === nodeId) {
+              config[key] = undefined;
+              changed = true;
+            }
+          }
+          return changed ? { ...n, data: { ...n.data, config } } : n;
+        })
+      );
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
     },

@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Plus, X } from 'lucide-react';
 import { TeamCombobox } from '@/components/admin/TeamCombobox';
 import type { CollectionField, CollectionFieldType } from '@/lib/bricks/types';
+import type { UpstreamOutput } from '../outputSchemas';
 
 interface CollectionBrickFormProps {
   config: Record<string, unknown>;
   onConfigChange: (config: Record<string, unknown>) => void;
+  upstreamOutputs?: UpstreamOutput[];
 }
 
 const FIELD_TYPES: { value: CollectionFieldType; label: string }[] = [
@@ -23,7 +25,7 @@ const FIELD_TYPES: { value: CollectionFieldType; label: string }[] = [
   { value: 'file', label: 'File Upload' },
 ];
 
-export function CollectionBrickForm({ config, onConfigChange }: CollectionBrickFormProps) {
+export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = [] }: CollectionBrickFormProps) {
   const fields = (config.fields as CollectionField[]) || [];
   const ownerType = (config.owner_assignment as Record<string, unknown>)?.type as string || '';
 
@@ -48,6 +50,15 @@ export function CollectionBrickForm({ config, onConfigChange }: CollectionBrickF
 
   return (
     <div className="space-y-4">
+      {upstreamOutputs.length > 0 && (
+        <div className="rounded-md bg-muted/50 px-3 py-2">
+          <p className="text-xs text-muted-foreground">
+            Upstream data is available for pre-filling fields from {upstreamOutputs.length}{' '}
+            {upstreamOutputs.length === 1 ? 'node' : 'nodes'}.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Owner</Label>
         <p className="text-xs text-muted-foreground">Who is responsible for collecting this information</p>

@@ -1,8 +1,10 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { UpstreamOutput, InputRef } from '../outputSchemas';
+import { UpstreamBindingSelect } from './UpstreamBindingSelect';
 
-const TEMPLATES: Record<string, string> = {
+export const TEMPLATES: Record<string, string> = {
   nda: 'Non-Disclosure Agreement',
   msa: 'Master Service Agreement',
   sow: 'Statement of Work',
@@ -12,9 +14,13 @@ const TEMPLATES: Record<string, string> = {
 interface DocumentationBrickFormProps {
   config: Record<string, unknown>;
   onConfigChange: (config: Record<string, unknown>) => void;
+  upstreamOutputs?: UpstreamOutput[];
 }
 
-export function DocumentationBrickForm({ config, onConfigChange }: DocumentationBrickFormProps) {
+export function DocumentationBrickForm({ config, onConfigChange, upstreamOutputs = [] }: DocumentationBrickFormProps) {
+  const dataSourceRef = config.data_source_ref as InputRef | undefined;
+  const collectionUpstream = upstreamOutputs.filter((u) => u.brickCategory === 'collection');
+
   const handleTemplateChange = (templateId: string) => {
     const patch: Record<string, unknown> = { template_id: templateId };
     // Auto-suggest output name if empty or still matches a previous auto-suggestion
@@ -30,6 +36,24 @@ export function DocumentationBrickForm({ config, onConfigChange }: Documentation
 
   return (
     <div className="space-y-4">
+      {collectionUpstream.length > 0 && (
+        <div className="space-y-1.5">
+          <UpstreamBindingSelect
+            upstreamOutputs={upstreamOutputs}
+            value={dataSourceRef}
+            onChange={(ref) => onConfigChange({ data_source_ref: ref })}
+            label="Data Source"
+            description="Select the collection brick that provides field data for this document"
+            filterCategories={['collection']}
+          />
+          {dataSourceRef && (
+            <p className="text-[11px] text-muted-foreground">
+              Field mappings can reference collected fields from this source
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Template</Label>
         <p className="text-xs text-muted-foreground">Select the document template to generate</p>
