@@ -7,8 +7,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkstreamWizard } from "@/contexts/WorkstreamWizardContext";
-import { useApprovalWorkflow } from "@/hooks/useApprovalWorkflow";
-import { useNeeds } from "@/hooks/useNeeds";
+import { loadPlaybookByWorkstreamType, loadPlaysByPlaybookId } from "@/lib/bricks/services/supabase";
+import { assignPlayToWorkstream } from "@/lib/bricks/services/playExecutor";
 
 interface ReviewStepProps {
   module: string;
@@ -37,8 +37,6 @@ export function ReviewStep({ module, displayName, playId }: ReviewStepProps) {
   const { toast } = useToast();
   const { state, goToStep, isSalesModule, resetWizard } = useWorkstreamWizard();
   const [isCreating, setIsCreating] = useState(false);
-  const { createApprovalsFromTemplate } = useApprovalWorkflow();
-  const { createNeedsFromTemplate } = useNeeds();
 
   const terms = state.commercial_terms as CommercialTerms | null;
 
@@ -104,39 +102,28 @@ export function ReviewStep({ module, displayName, playId }: ReviewStepProps) {
         },
       });
 
-      // Create approval workflow from template
-      const approvalResult = await createApprovalsFromTemplate(workstream.id);
-      
-      // Create needs from template (runs in parallel conceptually, but after workstream exists)
-      const needsResult = await createNeedsFromTemplate(workstream.id);
-      
-      // Build success message
-      const messages: string[] = [];
-      
-      if (approvalResult.success && approvalResult.approvals_created) {
-        messages.push(`${approvalResult.approvals_created} approval${approvalResult.approvals_created > 1 ? 's' : ''} initiated`);
-      } else if (approvalResult.success && approvalResult.auto_approved) {
-        messages.push(`${approvalResult.auto_approved} approval${approvalResult.auto_approved > 1 ? 's' : ''} auto-approved`);
+      // Auto-assign play from playbook linked to this workstream type
+      let playAssigned = false;
+      try {
+        const playbook = await loadPlaybookByWorkstreamType(playId);
+        if (playbook) {
+          const plays = await loadPlaysByPlaybookId(playbook.id);
+          const activePlay = plays.find(p => p.is_active);
+          if (activePlay) {
+            await assignPlayToWorkstream(workstream.id, activePlay.id, playbook.id);
+            playAssigned = true;
+          }
+        }
+      } catch (playError) {
+        console.warn("Play assignment failed (non-blocking):", playError);
       }
-      
-      if (needsResult.success && needsResult.needs_created) {
-        messages.push(`${needsResult.needs_created} need${needsResult.needs_created > 1 ? 's' : ''} identified`);
-      }
-      
+
       toast({
         title: `${displayName} created successfully!`,
-        description: messages.length > 0 
-          ? `${workstreamName} is now ready. ${messages.join(', ')}.`
+        description: playAssigned
+          ? `${workstreamName} is now ready with an active play.`
           : `${workstreamName} is now ready.`,
       });
-
-      // Log any issues (non-blocking)
-      if (!approvalResult.success) {
-        console.warn("Approval workflow creation failed:", approvalResult.error);
-      }
-      if (!needsResult.success) {
-        console.warn("Needs creation failed:", needsResult.error);
-      }
 
       // Reset wizard and redirect
       resetWizard();

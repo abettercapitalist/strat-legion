@@ -13,6 +13,7 @@ import { WorkstreamApprovalsTab } from "@/components/workstream/WorkstreamApprov
 import { WorkstreamActivityTab } from "@/components/workstream/WorkstreamActivityTab";
 import { WorkstreamDocumentsTab } from "@/components/workstream/WorkstreamDocumentsTab";
 import { useTheme } from "@/contexts/ThemeContext";
+import type { CurrentUser } from "@/lib/bricks/services/playExecutor";
 
 interface WorkstreamDetailProps {
   module: "law" | "sales";
@@ -52,7 +53,7 @@ export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
     queryKey: ["workstream", id],
     queryFn: async () => {
       if (!id) throw new Error("No workstream ID provided");
-      
+
       const { data, error } = await supabase
         .from("workstreams")
         .select(`
@@ -68,6 +69,15 @@ export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
       return data;
     },
     enabled: !!id,
+  });
+
+  const { data: currentUser } = useQuery<CurrentUser | null>({
+    queryKey: ["current-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      return { id: user.id, email: user.email || '', role: null };
+    },
   });
 
   if (isLoading) {
@@ -144,10 +154,11 @@ export default function WorkstreamDetail({ module }: WorkstreamDetailProps) {
         </TabsList>
 
         <TabsContent value="overview">
-          <WorkstreamOverviewTab 
-            workstream={workstream} 
-            module={module} 
+          <WorkstreamOverviewTab
+            workstream={workstream}
+            module={module}
             onSwitchToApprovals={() => setActiveTab("approvals")}
+            user={currentUser}
           />
         </TabsContent>
 

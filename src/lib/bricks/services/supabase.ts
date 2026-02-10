@@ -512,11 +512,34 @@ export async function buildPlayDAG(play: PlaybookPlay): Promise<DAG> {
     loadWorkflowEdges(play.id),
   ]);
 
-  // Load bricks for brick nodes
-  const brickIds = nodes
-    .filter(n => n.brick_id)
-    .map(n => n.brick_id as string);
-  const bricks = await loadBricksByIds(brickIds);
+  // Resolve bricks locally using category UUIDs.
+  // workflow_nodes.brick_id stores category UUIDs (a0000000-...001 through 005),
+  // not bricks.id. Build synthetic Brick objects keyed by category UUID.
+  const bricks = new Map<string, Brick>();
+  for (const node of nodes) {
+    if (node.brick_id && !bricks.has(node.brick_id)) {
+      const category = BRICK_CATEGORY_NAMES[node.brick_id];
+      if (category) {
+        bricks.set(node.brick_id, {
+          id: node.brick_id,
+          name: category,
+          display_name: category.charAt(0).toUpperCase() + category.slice(1),
+          purpose: `${category} brick`,
+          category_id: node.brick_id,
+          category,
+          brick_number: 0,
+          dependency_level: 'none',
+          dependencies: null,
+          is_container: false,
+          input_schema: { fields: [] },
+          output_schema: { fields: [] },
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    }
+  }
 
   // Build DAG structure
   const dagNodes = new Map<string, DAGNode>();

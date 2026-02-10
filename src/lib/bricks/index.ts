@@ -153,6 +153,7 @@ export {
   loadPatternById,
   // Play loading
   loadPlaybookPlays,
+  loadPlaysByPlaybookId,
   loadPlayById,
   // Workflow DAG
   loadWorkflowNodes,

@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { useTheme } from "@/contexts/ThemeContext";
 import { WorkstreamStepsPanel } from "./WorkstreamStepsPanel";
+import { PlayExecutionPanel } from "./PlayExecutionPanel";
+import type { Workstream as EngineWorkstream, CurrentUser } from "@/lib/bricks/services/playExecutor";
 
 interface Workstream {
   id: string;
@@ -15,6 +17,12 @@ interface Workstream {
   actual_close_date: string | null;
   created_at: string;
   updated_at: string;
+  play_id: string | null;
+  playbook_id: string | null;
+  current_node_ids: string[] | null;
+  owner_id: string | null;
+  workstream_type_id: string | null;
+  counterparty_id: string | null;
   counterparty: {
     id: string;
     name: string;
@@ -36,9 +44,10 @@ interface WorkstreamOverviewTabProps {
   workstream: Workstream;
   module: "law" | "sales";
   onSwitchToApprovals?: () => void;
+  user?: CurrentUser | null;
 }
 
-export function WorkstreamOverviewTab({ workstream, module, onSwitchToApprovals }: WorkstreamOverviewTabProps) {
+export function WorkstreamOverviewTab({ workstream, module, onSwitchToApprovals, user }: WorkstreamOverviewTabProps) {
   const { labels } = useTheme();
   
   const formatCurrency = (value: number) => {
@@ -52,11 +61,34 @@ export function WorkstreamOverviewTab({ workstream, module, onSwitchToApprovals 
 
   return (
     <div className="space-y-6">
-      {/* Workflow Steps Panel - Prominent Position */}
-      <WorkstreamStepsPanel 
-        workstreamId={workstream.id} 
-        onSwitchToApprovals={onSwitchToApprovals}
-      />
+      {/* Play Execution Panel or Legacy Steps Panel */}
+      {workstream.play_id ? (
+        <PlayExecutionPanel
+          workstreamId={workstream.id}
+          playId={workstream.play_id}
+          playbookId={workstream.playbook_id}
+          currentNodeIds={workstream.current_node_ids || []}
+          workstream={{
+            id: workstream.id,
+            name: workstream.name,
+            workstream_type_id: workstream.workstream_type_id,
+            owner_id: workstream.owner_id,
+            counterparty_id: workstream.counterparty_id,
+            annual_value: workstream.annual_value,
+            tier: workstream.tier,
+            stage: workstream.stage,
+            play_id: workstream.play_id,
+            playbook_id: workstream.playbook_id,
+            current_node_ids: workstream.current_node_ids || [],
+          }}
+          user={user || null}
+        />
+      ) : (
+        <WorkstreamStepsPanel
+          workstreamId={workstream.id}
+          onSwitchToApprovals={onSwitchToApprovals}
+        />
+      )}
 
       {/* Business Context */}
       <Card>

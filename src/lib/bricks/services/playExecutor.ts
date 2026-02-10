@@ -157,16 +157,11 @@ export async function executePlay(
       };
     }
 
-    // Load pattern for context
-    const pattern = await loadPatternById(play.pattern_id);
-    if (!pattern) {
-      return {
-        success: false,
-        status: 'failed',
-        result: null,
-        error: `Pattern not found: ${play.pattern_id}`,
-      };
-    }
+    // Load pattern for context (optional — plays created via workflow designer have no pattern)
+    const pattern = play.pattern_id
+      ? await loadPatternById(play.pattern_id)
+      : null;
+    const patternContext = pattern || { id: 'none' };
 
     // Build DAG
     const dag = await buildPlayDAG(play);
@@ -198,7 +193,7 @@ export async function executePlay(
     const initialContext = buildExecutionContext(
       workstream,
       play,
-      pattern,
+      patternContext,
       user,
       dag.startNode.id,
       config
