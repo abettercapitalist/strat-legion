@@ -87,12 +87,15 @@ export function rfNodeToDBNode(rfNode: WorkflowRFNode, playId: string): Omit<Wor
 // Convert DB WorkflowEdge to React Flow edge
 export function dbEdgeToRFEdge(dbEdge: WorkflowEdge): WorkflowRFEdge {
   const style = getEdgeStyle(dbEdge.edge_type);
-  const bidirectional = Boolean((dbEdge.metadata as Record<string, unknown>)?.bidirectional);
+  const meta = (dbEdge.metadata || {}) as Record<string, unknown>;
+  const bidirectional = Boolean(meta.bidirectional);
   const markers = getEdgeMarkers(bidirectional);
   return {
     id: dbEdge.id,
     source: dbEdge.source_node_id,
     target: dbEdge.target_node_id,
+    sourceHandle: (meta.sourceHandle as string) || undefined,
+    targetHandle: (meta.targetHandle as string) || undefined,
     type: dbEdge.edge_type === 'conditional' ? 'conditional' : 'smoothstep',
     animated: dbEdge.edge_type === 'conditional',
     style,
@@ -124,7 +127,11 @@ export function rfEdgeToDBEdge(rfEdge: WorkflowRFEdge, playId: string): Omit<Wor
     edge_type: rfEdge.data?.edgeType || 'default',
     condition: rfEdge.data?.condition || null,
     label: rfEdge.data?.label || null,
-    metadata: { bidirectional: rfEdge.data?.bidirectional || false },
+    metadata: {
+      bidirectional: rfEdge.data?.bidirectional || false,
+      sourceHandle: rfEdge.sourceHandle || null,
+      targetHandle: rfEdge.targetHandle || null,
+    },
   };
 }
 

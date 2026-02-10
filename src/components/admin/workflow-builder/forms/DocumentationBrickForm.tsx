@@ -3,13 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { UpstreamOutput, InputRef } from '../outputSchemas';
 import { UpstreamBindingSelect } from './UpstreamBindingSelect';
-
-export const TEMPLATES: Record<string, string> = {
-  nda: 'Non-Disclosure Agreement',
-  msa: 'Master Service Agreement',
-  sow: 'Statement of Work',
-  order_form: 'Order Form',
-};
+import { useTemplates, type Template } from '@/hooks/useTemplates';
 
 interface DocumentationBrickFormProps {
   config: Record<string, unknown>;
@@ -18,21 +12,28 @@ interface DocumentationBrickFormProps {
 }
 
 export function DocumentationBrickForm({ config, onConfigChange, upstreamOutputs = [] }: DocumentationBrickFormProps) {
+  const { templates, drafts, loading } = useTemplates();
+  const allTemplates = [...templates, ...drafts];
   const dataSourceRef = config.data_source_ref as InputRef | undefined;
   const collectionUpstream = upstreamOutputs.filter((u) => u.brickCategory === 'collection');
 
   const handleTemplateChange = (templateId: string) => {
     const patch: Record<string, unknown> = { template_id: templateId };
-    // Auto-suggest output name if empty or still matches a previous auto-suggestion
+    // Auto-suggest output name based on the selected template
     const currentName = (config.output_name as string) || '';
-    const isAutoSuggested = !currentName || Object.values(TEMPLATES).some(
-      (label) => currentName === `{{workstream.name}} - ${label}`
+    const selected = allTemplates.find((t) => t.id === templateId);
+    const wasAutoSuggested = !currentName || allTemplates.some(
+      (t) => currentName === `{{workstream.name}} - ${t.name}`
     );
-    if (isAutoSuggested && TEMPLATES[templateId]) {
-      patch.output_name = `{{workstream.name}} - ${TEMPLATES[templateId]}`;
+    if (wasAutoSuggested && selected) {
+      patch.output_name = `{{workstream.name}} - ${selected.name}`;
     }
     onConfigChange(patch);
   };
+
+  // Resolve current template name for display
+  const currentTemplateId = (config.template_id as string) || '';
+  const currentTemplate = allTemplates.find((t) => t.id === currentTemplateId);
 
   return (
     <div className="space-y-4">
@@ -58,18 +59,40 @@ export function DocumentationBrickForm({ config, onConfigChange, upstreamOutputs
         <Label className="text-sm font-semibold">Template</Label>
         <p className="text-xs text-muted-foreground">Select the document template to generate</p>
         <Select
-          value={(config.template_id as string) || ''}
+          value={currentTemplateId}
           onValueChange={handleTemplateChange}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select template" />
+            <SelectValue placeholder={loading ? 'Loading templates...' : 'Select template'}>
+              {currentTemplate?.name}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(TEMPLATES).map(([id, label]) => (
-              <SelectItem key={id} value={id}>{label}</SelectItem>
+            {loading && (
+              <SelectItem value="__loading__" disabled>Loading...</SelectItem>
+            )}
+            {!loading && allTemplates.length === 0 && (
+              <SelectItem value="__empty__" disabled>No templates found</SelectItem>
+            )}
+            {templates.map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
             ))}
+            {drafts.length > 0 && (
+              <>
+                {drafts.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name} (Draft)
+                  </SelectItem>
+                ))}
+              </>
+            )}
           </SelectContent>
         </Select>
+        {currentTemplateId && !currentTemplate && !loading && (
+          <p className="text-[11px] text-amber-600">
+            Selected template not found — it may have been deleted
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
