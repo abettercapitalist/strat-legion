@@ -21,6 +21,7 @@ export interface WorkflowEdgeData {
   edgeType: WorkflowEdgeType;
   condition: Record<string, unknown> | null;
   label: string | null;
+  bidirectional?: boolean;
   [key: string]: unknown;
 }
 

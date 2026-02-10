@@ -5,11 +5,12 @@ import {
   MiniMap,
   Background,
   BackgroundVariant,
-  reconnectEdge,
+  ConnectionLineType,
   type NodeTypes,
   type EdgeTypes,
   type Edge,
   type Connection,
+  type Node,
   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -17,7 +18,7 @@ import type { WorkflowRFNode, WorkflowRFEdge } from './types';
 import type { BrickCategory } from '@/lib/bricks/types';
 import { BrickNode } from './BrickNode';
 import { ConditionalEdge } from './edges/ConditionalEdge';
-import { BRICK_COLORS } from './utils';
+import { BRICK_COLORS, getOptimalHandles } from './utils';
 
 const nodeTypes: NodeTypes = {
   brick: BrickNode,
@@ -37,6 +38,7 @@ interface WorkflowCanvasProps {
   onEdgeSelect: (edgeId: string | null) => void;
   onDrop: (category: BrickCategory, position: { x: number; y: number }) => void;
   onNodeDelete: (nodeId: string) => void;
+  onEdgeDelete: (edgeId: string) => void;
   onSetEdges: React.Dispatch<React.SetStateAction<WorkflowRFEdge[]>>;
 }
 
@@ -50,6 +52,7 @@ export function WorkflowCanvas({
   onEdgeSelect,
   onDrop,
   onNodeDelete,
+  onEdgeDelete,
   onSetEdges,
 }: WorkflowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -107,7 +110,21 @@ export function WorkflowCanvas({
   const handleReconnect = useCallback(
     (oldEdge: Edge, newConnection: Connection) => {
       edgeReconnectSuccessful.current = true;
-      onSetEdges((eds) => reconnectEdge(oldEdge, newConnection, eds) as WorkflowRFEdge[]);
+      // Manually update the edge instead of using reconnectEdge(),
+      // which generates a non-UUID "xy-edge__..." ID that breaks DB saves.
+      onSetEdges((eds) =>
+        eds.map((e) =>
+          e.id === oldEdge.id
+            ? {
+                ...e,
+                source: newConnection.source!,
+                target: newConnection.target!,
+                sourceHandle: newConnection.sourceHandle ?? undefined,
+                targetHandle: newConnection.targetHandle ?? undefined,
+              }
+            : e
+        )
+      );
     },
     [onSetEdges]
   );
@@ -122,16 +139,62 @@ export function WorkflowCanvas({
     [onSetEdges]
   );
 
+  // When a node stops moving, re-optimize handle assignments for connected edges
+  const handleNodeDragStop = useCallback(
+    (_: React.MouseEvent, draggedNode: Node) => {
+      onSetEdges((eds) => {
+        const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+        // Use the dragged node's latest position (from the event, not stale state)
+        nodeMap.set(draggedNode.id, draggedNode as WorkflowRFNode);
+
+        return eds.map((edge) => {
+          // Only re-optimize edges connected to the dragged node
+          if (edge.source !== draggedNode.id && edge.target !== draggedNode.id) return edge;
+
+          const sourceNode = nodeMap.get(edge.source);
+          const targetNode = nodeMap.get(edge.target);
+          if (!sourceNode || !targetNode) return edge;
+
+          const { sourceHandle, targetHandle } = getOptimalHandles(
+            sourceNode.position,
+            targetNode.position,
+          );
+
+          if (edge.sourceHandle === sourceHandle && edge.targetHandle === targetHandle) {
+            return edge;
+          }
+
+          return { ...edge, sourceHandle, targetHandle };
+        });
+      });
+    },
+    [nodes, onSetEdges]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Don't intercept when typing in an input/textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selected = nodes.find((n) => n.selected);
-        if (selected) {
-          onNodeDelete(selected.id);
+        const selectedNode = nodes.find((n) => n.selected);
+        if (selectedNode) {
+          onNodeDelete(selectedNode.id);
+          return;
+        }
+        const selectedEdge = edges.find((ed) => ed.selected);
+        if (selectedEdge) {
+          onEdgeDelete(selectedEdge.id);
+          return;
         }
       }
+      if (e.key === 'Escape') {
+        onNodeSelect(null);
+        onEdgeSelect(null);
+      }
     },
-    [nodes, onNodeDelete]
+    [nodes, edges, onNodeDelete, onEdgeDelete, onNodeSelect, onEdgeSelect]
   );
 
   return (
@@ -148,16 +211,18 @@ export function WorkflowCanvas({
         onNodeClick={handleNodeClick}
         onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
+        onNodeDragStop={handleNodeDragStop}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         connectionMode="loose"
+        connectionLineType={ConnectionLineType.SmoothStep}
         edgesReconnectable
         fitView
         deleteKeyCode={null}
         defaultEdgeOptions={{
-          type: 'default',
+          type: 'smoothstep',
           style: { stroke: '#94a3b8', strokeWidth: 2 },
           reconnectable: true,
           interactionWidth: 30,

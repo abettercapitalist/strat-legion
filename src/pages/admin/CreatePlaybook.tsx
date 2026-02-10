@@ -21,7 +21,7 @@ import { NodePalette } from "@/components/admin/workflow-builder/NodePalette";
 import { NodeConfigPanel } from "@/components/admin/workflow-builder/NodeConfigPanel";
 import type { WorkflowRFNode, WorkflowRFEdge } from "@/components/admin/workflow-builder/types";
 import { useWorkflowPersistence } from "@/components/admin/workflow-builder/hooks/useWorkflowPersistence";
-import { BasicInfoPanel, type BasicInfoFormData } from "@/components/designer/panels/BasicInfoPanel";
+import { BasicInfoPanel, type BasicInfoFormData, type PlayMetadata, DEFAULT_PLAY_METADATA } from "@/components/designer/panels/BasicInfoPanel";
 
 const playbookSchema = z.object({
   name: z
@@ -40,7 +40,17 @@ const playbookSchema = z.object({
     .string()
     .max(500, "Description must be 500 characters or less")
     .optional(),
-  team_category: z.string().min(1, "Assigned team is required"),
+  team_category: z.string().refine(
+    (val) => {
+      try {
+        const arr = JSON.parse(val);
+        return Array.isArray(arr) && arr.length > 0;
+      } catch {
+        return val.length > 0; // legacy single value
+      }
+    },
+    { message: "At least one team is required" }
+  ),
 });
 
 type PlaybookFormData = z.infer<typeof playbookSchema>;
@@ -62,6 +72,7 @@ export default function CreatePlaybook() {
     required_roles: [],
     approval_mode: "all",
   });
+  const [playMetadata, setPlayMetadata] = useState<PlayMetadata>(DEFAULT_PLAY_METADATA);
 
   // Selection state for right panel (palette vs config)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -129,9 +140,14 @@ export default function CreatePlaybook() {
             team_category: data.team_category as PlaybookFormData["team_category"],
           });
 
-          // Load play approval config
+          // Load play approval config and play metadata
           if (data.play_approval_config) {
-            setPlayApprovalConfig(data.play_approval_config as unknown as PlayApprovalConfig);
+            const pac = data.play_approval_config as Record<string, unknown>;
+            const { metadata: savedMeta, ...approvalFields } = pac;
+            setPlayApprovalConfig(approvalFields as unknown as PlayApprovalConfig);
+            if (savedMeta && typeof savedMeta === "object") {
+              setPlayMetadata({ ...DEFAULT_PLAY_METADATA, ...(savedMeta as Partial<PlayMetadata>) });
+            }
           }
 
           // Load DAG workflow from relational tables
@@ -162,15 +178,32 @@ export default function CreatePlaybook() {
   const validateForActivation = useCallback((): boolean => {
     const errs: ValidationError[] = [];
 
-    // Validate team category - check if a parent with sub-groups was selected
-    const selectedTeam = teamCategory ? getTeamById(teamCategory) : null;
-    if (selectedTeam && hasSubgroups(selectedTeam.id)) {
+    // Validate team category — parse JSON array and check each team
+    let teamIds: string[] = [];
+    try {
+      const parsed = JSON.parse(teamCategory || "[]");
+      if (Array.isArray(parsed)) teamIds = parsed;
+    } catch { /* legacy single value */ }
+    if (teamIds.length === 0 && teamCategory) teamIds = [teamCategory];
+
+    if (teamIds.length === 0) {
       errs.push({
-        id: "team-subgroup",
+        id: "team-required",
         section: "basics",
         field: "team_category",
-        message: "This team has sub-groups. Please select a specific group.",
+        message: "At least one team must be assigned.",
       });
+    }
+    for (const tid of teamIds) {
+      const team = getTeamById(tid);
+      if (team && hasSubgroups(team.id)) {
+        errs.push({
+          id: `team-subgroup-${tid}`,
+          section: "basics",
+          field: "team_category",
+          message: `"${team.display_name}" has sub-groups. Please select a specific group.`,
+        });
+      }
     }
 
     // Validate workflow DAG
@@ -212,7 +245,7 @@ export default function CreatePlaybook() {
         team_category: data.team_category,
         status,
         default_workflow: JSON.stringify({ steps: [] }), // Legacy field - kept for backwards compat
-        play_approval_config: playApprovalConfig,
+        play_approval_config: { ...playApprovalConfig, metadata: playMetadata },
       };
 
       let workstreamTypeId: string;
@@ -249,16 +282,12 @@ export default function CreatePlaybook() {
         }
       }
 
-      if (isEditing && id) {
-        if (status === "Active") {
-          navigate("/admin/workstream-types");
-        }
-      } else {
-        if (status === "Active") {
-          navigate("/admin/workstream-types");
-        } else if (workstreamTypeId) {
-          navigate(`/admin/workstream-types/${workstreamTypeId}/edit`, { replace: true });
-        }
+      // Only navigate away when the user explicitly clicked "Activate"
+      if (requestedStatus === "Active") {
+        navigate("/admin/workstream-types");
+      } else if (!isEditing && workstreamTypeId) {
+        // New play saved as draft — redirect to edit URL so refreshes work
+        navigate(`/admin/workstream-types/${workstreamTypeId}/edit`, { replace: true });
       }
     } catch (error) {
       console.error("[CreatePlaybook] Save failed:", error);
@@ -352,6 +381,8 @@ export default function CreatePlaybook() {
             version={existingVersion}
             playApprovalConfig={playApprovalConfig}
             onApprovalConfigChange={setPlayApprovalConfig}
+            playMetadata={playMetadata}
+            onPlayMetadataChange={setPlayMetadata}
           />
         </Card>
 
@@ -433,7 +464,7 @@ export default function CreatePlaybook() {
           onClick={handleSaveAsDraft}
           disabled={isSubmitting || persistence.isSaving}
         >
-          {persistence.isSaving ? "Saving..." : "Save as Draft"}
+          {persistence.isSaving ? "Saving..." : isEditing ? "Save" : "Save as Draft"}
         </Button>
         <Button
           type="button"

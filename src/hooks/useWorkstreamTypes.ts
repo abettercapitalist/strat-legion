@@ -41,16 +41,28 @@ export function useWorkstreamTypes(filters?: WorkstreamTypeFilters) {
       if (filters?.status && filters.status !== "All") {
         query = query.eq("status", filters.status);
       }
-      if (filters?.team_category && filters.team_category !== "All") {
-        query = query.eq("team_category", filters.team_category);
-      }
-
       const { data, error } = await query;
       if (error) throw error;
 
+      // Client-side team filter (team_category may be a JSON array string)
+      const teamFilter = filters?.team_category && filters.team_category !== "All"
+        ? filters.team_category
+        : null;
+      const filtered = teamFilter
+        ? (data || []).filter((type) => {
+            const raw = type.team_category;
+            if (!raw) return false;
+            try {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) return parsed.includes(teamFilter);
+            } catch { /* not JSON */ }
+            return raw === teamFilter;
+          })
+        : (data || []);
+
       // Get active workstream counts for each type
         const typesWithCounts = await Promise.all(
-          (data || []).map(async (type) => {
+          filtered.map(async (type) => {
             const { count } = await supabase
               .from("workstreams")
               .select("*", { count: "exact", head: true })

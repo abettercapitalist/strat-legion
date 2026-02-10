@@ -1,6 +1,10 @@
+import { MarkerType } from '@xyflow/react';
 import type { BrickCategory, WorkflowNode, WorkflowEdge, WorkflowEdgeType } from '@/lib/bricks/types';
 import { BRICK_CATEGORY_IDS } from '@/lib/bricks/types';
 import type { WorkflowRFNode, WorkflowRFEdge, WorkflowNodeData, WorkflowEdgeData } from './types';
+
+// Shared arrow marker
+const ARROW_MARKER = { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#94a3b8' };
 
 // Node category colors
 export const BRICK_COLORS: Record<BrickCategory, { bg: string; border: string; text: string; badge: string; glow: string }> = {
@@ -83,33 +87,44 @@ export function rfNodeToDBNode(rfNode: WorkflowRFNode, playId: string): Omit<Wor
 // Convert DB WorkflowEdge to React Flow edge
 export function dbEdgeToRFEdge(dbEdge: WorkflowEdge): WorkflowRFEdge {
   const style = getEdgeStyle(dbEdge.edge_type);
+  const bidirectional = Boolean((dbEdge.metadata as Record<string, unknown>)?.bidirectional);
+  const markers = getEdgeMarkers(bidirectional);
   return {
     id: dbEdge.id,
     source: dbEdge.source_node_id,
     target: dbEdge.target_node_id,
-    type: dbEdge.edge_type === 'conditional' ? 'conditional' : 'default',
+    type: dbEdge.edge_type === 'conditional' ? 'conditional' : 'smoothstep',
     animated: dbEdge.edge_type === 'conditional',
     style,
+    ...markers,
     data: {
       dbId: dbEdge.id,
       edgeType: dbEdge.edge_type,
       condition: dbEdge.condition,
       label: dbEdge.label,
+      bidirectional,
     },
   };
 }
 
+// Simple UUID format check (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Convert React Flow edge to DB WorkflowEdge fields for upsert
 export function rfEdgeToDBEdge(rfEdge: WorkflowRFEdge, playId: string): Omit<WorkflowEdge, 'created_at'> {
+  // Use dbId if available, fall back to rfEdge.id if it's a valid UUID,
+  // otherwise generate a new UUID (guards against React Flow's "xy-edge__..." IDs)
+  const rawId = rfEdge.data?.dbId || rfEdge.id;
+  const id = UUID_RE.test(rawId) ? rawId : generateEdgeId();
   return {
-    id: rfEdge.data?.dbId || rfEdge.id,
+    id,
     play_id: playId,
     source_node_id: rfEdge.source,
     target_node_id: rfEdge.target,
     edge_type: rfEdge.data?.edgeType || 'default',
     condition: rfEdge.data?.condition || null,
     label: rfEdge.data?.label || null,
-    metadata: {},
+    metadata: { bidirectional: rfEdge.data?.bidirectional || false },
   };
 }
 
@@ -171,14 +186,69 @@ export function createEdgeFromConnection(
     target: targetId,
     sourceHandle: sourceHandle ?? undefined,
     targetHandle: targetHandle ?? undefined,
-    type: edgeType === 'conditional' ? 'conditional' : 'default',
+    type: edgeType === 'conditional' ? 'conditional' : 'smoothstep',
     animated: edgeType === 'conditional',
     style,
+    markerEnd: ARROW_MARKER,
     data: {
       dbId: null,
       edgeType,
       condition: null,
       label: null,
+      bidirectional: false,
     },
   };
+}
+
+/** Returns marker props for an edge based on its bidirectional flag */
+export function getEdgeMarkers(bidirectional: boolean) {
+  return bidirectional
+    ? { markerStart: ARROW_MARKER, markerEnd: ARROW_MARKER }
+    : { markerStart: undefined, markerEnd: ARROW_MARKER };
+}
+
+// Approximate node dimensions (matches BrickNode CSS: min-w-[180px], px-4 py-3)
+const NODE_W = 200;
+const NODE_H = 56;
+
+/** Handle anchor points relative to node position (top-left corner) */
+const HANDLE_POSITIONS: Record<string, { x: number; y: number }> = {
+  top:    { x: NODE_W / 2, y: 0 },
+  bottom: { x: NODE_W / 2, y: NODE_H },
+  left:   { x: 0,          y: NODE_H / 2 },
+  right:  { x: NODE_W,     y: NODE_H / 2 },
+};
+
+const HANDLE_IDS = ['top', 'right', 'bottom', 'left'] as const;
+
+/**
+ * Given source and target node positions, return the handle pair
+ * that produces the shortest connection distance.
+ */
+export function getOptimalHandles(
+  sourcePos: { x: number; y: number },
+  targetPos: { x: number; y: number },
+): { sourceHandle: string; targetHandle: string } {
+  let bestDist = Infinity;
+  let bestSource = 'bottom';
+  let bestTarget = 'top';
+
+  for (const sh of HANDLE_IDS) {
+    const sp = HANDLE_POSITIONS[sh];
+    const sx = sourcePos.x + sp.x;
+    const sy = sourcePos.y + sp.y;
+    for (const th of HANDLE_IDS) {
+      const tp = HANDLE_POSITIONS[th];
+      const tx = targetPos.x + tp.x;
+      const ty = targetPos.y + tp.y;
+      const dist = Math.hypot(tx - sx, ty - sy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestSource = sh;
+        bestTarget = th;
+      }
+    }
+  }
+
+  return { sourceHandle: bestSource, targetHandle: bestTarget };
 }

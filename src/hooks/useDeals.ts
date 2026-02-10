@@ -1,6 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+/** Check if a team_category value (JSON array, UUID, or legacy name) contains a given value */
+function teamCategoryIncludes(raw: string | null | undefined, needle: string): boolean {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.includes(needle);
+  } catch { /* not JSON */ }
+  return raw === needle;
+}
+
 export interface Deal {
   id: string;
   title: string;
@@ -88,9 +98,9 @@ export function useDeals() {
 
       if (error) throw error;
 
-      // Filter to only sales workstreams (team_category = 'sales')
+      // Filter to only sales workstreams
       const salesWorkstreams = (workstreams || []).filter(
-        (w) => w.workstream_type?.team_category === "sales"
+        (w) => teamCategoryIncludes(w.workstream_type?.team_category, "sales")
       );
 
       // Map to Deal interface
@@ -149,7 +159,7 @@ export function usePendingApprovals() {
 
       // Filter to only sales workstreams
       const salesApprovals = (approvals || []).filter(
-        (a) => a.workstream?.workstream_type?.team_category === "sales"
+        (a) => teamCategoryIncludes(a.workstream?.workstream_type?.team_category, "sales")
       );
 
       const pendingApprovals: PendingApproval[] = salesApprovals.map((a) => {

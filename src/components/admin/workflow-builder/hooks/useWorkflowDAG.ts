@@ -9,7 +9,7 @@ import {
 } from '@xyflow/react';
 import type { WorkflowRFNode, WorkflowRFEdge, WorkflowNodeData, WorkflowEdgeData } from '../types';
 import type { BrickCategory, WorkflowEdgeType } from '@/lib/bricks/types';
-import { createNodeFromDrop, createEdgeFromConnection, getEdgeStyle, generateEdgeId } from '../utils';
+import { createNodeFromDrop, createEdgeFromConnection, getEdgeStyle, getEdgeMarkers, generateEdgeId } from '../utils';
 
 interface UseWorkflowDAGReturn {
   nodes: WorkflowRFNode[];
@@ -121,12 +121,14 @@ export function useWorkflowDAG(
           if (e.id !== edgeId) return e;
           const newData = { ...e.data, ...data } as WorkflowEdgeData;
           const style = getEdgeStyle(newData.edgeType);
+          const markers = getEdgeMarkers(Boolean(newData.bidirectional));
           return {
             ...e,
             data: newData,
-            type: newData.edgeType === 'conditional' ? 'conditional' : 'default',
+            type: newData.edgeType === 'conditional' ? 'conditional' : 'smoothstep',
             animated: newData.edgeType === 'conditional',
             style,
+            ...markers,
           };
         })
       );

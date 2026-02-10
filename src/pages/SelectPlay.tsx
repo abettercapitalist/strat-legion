@@ -95,18 +95,31 @@ export default function SelectPlay({ module: moduleProp }: SelectPlayProps) {
         .select("id")
         .ilike("display_name", teamName);
 
-      const teamIds = (matchingTeams || []).map((t) => t.id);
-      if (teamIds.length === 0) return [];
+      const teamIds = new Set((matchingTeams || []).map((t) => t.id));
+      if (teamIds.size === 0) return [];
 
       const { data, error } = await supabase
         .from("workstream_types")
         .select("*")
         .eq("status", "Active")
-        .in("team_category", teamIds)
         .order("display_name", { ascending: true, nullsFirst: false });
 
       if (error) throw error;
-      return data as WorkstreamType[];
+
+      // Filter plays whose team_category overlaps the module's team IDs.
+      // team_category may be a JSON array string, a single UUID, or a legacy name.
+      return (data as WorkstreamType[]).filter((play) => {
+        const raw = play.team_category;
+        if (!raw) return false;
+        let ids: string[];
+        try {
+          const parsed = JSON.parse(raw);
+          ids = Array.isArray(parsed) ? parsed : [raw];
+        } catch {
+          ids = [raw];
+        }
+        return ids.some((id) => teamIds.has(id));
+      });
     },
     enabled: !!module,
   });

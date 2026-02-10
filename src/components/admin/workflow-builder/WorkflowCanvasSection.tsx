@@ -103,6 +103,7 @@ const WorkflowCanvasSectionInner = forwardRef<WorkflowCanvasSectionHandle, Workf
         onEdgeSelect={handleEdgeSelect}
         onDrop={handleDrop}
         onNodeDelete={dag.removeNode}
+        onEdgeDelete={dag.removeEdge}
         onSetEdges={dag.setEdges}
       />
     );

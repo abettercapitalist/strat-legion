@@ -1,5 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { WorkflowEdgeData } from '../types';
 import type { WorkflowEdgeType } from '@/lib/bricks/types';
@@ -14,6 +15,18 @@ export function EdgeConditionForm({ edgeData, onEdgeDataChange }: EdgeConditionF
 
   return (
     <div className="space-y-4">
+      {/* Bidirectional toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="text-sm font-semibold">Bidirectional</Label>
+          <p className="text-xs text-muted-foreground">Flow goes both ways</p>
+        </div>
+        <Switch
+          checked={Boolean(edgeData.bidirectional)}
+          onCheckedChange={(checked) => onEdgeDataChange({ bidirectional: checked })}
+        />
+      </div>
+
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Connection Type</Label>
         <Select
