@@ -6,11 +6,7 @@ import { z } from "zod";
 import { ArrowLeft, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkstreamTypes } from "@/hooks/useWorkstreamTypes";
 import { useTeams } from "@/hooks/useTeams";
@@ -70,9 +66,15 @@ export default function CreatePlaybook() {
   // Selection state for right panel (palette vs config)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  // Bump to force re-render when config panel modifies node/edge data via ref
-  const [, setConfigTick] = useState(0);
-  const bumpConfigTick = useCallback(() => setConfigTick((t) => t + 1), []);
+  // Refresh selected node/edge after config panel modifies data via ref
+  const bumpConfigTick = useCallback(() => {
+    const nodes = canvasRef.current?.getNodes() ?? [];
+    const edges = canvasRef.current?.getEdges() ?? [];
+    const nodeId = canvasRef.current?.getSelectedNodeId() ?? null;
+    const edgeId = canvasRef.current?.getSelectedEdgeId() ?? null;
+    setSelectedNode(nodeId ? nodes.find((n) => n.id === nodeId) || null : null);
+    setSelectedEdge(edgeId ? edges.find((e) => e.id === edgeId) || null : null);
+  }, []);
 
   // Workflow canvas ref and state
   const canvasRef = useRef<WorkflowCanvasSectionHandle>(null);
@@ -271,18 +273,22 @@ export default function CreatePlaybook() {
   const handleSaveAsDraft = handleSubmit((data) => onSubmit(data, "Draft"));
   const handleActivate = handleSubmit((data) => onSubmit(data, "Active"));
 
-  // Selection change callback from canvas
+  // Track selected node/edge objects (not just IDs) to avoid stale ref reads
+  const [selectedNode, setSelectedNode] = useState<WorkflowRFNode | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<WorkflowRFEdge | null>(null);
+
+  // Selection change callback from canvas — capture node/edge objects immediately
   const handleSelectionChange = useCallback(
     (nodeId: string | null, edgeId: string | null) => {
       setSelectedNodeId(nodeId);
       setSelectedEdgeId(edgeId);
+      const nodes = canvasRef.current?.getNodes() ?? [];
+      const edges = canvasRef.current?.getEdges() ?? [];
+      setSelectedNode(nodeId ? nodes.find((n) => n.id === nodeId) || null : null);
+      setSelectedEdge(edgeId ? edges.find((e) => e.id === edgeId) || null : null);
     },
     []
   );
-
-  // Derive selected node/edge objects for the config panel
-  const selectedNode = canvasRef.current?.getSelectedNode() ?? null;
-  const selectedEdge = canvasRef.current?.getSelectedEdge() ?? null;
 
   if (isLoadingPlay) {
     return (
@@ -301,9 +307,9 @@ export default function CreatePlaybook() {
   const hasSelection = selectedNodeId !== null || selectedEdgeId !== null;
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex flex-col gap-2 px-2 py-2 h-full overflow-hidden">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-background shrink-0">
+      <div className="flex items-center justify-between shrink-0 px-1">
         <Button
           variant="ghost"
           size="sm"
@@ -313,18 +319,15 @@ export default function CreatePlaybook() {
           <ArrowLeft className="h-4 w-4" />
           Back to Play Library
         </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-foreground">
-            {displayNameValue || (isEditing ? "Edit Play" : "New Play")}
-          </h1>
-        </div>
-        {/* Spacer to balance the layout */}
+        <h1 className="text-sm font-semibold text-foreground">
+          {displayNameValue || (isEditing ? "Edit Play" : "New Play")}
+        </h1>
         <div className="w-[160px]" />
       </div>
 
       {/* Validation Errors */}
       {validationErrors.length > 0 && (
-        <div className="px-4 pt-2 shrink-0">
+        <div className="shrink-0">
           <ValidationSummaryPanel
             errors={validationErrors}
             onDismiss={() => setValidationErrors([])}
@@ -334,97 +337,89 @@ export default function CreatePlaybook() {
       )}
 
       {/* 3-Panel Layout */}
-      <div className="flex-1 min-h-0">
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Left Panel: Basic Info */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-            <BasicInfoPanel
-              register={register}
-              errors={errors}
-              setValue={setValue}
-              watch={watch}
-              isEditing={isEditing}
-              status={existingStatus}
-              createdAt={existingCreatedAt}
-              updatedAt={existingUpdatedAt}
-              version={existingVersion}
-              playApprovalConfig={playApprovalConfig}
-              onApprovalConfigChange={setPlayApprovalConfig}
+      <div className="flex gap-2 flex-1 min-h-0">
+        {/* Left Panel: Basic Info */}
+        <Card className="w-[280px] shrink-0 overflow-hidden">
+          <BasicInfoPanel
+            register={register}
+            errors={errors}
+            setValue={setValue}
+            watch={watch}
+            isEditing={isEditing}
+            status={existingStatus}
+            createdAt={existingCreatedAt}
+            updatedAt={existingUpdatedAt}
+            version={existingVersion}
+            playApprovalConfig={playApprovalConfig}
+            onApprovalConfigChange={setPlayApprovalConfig}
+          />
+        </Card>
+
+        {/* Center Panel: Canvas */}
+        <Card className="flex-1 min-w-0 overflow-hidden flex flex-col">
+          {/* Canvas toolbar */}
+          <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30 shrink-0">
+            <span className="text-xs text-muted-foreground">
+              {canvasRef.current
+                ? `${canvasRef.current.getNodes().length} node${canvasRef.current.getNodes().length !== 1 ? "s" : ""}, ${canvasRef.current.getEdges().length} connection${canvasRef.current.getEdges().length !== 1 ? "s" : ""}`
+                : "0 nodes, 0 connections"}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => canvasRef.current?.autoLayout()}
+              className="gap-1.5 h-7 text-xs"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Auto Layout
+            </Button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <WorkflowCanvasSection
+              ref={canvasRef}
+              initialNodes={initialNodes}
+              initialEdges={initialEdges}
+              onSelectionChange={handleSelectionChange}
             />
-          </ResizablePanel>
+          </div>
+        </Card>
 
-          <ResizableHandle withHandle />
-
-          {/* Center Panel: Canvas */}
-          <ResizablePanel defaultSize={55} minSize={35}>
-            <div className="h-full flex flex-col">
-              {/* Canvas toolbar */}
-              <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30 shrink-0">
-                <span className="text-xs text-muted-foreground">
-                  {canvasRef.current
-                    ? `${canvasRef.current.getNodes().length} node${canvasRef.current.getNodes().length !== 1 ? "s" : ""}, ${canvasRef.current.getEdges().length} edge${canvasRef.current.getEdges().length !== 1 ? "s" : ""}`
-                    : "0 nodes, 0 edges"}
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => canvasRef.current?.autoLayout()}
-                  className="gap-1.5 h-7 text-xs"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  Auto Layout
-                </Button>
-              </div>
-              <div className="flex-1 min-h-0">
-                <WorkflowCanvasSection
-                  ref={canvasRef}
-                  initialNodes={initialNodes}
-                  initialEdges={initialEdges}
-                  onSelectionChange={handleSelectionChange}
-                />
-              </div>
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Right Panel: Palette or Config */}
-          <ResizablePanel defaultSize={25} minSize={15} maxSize={35}>
-            {hasSelection ? (
-              <NodeConfigPanel
-                selectedNode={selectedNode}
-                selectedEdge={selectedEdge}
-                onNodeDataChange={(data) => {
-                  canvasRef.current?.updateNodeData(data);
-                  bumpConfigTick();
-                }}
-                onNodeConfigChange={(config) => {
-                  canvasRef.current?.updateNodeConfig(config);
-                  bumpConfigTick();
-                }}
-                onEdgeDataChange={(data) => {
-                  canvasRef.current?.updateEdgeData(data);
-                  bumpConfigTick();
-                }}
-                onDeleteNode={(nodeId) => {
-                  canvasRef.current?.deleteNode(nodeId);
-                  setSelectedNodeId(null);
-                }}
-                onDeleteEdge={(edgeId) => {
-                  canvasRef.current?.deleteEdge(edgeId);
-                  setSelectedEdgeId(null);
-                }}
-              />
-            ) : (
-              <NodePalette />
-            )}
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        {/* Right Panel: Palette or Config */}
+        <Card className="w-[260px] shrink-0 overflow-hidden">
+          {hasSelection ? (
+            <NodeConfigPanel
+              selectedNode={selectedNode}
+              selectedEdge={selectedEdge}
+              onNodeDataChange={(data) => {
+                canvasRef.current?.updateNodeData(data);
+                bumpConfigTick();
+              }}
+              onNodeConfigChange={(config) => {
+                canvasRef.current?.updateNodeConfig(config);
+                bumpConfigTick();
+              }}
+              onEdgeDataChange={(data) => {
+                canvasRef.current?.updateEdgeData(data);
+                bumpConfigTick();
+              }}
+              onDeleteNode={(nodeId) => {
+                canvasRef.current?.deleteNode(nodeId);
+                setSelectedNodeId(null);
+              }}
+              onDeleteEdge={(edgeId) => {
+                canvasRef.current?.deleteEdge(edgeId);
+                setSelectedEdgeId(null);
+              }}
+            />
+          ) : (
+            <NodePalette />
+          )}
+        </Card>
       </div>
 
       {/* Bottom Bar */}
-      <div className="flex items-center justify-end gap-3 px-4 py-3 border-t bg-background shrink-0">
+      <div className="flex items-center justify-end gap-3 shrink-0 px-1">
         <Button
           type="button"
           variant="ghost"

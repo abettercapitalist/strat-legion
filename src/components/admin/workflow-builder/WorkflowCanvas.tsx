@@ -5,8 +5,11 @@ import {
   MiniMap,
   Background,
   BackgroundVariant,
+  reconnectEdge,
   type NodeTypes,
   type EdgeTypes,
+  type Edge,
+  type Connection,
   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -34,6 +37,7 @@ interface WorkflowCanvasProps {
   onEdgeSelect: (edgeId: string | null) => void;
   onDrop: (category: BrickCategory, position: { x: number; y: number }) => void;
   onNodeDelete: (nodeId: string) => void;
+  onSetEdges: React.Dispatch<React.SetStateAction<WorkflowRFEdge[]>>;
 }
 
 export function WorkflowCanvas({
@@ -46,6 +50,7 @@ export function WorkflowCanvas({
   onEdgeSelect,
   onDrop,
   onNodeDelete,
+  onSetEdges,
 }: WorkflowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -92,6 +97,31 @@ export function WorkflowCanvas({
     onEdgeSelect(null);
   }, [onNodeSelect, onEdgeSelect]);
 
+  // Reconnect an existing edge when dragged to a new handle
+  const edgeReconnectSuccessful = useRef(true);
+
+  const handleReconnectStart = useCallback(() => {
+    edgeReconnectSuccessful.current = false;
+  }, []);
+
+  const handleReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      edgeReconnectSuccessful.current = true;
+      onSetEdges((eds) => reconnectEdge(oldEdge, newConnection, eds) as WorkflowRFEdge[]);
+    },
+    [onSetEdges]
+  );
+
+  const handleReconnectEnd = useCallback(
+    (_: MouseEvent | TouchEvent, edge: Edge) => {
+      if (!edgeReconnectSuccessful.current) {
+        // Edge was dropped in empty space — remove it
+        onSetEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      }
+    },
+    [onSetEdges]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -112,6 +142,9 @@ export function WorkflowCanvas({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onReconnect={handleReconnect}
+        onReconnectStart={handleReconnectStart}
+        onReconnectEnd={handleReconnectEnd}
         onNodeClick={handleNodeClick}
         onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
@@ -119,11 +152,15 @@ export function WorkflowCanvas({
         onDrop={handleDrop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        connectionMode="loose"
+        edgesReconnectable
         fitView
         deleteKeyCode={null}
         defaultEdgeOptions={{
           type: 'default',
           style: { stroke: '#94a3b8', strokeWidth: 2 },
+          reconnectable: true,
+          interactionWidth: 30,
         }}
         connectionLineStyle={{ stroke: '#94a3b8', strokeWidth: 2 }}
       >

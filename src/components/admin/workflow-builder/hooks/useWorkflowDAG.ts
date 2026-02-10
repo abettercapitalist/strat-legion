@@ -52,7 +52,13 @@ export function useWorkflowDAG(
       );
       if (exists) return;
 
-      const newEdge = createEdgeFromConnection(connection.source, connection.target);
+      const newEdge = createEdgeFromConnection(
+        connection.source,
+        connection.target,
+        'default',
+        connection.sourceHandle ?? undefined,
+        connection.targetHandle ?? undefined,
+      );
       setEdges((eds) => [...eds, newEdge]);
     },
     [edges, setEdges]

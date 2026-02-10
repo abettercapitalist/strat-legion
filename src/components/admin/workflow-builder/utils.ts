@@ -3,12 +3,12 @@ import { BRICK_CATEGORY_IDS } from '@/lib/bricks/types';
 import type { WorkflowRFNode, WorkflowRFEdge, WorkflowNodeData, WorkflowEdgeData } from './types';
 
 // Node category colors
-export const BRICK_COLORS: Record<BrickCategory, { bg: string; border: string; text: string; badge: string }> = {
-  collection:    { bg: 'bg-blue-50',   border: 'border-blue-300',   text: 'text-blue-700',   badge: 'bg-blue-100 text-blue-700' },
-  review:        { bg: 'bg-amber-50',  border: 'border-amber-300',  text: 'text-amber-700',  badge: 'bg-amber-100 text-amber-700' },
-  approval:      { bg: 'bg-green-50',  border: 'border-green-300',  text: 'text-green-700',  badge: 'bg-green-100 text-green-700' },
-  documentation: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-700' },
-  commitment:    { bg: 'bg-rose-50',   border: 'border-rose-300',   text: 'text-rose-700',   badge: 'bg-rose-100 text-rose-700' },
+export const BRICK_COLORS: Record<BrickCategory, { bg: string; border: string; text: string; badge: string; glow: string }> = {
+  collection:    { bg: 'bg-blue-50',   border: 'border-blue-300',   text: 'text-blue-700',   badge: 'bg-blue-100 text-blue-700',   glow: '147 197 253' },
+  review:        { bg: 'bg-amber-50',  border: 'border-amber-300',  text: 'text-amber-700',  badge: 'bg-amber-100 text-amber-700', glow: '252 211 77' },
+  approval:      { bg: 'bg-green-50',  border: 'border-green-300',  text: 'text-green-700',  badge: 'bg-green-100 text-green-700', glow: '134 239 172' },
+  documentation: { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-700', glow: '196 181 253' },
+  commitment:    { bg: 'bg-rose-50',   border: 'border-rose-300',   text: 'text-rose-700',   badge: 'bg-rose-100 text-rose-700',   glow: '253 164 175' },
 };
 
 export const BRICK_ICONS: Record<BrickCategory, string> = {
@@ -160,6 +160,8 @@ export function createEdgeFromConnection(
   sourceId: string,
   targetId: string,
   edgeType: WorkflowEdgeType = 'default',
+  sourceHandle?: string,
+  targetHandle?: string,
 ): WorkflowRFEdge {
   const id = generateEdgeId();
   const style = getEdgeStyle(edgeType);
@@ -167,6 +169,8 @@ export function createEdgeFromConnection(
     id,
     source: sourceId,
     target: targetId,
+    sourceHandle: sourceHandle ?? undefined,
+    targetHandle: targetHandle ?? undefined,
     type: edgeType === 'conditional' ? 'conditional' : 'default',
     animated: edgeType === 'conditional',
     style,

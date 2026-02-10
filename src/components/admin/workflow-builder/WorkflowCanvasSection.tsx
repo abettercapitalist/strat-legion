@@ -40,12 +40,9 @@ const WorkflowCanvasSectionInner = forwardRef<WorkflowCanvasSectionHandle, Workf
 
     const handleDrop = useCallback(
       (category: BrickCategory, position: { x: number; y: number }) => {
-        const newNode = dag.addNode(category, position);
-        dag.setSelectedNodeId(newNode.id);
-        dag.setSelectedEdgeId(null);
-        onSelectionChange?.(newNode.id, null);
+        dag.addNode(category, position);
       },
-      [dag, onSelectionChange]
+      [dag]
     );
 
     const handleNodeSelect = useCallback(
@@ -106,6 +103,7 @@ const WorkflowCanvasSectionInner = forwardRef<WorkflowCanvasSectionHandle, Workf
         onEdgeSelect={handleEdgeSelect}
         onDrop={handleDrop}
         onNodeDelete={dag.removeNode}
+        onSetEdges={dag.setEdges}
       />
     );
   }

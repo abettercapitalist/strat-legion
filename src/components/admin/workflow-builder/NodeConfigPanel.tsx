@@ -35,7 +35,7 @@ export function NodeConfigPanel({
     return (
       <div className="h-full flex items-center justify-center p-6 text-center">
         <div>
-          <p className="text-sm text-muted-foreground">Select a node or edge to configure</p>
+          <p className="text-sm text-muted-foreground">Select a node or connection to configure</p>
           <p className="text-xs text-muted-foreground mt-1">
             Drag bricks from the palette to add them to the canvas
           </p>
@@ -52,7 +52,7 @@ export function NodeConfigPanel({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Link2 className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Edge Configuration</h3>
+              <h3 className="text-sm font-semibold">Connection Configuration</h3>
             </div>
             <Button
               type="button"

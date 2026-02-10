@@ -15,7 +15,7 @@ export function EdgeConditionForm({ edgeData, onEdgeDataChange }: EdgeConditionF
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm font-semibold">Edge Type</Label>
+        <Label className="text-sm font-semibold">Connection Type</Label>
         <Select
           value={edgeData.edgeType}
           onValueChange={(value) => onEdgeDataChange({ edgeType: value as WorkflowEdgeType })}

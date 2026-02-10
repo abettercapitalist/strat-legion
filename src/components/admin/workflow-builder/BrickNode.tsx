@@ -20,6 +20,7 @@ function BrickNodeComponent({ data, selected }: NodeProps<WorkflowNodeData>) {
 
   return (
     <div
+      style={{ '--brick-glow': colors.glow } as React.CSSProperties}
       className={cn(
         'px-4 py-3 rounded-lg border-2 shadow-sm min-w-[180px] max-w-[220px] transition-shadow',
         colors.bg,
@@ -28,11 +29,11 @@ function BrickNodeComponent({ data, selected }: NodeProps<WorkflowNodeData>) {
         !data.isValid && 'border-destructive'
       )}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white"
-      />
+      {/* One handle per side — connectionMode="loose" on ReactFlow allows any-to-any */}
+      <Handle type="source" id="top" position={Position.Top} className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white" />
+      <Handle type="source" id="right" position={Position.Right} className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white" />
+      <Handle type="source" id="bottom" position={Position.Bottom} className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white" />
+      <Handle type="source" id="left" position={Position.Left} className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white" />
 
       <div className="flex items-start gap-2">
         <div className={cn('p-1.5 rounded-md flex-shrink-0', colors.badge)}>
@@ -56,12 +57,6 @@ function BrickNodeComponent({ data, selected }: NodeProps<WorkflowNodeData>) {
           {data.validationErrors[0]}
         </div>
       )}
-
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white"
-      />
     </div>
   );
 }
