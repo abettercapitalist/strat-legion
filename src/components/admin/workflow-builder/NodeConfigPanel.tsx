@@ -24,6 +24,7 @@ interface NodeConfigPanelProps {
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
   getUpstreamOutputs?: (nodeId: string) => UpstreamOutput[];
+  getAvailableDocuments?: (nodeId: string) => UpstreamOutput[];
   getFieldDataFlow?: (nodeId: string) => FieldDataFlow | null;
 }
 
@@ -36,6 +37,7 @@ export function NodeConfigPanel({
   onDeleteNode,
   onDeleteEdge,
   getUpstreamOutputs,
+  getAvailableDocuments,
   getFieldDataFlow: getFieldDataFlowProp,
 }: NodeConfigPanelProps) {
   if (!selectedNode && !selectedEdge) {
@@ -86,6 +88,7 @@ export function NodeConfigPanel({
     const category = selectedNode.data.brickCategory;
     const colors = BRICK_COLORS[category];
     const upstreamOutputs = getUpstreamOutputs?.(selectedNode.id) ?? [];
+    const availableDocuments = getAvailableDocuments?.(selectedNode.id) ?? [];
     const fieldDataFlow = getFieldDataFlowProp?.(selectedNode.id) ?? null;
 
     return (
@@ -111,7 +114,7 @@ export function NodeConfigPanel({
           </div>
 
           {/* Data Flow */}
-          {fieldDataFlow && fieldDataFlow.fields.length > 0 && (
+          {fieldDataFlow && (fieldDataFlow.fields.length > 0 || fieldDataFlow.receives.length > 0) && (
             <FieldDataFlowAccordion flow={fieldDataFlow} />
           )}
 
@@ -132,16 +135,16 @@ export function NodeConfigPanel({
               <CollectionBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'review' && (
-              <ReviewBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
+              <ReviewBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} availableDocuments={availableDocuments} />
             )}
             {category === 'approval' && (
-              <ApprovalBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
+              <ApprovalBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} availableDocuments={availableDocuments} />
             )}
             {category === 'documentation' && (
               <DocumentationBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'commitment' && (
-              <CommitmentBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
+              <CommitmentBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} availableDocuments={availableDocuments} />
             )}
           </div>
         </div>

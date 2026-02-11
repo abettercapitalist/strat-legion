@@ -61,6 +61,7 @@ export const reviewExecutor: BrickExecutor = async (inputs, context) => {
       config: {
         review_type: reviewType,
         criteria,
+        document_id: config.document_id,
         outcome_routing: config.outcome_routing,
         reviewer_assignment: config.reviewer_assignment,
         sla: config.sla,

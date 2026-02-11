@@ -20,6 +20,7 @@ export interface FieldDataFlow {
   nodeLabel: string;
   brickCategory: BrickCategory;
   fields: FieldFlowEntry[];
+  receives: UpstreamOutput[];
 }
 
 /**
@@ -110,6 +111,56 @@ export function getAvailableUpstreamOutputs(
 }
 
 /**
+ * BFS backwards from a node, stopping at documentation bricks on each path.
+ * Returns only the "nearest" documentation bricks — ones with no intervening
+ * doc brick between them and the target node.
+ */
+export function getNearestUpstreamDocuments(
+  nodeId: string,
+  nodes: WorkflowRFNode[],
+  edges: WorkflowRFEdge[],
+): UpstreamOutput[] {
+  const visited = new Set<string>();
+  const result: WorkflowRFNode[] = [];
+  const queue: string[] = [nodeId];
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const sourceIds = edges
+      .filter((e) => e.target === current)
+      .map((e) => e.source);
+
+    for (const sourceId of sourceIds) {
+      if (visited.has(sourceId)) continue;
+      visited.add(sourceId);
+      const sourceNode = nodeMap.get(sourceId);
+      if (!sourceNode) continue;
+
+      if (sourceNode.data.brickCategory === 'documentation') {
+        // Found a doc brick — add to result, stop traversing this path
+        result.push(sourceNode);
+      } else {
+        // Not a doc brick — continue traversing backwards
+        queue.push(sourceId);
+      }
+    }
+  }
+
+  return result.map((node) => {
+    const category = node.data.brickCategory;
+    const staticFields = BRICK_OUTPUT_SCHEMAS[category] || [];
+
+    return {
+      nodeId: node.id,
+      nodeLabel: node.data.label,
+      brickCategory: category,
+      fields: [...staticFields],
+    };
+  });
+}
+
+/**
  * Find the immediate downstream nodes (direct children) for a given node.
  */
 export function getImmediateDownstream(
@@ -159,6 +210,7 @@ export function getFieldDataFlow(
   const outputFields = getNodeOutputFields(node);
   const upstream = getAllUpstream(nodeId, nodes, edges);
   const downstream = getImmediateDownstream(nodeId, nodes, edges);
+  const receives = getAvailableUpstreamOutputs(nodeId, nodes, edges);
 
   const fields: FieldFlowEntry[] = outputFields.map((field) => {
     // Find the closest upstream node that outputs a field with the same name
@@ -189,5 +241,6 @@ export function getFieldDataFlow(
     nodeLabel: node.data.label,
     brickCategory: node.data.brickCategory,
     fields,
+    receives,
   };
 }

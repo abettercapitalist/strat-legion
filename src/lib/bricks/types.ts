@@ -159,6 +159,7 @@ export interface CollectionBrickConfig {
 export interface ReviewBrickConfig {
   review_type: 'checklist' | 'scored' | 'qualitative';
   criteria: ReviewCriterion[];
+  document_id?: string;
   outcome_routing?: {
     on_pass?: 'continue' | 'route';
     on_fail?: 'stop' | 'send_back' | 'alternate_path';
@@ -171,6 +172,7 @@ export interface ReviewBrickConfig {
 
 export interface ApprovalBrickConfig {
   approver: OwnerAssignment;
+  document_id?: string;
   conditional_logic?: AutoApprovalRule[];
   condition_logic?: 'AND' | 'OR';
   decision_options?: string[];

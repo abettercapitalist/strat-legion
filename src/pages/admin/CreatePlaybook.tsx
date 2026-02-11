@@ -21,7 +21,7 @@ import {
 import { NodePalette } from "@/components/admin/workflow-builder/NodePalette";
 import { NodeConfigPanel } from "@/components/admin/workflow-builder/NodeConfigPanel";
 import type { WorkflowRFNode, WorkflowRFEdge } from "@/components/admin/workflow-builder/types";
-import { getAvailableUpstreamOutputs, getFieldDataFlow } from "@/components/admin/workflow-builder/upstreamContext";
+import { getAvailableUpstreamOutputs, getNearestUpstreamDocuments, getFieldDataFlow } from "@/components/admin/workflow-builder/upstreamContext";
 import { useWorkflowPersistence } from "@/components/admin/workflow-builder/hooks/useWorkflowPersistence";
 import { BasicInfoPanel, type BasicInfoFormData, type PlayMetadata, DEFAULT_PLAY_METADATA } from "@/components/designer/panels/BasicInfoPanel";
 
@@ -305,6 +305,13 @@ export default function CreatePlaybook() {
     return getAvailableUpstreamOutputs(nodeId, nodes, edges);
   }, []);
 
+  // Provide nearest upstream documents for the config panel
+  const getAvailableDocuments = useCallback((nodeId: string) => {
+    const nodes = canvasRef.current?.getNodes() ?? [];
+    const edges = canvasRef.current?.getEdges() ?? [];
+    return getNearestUpstreamDocuments(nodeId, nodes, edges);
+  }, []);
+
   // Provide field-level data flow for the config panel
   const getFieldDataFlowCallback = useCallback((nodeId: string) => {
     const nodes = canvasRef.current?.getNodes() ?? [];
@@ -435,6 +442,7 @@ export default function CreatePlaybook() {
                   selectedNode={selectedNode}
                   selectedEdge={selectedEdge}
                   getUpstreamOutputs={getUpstreamOutputs}
+                  getAvailableDocuments={getAvailableDocuments}
                   getFieldDataFlow={getFieldDataFlowCallback}
                   onNodeDataChange={(data) => {
                     canvasRef.current?.updateNodeData(data);

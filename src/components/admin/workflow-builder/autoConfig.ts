@@ -1,5 +1,4 @@
 import type { WorkflowRFNode } from './types';
-import type { InputRef } from './outputSchemas';
 import { BRICK_LABELS } from './utils';
 
 /** Map template_id to short display names for subject extraction */
@@ -60,56 +59,35 @@ export function autoConfigureOnConnect(
   const subject = extractSubject(sourceNode);
   const isDefaultLabel = targetNode.data.label === BRICK_LABELS[targetCat];
 
-  // Documentation → Review: bind input_ref, auto-label
+  // Documentation → Review: auto-label + auto-set document_id
   if (sourceCat === 'documentation' && targetCat === 'review') {
-    if (!targetConfig.input_ref) {
-      updates.input_ref = {
-        node_id: sourceNode.id,
-        node_label: sourceNode.data.label,
-        output_key: 'document_url',
-        output_label: 'URL to access the document',
-      } satisfies InputRef;
-    }
     if (isDefaultLabel) {
       newLabel = `Review ${subject}`;
     }
+    if (!targetConfig.document_id) {
+      updates.document_id = sourceNode.id;
+    }
   }
 
-  // Documentation → Commitment: bind document_source_ref, set document_source
+  // Documentation → Approval: auto-set document_id
+  if (sourceCat === 'documentation' && targetCat === 'approval') {
+    if (!targetConfig.document_id) {
+      updates.document_id = sourceNode.id;
+    }
+  }
+
+  // Documentation → Commitment: set document_source + document_id
   if (sourceCat === 'documentation' && targetCat === 'commitment') {
-    if (!targetConfig.document_source_ref) {
-      updates.document_source_ref = {
-        node_id: sourceNode.id,
-        node_label: sourceNode.data.label,
-        output_key: 'document_url',
-        output_label: 'URL to access the document',
-      } satisfies InputRef;
+    if (!targetConfig.document_source) {
       updates.document_source = 'previous_brick';
     }
-  }
-
-  // Collection → Documentation: bind data_source_ref
-  if (sourceCat === 'collection' && targetCat === 'documentation') {
-    if (!targetConfig.data_source_ref) {
-      updates.data_source_ref = {
-        node_id: sourceNode.id,
-        node_label: sourceNode.data.label,
-        output_key: 'collected_values',
-        output_label: 'All collected field values as key-value pairs',
-      } satisfies InputRef;
+    if (!targetConfig.document_id) {
+      updates.document_id = sourceNode.id;
     }
   }
 
-  // Collection → Review: bind input_ref, auto-label
+  // Collection → Review: auto-label
   if (sourceCat === 'collection' && targetCat === 'review') {
-    if (!targetConfig.input_ref) {
-      updates.input_ref = {
-        node_id: sourceNode.id,
-        node_label: sourceNode.data.label,
-        output_key: 'collected_values',
-        output_label: 'All collected field values as key-value pairs',
-      } satisfies InputRef;
-    }
     if (isDefaultLabel) {
       newLabel = `Review ${subject}`;
     }

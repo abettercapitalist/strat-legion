@@ -5,19 +5,18 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus, X } from 'lucide-react';
 import type { ReviewCriterion } from '@/lib/bricks/types';
-import type { UpstreamOutput, InputRef } from '../outputSchemas';
-import { UpstreamBindingSelect } from './UpstreamBindingSelect';
+import type { UpstreamOutput } from '../outputSchemas';
 
 interface ReviewBrickFormProps {
   config: Record<string, unknown>;
   onConfigChange: (config: Record<string, unknown>) => void;
-  upstreamOutputs?: UpstreamOutput[];
+  availableDocuments?: UpstreamOutput[];
 }
 
-export function ReviewBrickForm({ config, onConfigChange, upstreamOutputs = [] }: ReviewBrickFormProps) {
+export function ReviewBrickForm({ config, onConfigChange, availableDocuments = [] }: ReviewBrickFormProps) {
   const reviewType = (config.review_type as string) || 'checklist';
   const criteria = (config.criteria as ReviewCriterion[]) || [];
-  const inputRef = config.input_ref as InputRef | undefined;
+  const documentId = (config.document_id as string) || '';
 
   const updateCriterion = (index: number, updates: Partial<ReviewCriterion>) => {
     const newCriteria = criteria.map((c, i) => (i === index ? { ...c, ...updates } : c));
@@ -39,14 +38,25 @@ export function ReviewBrickForm({ config, onConfigChange, upstreamOutputs = [] }
 
   return (
     <div className="space-y-4">
-      {upstreamOutputs.length > 0 && (
-        <UpstreamBindingSelect
-          upstreamOutputs={upstreamOutputs}
-          value={inputRef}
-          onChange={(ref) => onConfigChange({ input_ref: ref })}
-          label="What is being reviewed?"
-          description="Select the upstream output this review evaluates"
-        />
+      {availableDocuments.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Document</Label>
+          <Select
+            value={documentId}
+            onValueChange={(value) => onConfigChange({ document_id: value })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select document (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableDocuments.map((doc) => (
+                <SelectItem key={doc.nodeId} value={doc.nodeId}>
+                  {doc.nodeLabel}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       <div className="space-y-2">

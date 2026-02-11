@@ -1,44 +1,22 @@
-import { useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, AlertTriangle } from 'lucide-react';
 import type { SignerConfig } from '@/lib/bricks/types';
-import type { UpstreamOutput, InputRef } from '../outputSchemas';
-import { UpstreamBindingSelect } from './UpstreamBindingSelect';
+import type { UpstreamOutput } from '../outputSchemas';
 
 interface CommitmentBrickFormProps {
   config: Record<string, unknown>;
   onConfigChange: (config: Record<string, unknown>) => void;
-  upstreamOutputs?: UpstreamOutput[];
+  availableDocuments?: UpstreamOutput[];
 }
 
-export function CommitmentBrickForm({ config, onConfigChange, upstreamOutputs = [] }: CommitmentBrickFormProps) {
+export function CommitmentBrickForm({ config, onConfigChange, availableDocuments = [] }: CommitmentBrickFormProps) {
   const signers = (config.signers as SignerConfig[]) || [];
   const provider = (config.provider as string) || 'manual';
   const documentSource = (config.document_source as string) || 'previous_brick';
-  const documentSourceRef = config.document_source_ref as InputRef | undefined;
-  const docUpstream = upstreamOutputs.filter((u) => u.brickCategory === 'documentation');
-
-  // Auto-bind when exactly one upstream documentation node exists and no ref is set
-  useEffect(() => {
-    if (docUpstream.length === 1 && !documentSourceRef) {
-      const doc = docUpstream[0];
-      const docField = doc.fields.find((f) => f.name === 'document_url');
-      if (docField) {
-        onConfigChange({
-          document_source_ref: {
-            node_id: doc.nodeId,
-            node_label: doc.nodeLabel,
-            output_key: 'document_url',
-            output_label: docField.description || 'document_url',
-          } satisfies InputRef,
-          document_source: 'previous_brick',
-        });
-      }
-    }
-  }, [docUpstream.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const documentId = (config.document_id as string) || '';
 
   const updateSigner = (index: number, updates: Partial<SignerConfig>) => {
     const newSigners = signers.map((s, i) => (i === index ? { ...s, ...updates } : s));
@@ -92,17 +70,37 @@ export function CommitmentBrickForm({ config, onConfigChange, upstreamOutputs = 
             <SelectItem value="upload">Manual upload</SelectItem>
           </SelectContent>
         </Select>
-        {documentSource === 'previous_brick' && docUpstream.length > 0 && (
-          <UpstreamBindingSelect
-            upstreamOutputs={upstreamOutputs}
-            value={documentSourceRef}
-            onChange={(ref) => onConfigChange({ document_source_ref: ref })}
-            label="Source Document"
-            description="Select which upstream document to use for signing"
-            filterCategories={['documentation']}
-          />
-        )}
       </div>
+
+      {documentSource === 'previous_brick' && (
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Document</Label>
+          {availableDocuments.length === 0 ? (
+            <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <p className="text-xs">
+                No documents found upstream. Add a documentation brick before this brick or change the document source.
+              </p>
+            </div>
+          ) : (
+            <Select
+              value={documentId}
+              onValueChange={(value) => onConfigChange({ document_id: value })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select document" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDocuments.map((brick) => (
+                  <SelectItem key={brick.nodeId} value={brick.nodeId}>
+                    {brick.nodeLabel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">

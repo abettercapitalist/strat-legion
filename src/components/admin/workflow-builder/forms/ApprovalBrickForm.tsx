@@ -19,12 +19,14 @@ interface ApprovalBrickFormProps {
   config: Record<string, unknown>;
   onConfigChange: (config: Record<string, unknown>) => void;
   upstreamOutputs?: UpstreamOutput[];
+  availableDocuments?: UpstreamOutput[];
 }
 
-export function ApprovalBrickForm({ config, onConfigChange, upstreamOutputs = [] }: ApprovalBrickFormProps) {
+export function ApprovalBrickForm({ config, onConfigChange, upstreamOutputs = [], availableDocuments = [] }: ApprovalBrickFormProps) {
   const approverTeams = (config.approver_teams as string[]) || [];
   const approvalMode = (config.approval_mode as string) || 'any';
   const escalationOpen = Boolean(config.escalation_role);
+  const documentId = (config.document_id as string) || '';
 
   return (
     <div className="space-y-4">
@@ -34,6 +36,27 @@ export function ApprovalBrickForm({ config, onConfigChange, upstreamOutputs = []
             Auto-approval rules can evaluate data from {upstreamOutputs.length} upstream{' '}
             {upstreamOutputs.length === 1 ? 'node' : 'nodes'} at runtime via <code className="text-[11px]">previous_outputs</code>.
           </p>
+        </div>
+      )}
+
+      {availableDocuments.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Document</Label>
+          <Select
+            value={documentId}
+            onValueChange={(value) => onConfigChange({ document_id: value })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select document (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableDocuments.map((doc) => (
+                <SelectItem key={doc.nodeId} value={doc.nodeId}>
+                  {doc.nodeLabel}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

@@ -107,6 +107,7 @@ export const approvalExecutor: BrickExecutor = async (inputs, context) => {
       description: `Approval required from ${approverRole}`,
       config: {
         approver: config.approver,
+        document_id: config.document_id,
         decision_options: decisionOptions,
         escalation: config.escalation,
         delegation: config.delegation,
