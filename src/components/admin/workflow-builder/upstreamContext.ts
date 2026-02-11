@@ -1,6 +1,26 @@
 import type { WorkflowRFNode, WorkflowRFEdge } from './types';
-import type { CollectionField } from '@/lib/bricks/types';
+import type { BrickCategory, CollectionField } from '@/lib/bricks/types';
 import { BRICK_OUTPUT_SCHEMAS, type UpstreamOutput, type BrickOutputField } from './outputSchemas';
+
+export interface FieldFlowEntry {
+  field: BrickOutputField;
+  producedBy: {
+    nodeId: string;
+    nodeLabel: string;
+    brickCategory: BrickCategory;
+  } | null;
+  deliveredTo: {
+    nodeId: string;
+    nodeLabel: string;
+    brickCategory: BrickCategory;
+  }[];
+}
+
+export interface FieldDataFlow {
+  nodeLabel: string;
+  brickCategory: BrickCategory;
+  fields: FieldFlowEntry[];
+}
 
 /**
  * Find the immediate upstream nodes (direct parents) for a given node.
@@ -87,4 +107,87 @@ export function getAvailableUpstreamOutputs(
       fields: [...staticFields, ...dynamicFields],
     };
   });
+}
+
+/**
+ * Find the immediate downstream nodes (direct children) for a given node.
+ */
+export function getImmediateDownstream(
+  nodeId: string,
+  nodes: WorkflowRFNode[],
+  edges: WorkflowRFEdge[],
+): WorkflowRFNode[] {
+  const targetIds = edges
+    .filter((e) => e.source === nodeId)
+    .map((e) => e.target);
+  return nodes.filter((n) => targetIds.includes(n.id));
+}
+
+/** Helper: get output fields for a node (static + dynamic collection fields). */
+function getNodeOutputFields(node: WorkflowRFNode): BrickOutputField[] {
+  const category = node.data.brickCategory;
+  const staticFields = BRICK_OUTPUT_SCHEMAS[category] || [];
+  let dynamicFields: BrickOutputField[] = [];
+  if (category === 'collection') {
+    const configFields = (node.data.config.fields as CollectionField[]) || [];
+    dynamicFields = configFields
+      .filter((f) => f.name && f.label)
+      .map((f) => ({
+        name: f.name,
+        type: 'any' as const,
+        description: `Collected field: ${f.label}`,
+      }));
+  }
+  return [...staticFields, ...dynamicFields];
+}
+
+/**
+ * Build a field-level data flow view for a node.
+ * For each field the node outputs, find:
+ * - producedBy: the closest upstream ancestor that also outputs a field with the same name
+ * - deliveredTo: all immediate downstream nodes
+ */
+export function getFieldDataFlow(
+  nodeId: string,
+  nodes: WorkflowRFNode[],
+  edges: WorkflowRFEdge[],
+): FieldDataFlow | null {
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const node = nodeMap.get(nodeId);
+  if (!node) return null;
+
+  const outputFields = getNodeOutputFields(node);
+  const upstream = getAllUpstream(nodeId, nodes, edges);
+  const downstream = getImmediateDownstream(nodeId, nodes, edges);
+
+  const fields: FieldFlowEntry[] = outputFields.map((field) => {
+    // Find the closest upstream node that outputs a field with the same name
+    let producedBy: FieldFlowEntry['producedBy'] = null;
+    for (const ancestor of upstream) {
+      const ancestorFields = getNodeOutputFields(ancestor);
+      if (ancestorFields.some((f) => f.name === field.name)) {
+        producedBy = {
+          nodeId: ancestor.id,
+          nodeLabel: ancestor.data.label,
+          brickCategory: ancestor.data.brickCategory,
+        };
+        break; // closest ancestor first (BFS order)
+      }
+    }
+
+    // All immediate downstream nodes receive this node's output
+    const deliveredTo: FieldFlowEntry['deliveredTo'] = downstream.map((dn) => ({
+      nodeId: dn.id,
+      nodeLabel: dn.data.label,
+      brickCategory: dn.data.brickCategory,
+    }));
+
+    return { field, producedBy, deliveredTo };
+  });
+
+  return {
+    nodeLabel: node.data.label,
+    brickCategory: node.data.brickCategory,
+    fields,
+  };
 }

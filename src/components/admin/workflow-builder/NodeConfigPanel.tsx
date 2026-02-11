@@ -5,13 +5,14 @@ import { Trash2, Link2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { WorkflowRFNode, WorkflowRFEdge, WorkflowNodeData, WorkflowEdgeData } from './types';
 import type { UpstreamOutput } from './outputSchemas';
+import type { FieldDataFlow } from './upstreamContext';
+import { FieldDataFlowAccordion } from './FieldDataFlowAccordion';
 import { CollectionBrickForm } from './forms/CollectionBrickForm';
 import { ReviewBrickForm } from './forms/ReviewBrickForm';
 import { ApprovalBrickForm } from './forms/ApprovalBrickForm';
 import { DocumentationBrickForm } from './forms/DocumentationBrickForm';
 import { CommitmentBrickForm } from './forms/CommitmentBrickForm';
 import { EdgeConditionForm } from './forms/EdgeConditionForm';
-import { UpstreamContextSection } from './UpstreamContextSection';
 import { BRICK_COLORS, BRICK_LABELS } from './utils';
 
 interface NodeConfigPanelProps {
@@ -23,6 +24,7 @@ interface NodeConfigPanelProps {
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
   getUpstreamOutputs?: (nodeId: string) => UpstreamOutput[];
+  getFieldDataFlow?: (nodeId: string) => FieldDataFlow | null;
 }
 
 export function NodeConfigPanel({
@@ -34,6 +36,7 @@ export function NodeConfigPanel({
   onDeleteNode,
   onDeleteEdge,
   getUpstreamOutputs,
+  getFieldDataFlow: getFieldDataFlowProp,
 }: NodeConfigPanelProps) {
   if (!selectedNode && !selectedEdge) {
     return (
@@ -83,6 +86,7 @@ export function NodeConfigPanel({
     const category = selectedNode.data.brickCategory;
     const colors = BRICK_COLORS[category];
     const upstreamOutputs = getUpstreamOutputs?.(selectedNode.id) ?? [];
+    const fieldDataFlow = getFieldDataFlowProp?.(selectedNode.id) ?? null;
 
     return (
       <ScrollArea className="h-full">
@@ -106,8 +110,10 @@ export function NodeConfigPanel({
             </Button>
           </div>
 
-          {/* Upstream context */}
-          <UpstreamContextSection upstreamOutputs={upstreamOutputs} />
+          {/* Data Flow */}
+          {fieldDataFlow && fieldDataFlow.fields.length > 0 && (
+            <FieldDataFlowAccordion flow={fieldDataFlow} />
+          )}
 
           {/* Label */}
           <div className="space-y-2">
@@ -126,7 +132,7 @@ export function NodeConfigPanel({
               <CollectionBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'review' && (
-              <ReviewBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
+              <ReviewBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
             )}
             {category === 'approval' && (
               <ApprovalBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
@@ -135,7 +141,7 @@ export function NodeConfigPanel({
               <DocumentationBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
             )}
             {category === 'commitment' && (
-              <CommitmentBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} upstreamOutputs={upstreamOutputs} />
+              <CommitmentBrickForm config={selectedNode.data.config} onConfigChange={onNodeConfigChange} />
             )}
           </div>
         </div>

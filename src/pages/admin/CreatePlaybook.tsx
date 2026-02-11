@@ -7,6 +7,7 @@ import { ArrowLeft, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkstreamTypes } from "@/hooks/useWorkstreamTypes";
 import { useTeams } from "@/hooks/useTeams";
@@ -20,7 +21,7 @@ import {
 import { NodePalette } from "@/components/admin/workflow-builder/NodePalette";
 import { NodeConfigPanel } from "@/components/admin/workflow-builder/NodeConfigPanel";
 import type { WorkflowRFNode, WorkflowRFEdge } from "@/components/admin/workflow-builder/types";
-import { getAvailableUpstreamOutputs } from "@/components/admin/workflow-builder/upstreamContext";
+import { getAvailableUpstreamOutputs, getFieldDataFlow } from "@/components/admin/workflow-builder/upstreamContext";
 import { useWorkflowPersistence } from "@/components/admin/workflow-builder/hooks/useWorkflowPersistence";
 import { BasicInfoPanel, type BasicInfoFormData, type PlayMetadata, DEFAULT_PLAY_METADATA } from "@/components/designer/panels/BasicInfoPanel";
 
@@ -304,6 +305,13 @@ export default function CreatePlaybook() {
     return getAvailableUpstreamOutputs(nodeId, nodes, edges);
   }, []);
 
+  // Provide field-level data flow for the config panel
+  const getFieldDataFlowCallback = useCallback((nodeId: string) => {
+    const nodes = canvasRef.current?.getNodes() ?? [];
+    const edges = canvasRef.current?.getEdges() ?? [];
+    return getFieldDataFlow(nodeId, nodes, edges);
+  }, []);
+
   // Selection change callback from canvas — capture node/edge objects immediately
   const handleSelectionChange = useCallback(
     (nodeId: string | null, edgeId: string | null) => {
@@ -384,75 +392,85 @@ export default function CreatePlaybook() {
           />
         </Card>
 
-        {/* Center Panel: Canvas */}
-        <Card className="flex-1 min-w-0 overflow-hidden flex flex-col">
-          {/* Canvas toolbar */}
-          <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30 shrink-0">
-            <span className="text-xs text-muted-foreground">
-              {canvasRef.current
-                ? `${canvasRef.current.getNodes().length} node${canvasRef.current.getNodes().length !== 1 ? "s" : ""}, ${canvasRef.current.getEdges().length} connection${canvasRef.current.getEdges().length !== 1 ? "s" : ""}`
-                : "0 nodes, 0 connections"}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => canvasRef.current?.autoLayout()}
-              className="gap-1.5 h-7 text-xs"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Auto Layout
-            </Button>
-          </div>
-          <div className="flex-1 min-h-0">
-            <WorkflowCanvasSection
-              ref={canvasRef}
-              initialNodes={initialNodes}
-              initialEdges={initialEdges}
-              onSelectionChange={handleSelectionChange}
-            />
-          </div>
-        </Card>
-
-        {/* Right Panel: Palette or Config */}
-        <Card className="w-[260px] shrink-0 overflow-hidden">
-          {hasSelection ? (
-            <NodeConfigPanel
-              selectedNode={selectedNode}
-              selectedEdge={selectedEdge}
-              getUpstreamOutputs={getUpstreamOutputs}
-              onNodeDataChange={(data) => {
-                canvasRef.current?.updateNodeData(data);
-                setSelectedNode((prev) =>
-                  prev ? { ...prev, data: { ...prev.data, ...data } } : null
-                );
-              }}
-              onNodeConfigChange={(config) => {
-                canvasRef.current?.updateNodeConfig(config);
-                setSelectedNode((prev) =>
-                  prev
-                    ? { ...prev, data: { ...prev.data, config: { ...prev.data.config, ...config } } }
-                    : null
-                );
-              }}
-              onEdgeDataChange={(data) => {
-                canvasRef.current?.updateEdgeData(data);
-                setSelectedEdge((prev) =>
-                  prev ? { ...prev, data: { ...prev.data, ...data } as WorkflowRFEdge['data'] } : null
-                );
-              }}
-              onDeleteNode={(nodeId) => {
-                canvasRef.current?.deleteNode(nodeId);
-                setSelectedNodeId(null);
-              }}
-              onDeleteEdge={(edgeId) => {
-                canvasRef.current?.deleteEdge(edgeId);
-                setSelectedEdgeId(null);
-              }}
-            />
-          ) : (
-            <NodePalette />
-          )}
+        {/* Center + Right: Resizable */}
+        <Card className="flex-1 min-w-0 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          <ResizablePanel defaultSize={75} minSize={50}>
+            {/* Center Panel: Canvas */}
+            <Card className="h-full overflow-hidden flex flex-col rounded-none border-0">
+              {/* Canvas toolbar */}
+              <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30 shrink-0">
+                <span className="text-xs text-muted-foreground">
+                  {canvasRef.current
+                    ? `${canvasRef.current.getNodes().length} node${canvasRef.current.getNodes().length !== 1 ? "s" : ""}, ${canvasRef.current.getEdges().length} connection${canvasRef.current.getEdges().length !== 1 ? "s" : ""}`
+                    : "0 nodes, 0 connections"}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => canvasRef.current?.autoLayout()}
+                  className="gap-1.5 h-7 text-xs"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Auto Layout
+                </Button>
+              </div>
+              <div className="flex-1 min-h-0">
+                <WorkflowCanvasSection
+                  ref={canvasRef}
+                  initialNodes={initialNodes}
+                  initialEdges={initialEdges}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+            </Card>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
+            {/* Right Panel: Palette or Config */}
+            <Card className="h-full overflow-hidden rounded-none border-0">
+              {hasSelection ? (
+                <NodeConfigPanel
+                  selectedNode={selectedNode}
+                  selectedEdge={selectedEdge}
+                  getUpstreamOutputs={getUpstreamOutputs}
+                  getFieldDataFlow={getFieldDataFlowCallback}
+                  onNodeDataChange={(data) => {
+                    canvasRef.current?.updateNodeData(data);
+                    setSelectedNode((prev) =>
+                      prev ? { ...prev, data: { ...prev.data, ...data } } : null
+                    );
+                  }}
+                  onNodeConfigChange={(config) => {
+                    canvasRef.current?.updateNodeConfig(config);
+                    setSelectedNode((prev) =>
+                      prev
+                        ? { ...prev, data: { ...prev.data, config: { ...prev.data.config, ...config } } }
+                        : null
+                    );
+                  }}
+                  onEdgeDataChange={(data) => {
+                    canvasRef.current?.updateEdgeData(data);
+                    setSelectedEdge((prev) =>
+                      prev ? { ...prev, data: { ...prev.data, ...data } as WorkflowRFEdge['data'] } : null
+                    );
+                  }}
+                  onDeleteNode={(nodeId) => {
+                    canvasRef.current?.deleteNode(nodeId);
+                    setSelectedNodeId(null);
+                  }}
+                  onDeleteEdge={(edgeId) => {
+                    canvasRef.current?.deleteEdge(edgeId);
+                    setSelectedEdgeId(null);
+                  }}
+                />
+              ) : (
+                <NodePalette />
+              )}
+            </Card>
+          </ResizablePanel>
+        </ResizablePanelGroup>
         </Card>
       </div>
 
