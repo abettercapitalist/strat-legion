@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment
+.env
+
+# Supabase local
+supabase/.temp/
+
+# Scratch SQL
+supabase/combined_brick_setup.sql
+supabase/lovable_sync.sql
+supabase/test_setup.sql
