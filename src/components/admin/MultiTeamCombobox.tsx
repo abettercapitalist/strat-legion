@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -16,7 +17,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { useTeams } from "@/hooks/useTeams";
+import { useTeams, type Team } from "@/hooks/useTeams";
+import { CreateTeamModal } from "./CreateTeamModal";
 
 interface MultiTeamComboboxProps {
   value: string[];
@@ -36,6 +38,14 @@ export function MultiTeamCombobox({
   excludeCounterparty = false,
 }: MultiTeamComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [showCreateModal, setShowCreateModal] = React.useState(false);
+  const [createAsSubgroupOf, setCreateAsSubgroupOf] = React.useState<Team | null>(null);
+
+  const onValueChangeRef = React.useRef(onValueChange);
+  React.useEffect(() => {
+    onValueChangeRef.current = onValueChange;
+  }, [onValueChange]);
+
   const { teams, teamHierarchy, isLoading, getTeamById, getTeamPath } = useTeams();
 
   // Ensure value is always an array
@@ -51,26 +61,44 @@ export function MultiTeamCombobox({
       .filter(Boolean) as { id: string; name: string; path: string }[];
   }, [selectedIds, getTeamById, getTeamPath]);
 
+  // Use only resolved (valid) team IDs for all mutations
+  const resolvedIds = React.useMemo(() => selectedTeams.map((t) => t.id), [selectedTeams]);
+
   const handleSelect = (teamId: string) => {
-    if (selectedIds.includes(teamId)) {
-      // Remove if already selected
-      onValueChange(selectedIds.filter((id) => id !== teamId));
+    if (resolvedIds.includes(teamId)) {
+      onValueChangeRef.current(resolvedIds.filter((id) => id !== teamId));
     } else {
-      // Add to selection
-      onValueChange([...selectedIds, teamId]);
+      onValueChangeRef.current([...resolvedIds, teamId]);
     }
   };
 
   const handleRemove = (teamId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    onValueChange(selectedIds.filter((id) => id !== teamId));
+    onValueChangeRef.current(resolvedIds.filter((id) => id !== teamId));
   };
 
-  // Filter out teams that shouldn't be shown as approvers
+  const handleAddTeam = () => {
+    setCreateAsSubgroupOf(null);
+    setShowCreateModal(true);
+    setOpen(false);
+  };
+
+  const handleAddSubgroup = (parentTeam: Team) => {
+    setCreateAsSubgroupOf(parentTeam);
+    setShowCreateModal(true);
+    setOpen(false);
+  };
+
+  const handleTeamCreated = (newTeam: Team) => {
+    onValueChangeRef.current([...selectedIds, newTeam.id]);
+    setShowCreateModal(false);
+    setCreateAsSubgroupOf(null);
+  };
+
+  // Filter out teams that shouldn't be shown
   const filteredHierarchy = React.useMemo(() => {
     return teamHierarchy
       .filter((group) => {
-        // Exclude "counterparty" team if requested
         if (excludeCounterparty && group.parent.name === "counterparty") {
           return false;
         }
@@ -88,99 +116,141 @@ export function MultiTeamCombobox({
   }, [teamHierarchy, excludeCounterparty]);
 
   return (
-    <div className="space-y-2">
-      {/* Selected teams as badges */}
-      {selectedTeams.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {selectedTeams.map((team) => (
-            <Badge
-              key={team.id}
-              variant="secondary"
-              className="flex items-center gap-1 pr-1"
-            >
-              <span className="text-xs">{team.path}</span>
-              <button
-                type="button"
-                onClick={(e) => handleRemove(team.id, e)}
-                className="ml-1 rounded-full hover:bg-muted p-0.5"
-                disabled={disabled}
+    <>
+      <div className="space-y-2">
+        {/* Selected teams as badges */}
+        {selectedTeams.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {selectedTeams.map((team) => (
+              <Badge
+                key={team.id}
+                variant="secondary"
+                className="flex items-center gap-1 pr-1"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-      )}
+                <span className="text-xs">{team.path}</span>
+                <button
+                  type="button"
+                  onClick={(e) => handleRemove(team.id, e)}
+                  className="ml-1 rounded-full hover:bg-muted p-0.5"
+                  disabled={disabled}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            disabled={disabled || isLoading}
-            className={cn(
-              "w-full justify-between",
-              error && "border-destructive",
-              !selectedIds.length && "text-muted-foreground"
-            )}
-          >
-            {isLoading
-              ? "Loading teams..."
-              : selectedIds.length > 0
-              ? `${selectedIds.length} team${selectedIds.length > 1 ? "s" : ""} selected`
-              : placeholder}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[300px] p-0 z-50 bg-popover" align="start">
-          <Command>
-            <CommandInput placeholder="Search teams..." />
-            <CommandList>
-              <CommandEmpty>No team found.</CommandEmpty>
-              {filteredHierarchy.map((group) => (
-                <CommandGroup key={group.parent.id} heading={group.parent.display_name}>
-                  {/* Parent team option */}
-                  <CommandItem
-                    value={`${group.parent.display_name}-parent`}
-                    onSelect={() => handleSelect(group.parent.id)}
-                    className="cursor-pointer"
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedIds.includes(group.parent.id) ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <span className="font-medium">{group.parent.display_name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">(all)</span>
-                  </CommandItem>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              disabled={disabled || isLoading}
+              className={cn(
+                "w-full justify-between",
+                error && "border-destructive",
+                !selectedTeams.length && "text-muted-foreground"
+              )}
+            >
+              {isLoading
+                ? "Loading teams..."
+                : selectedTeams.length > 0
+                ? `${selectedTeams.length} team${selectedTeams.length > 1 ? "s" : ""} selected`
+                : placeholder}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[320px] p-0 z-50 bg-popover" align="start">
+            <Command>
+              <CommandInput placeholder="Search teams..." />
+              <CommandList>
+                <CommandEmpty>No teams found.</CommandEmpty>
 
-                  {/* Subgroup options */}
-                  {group.subgroups.map((subgroup) => (
+                {filteredHierarchy.map(({ parent, subgroups }) => (
+                  <CommandGroup key={parent.id} heading={parent.display_name}>
+                    {/* Parent team option */}
                     <CommandItem
-                      key={subgroup.id}
-                      value={`${group.parent.display_name}-${subgroup.display_name}`}
-                      onSelect={() => handleSelect(subgroup.id)}
-                      className="cursor-pointer pl-6"
+                      value={`${parent.display_name}`}
+                      onSelect={() => handleSelect(parent.id)}
+                      className="flex items-center justify-between"
                     >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedIds.includes(subgroup.id) ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <span>{subgroup.display_name}</span>
+                      <div className="flex items-center gap-2">
+                        <Check
+                          className={cn(
+                            "h-4 w-4",
+                            resolvedIds.includes(parent.id) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span>{parent.display_name}</span>
+                      </div>
+                      {subgroups.length > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {subgroups.length} sub-group{subgroups.length !== 1 ? "s" : ""}
+                        </Badge>
+                      )}
                     </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
+                    {/* Sub-groups */}
+                    {subgroups.map((subgroup) => (
+                      <CommandItem
+                        key={subgroup.id}
+                        value={`${parent.display_name} ${subgroup.display_name}`}
+                        onSelect={() => handleSelect(subgroup.id)}
+                        className="pl-8"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            resolvedIds.includes(subgroup.id) ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span className="text-muted-foreground mr-1">&rarr;</span>
+                        {subgroup.display_name}
+                      </CommandItem>
+                    ))}
+
+                    {/* Add sub-group action */}
+                    <CommandItem
+                      value={`add-subgroup-${parent.id}`}
+                      onSelect={() => handleAddSubgroup(parent)}
+                      className="pl-8 text-muted-foreground"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add sub-group to {parent.display_name}
+                    </CommandItem>
+                  </CommandGroup>
+                ))}
+
+                <CommandSeparator />
+
+                {/* Add new parent team */}
+                <CommandGroup>
+                  <CommandItem
+                    value="add-new-team"
+                    onSelect={handleAddTeam}
+                    className="text-primary"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add new team
+                  </CommandItem>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+
+      {/* Create Team Modal */}
+      <CreateTeamModal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        onTeamCreated={handleTeamCreated}
+        parentTeam={createAsSubgroupOf}
+      />
+    </>
   );
 }

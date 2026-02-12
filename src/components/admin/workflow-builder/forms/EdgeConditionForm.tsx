@@ -1,8 +1,12 @@
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { WorkflowEdgeData } from '../types';
 import type { WorkflowEdgeType } from '@/lib/bricks/types';
 
@@ -12,6 +16,7 @@ interface EdgeConditionFormProps {
 }
 
 export function EdgeConditionForm({ edgeData, onEdgeDataChange }: EdgeConditionFormProps) {
+  const [routingOpen, setRoutingOpen] = useState(false);
   const condition = (edgeData.condition as Record<string, unknown>) || {};
 
   return (
@@ -54,43 +59,60 @@ export function EdgeConditionForm({ edgeData, onEdgeDataChange }: EdgeConditionF
         />
       </div>
 
-      {/* Routing */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">Routing Offset</Label>
-        <p className="text-xs text-muted-foreground">
-          Distance from handles before the first turn
-        </p>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[edgeData.offset ?? 20]}
-            onValueChange={([v]) => onEdgeDataChange({ offset: v })}
-            min={5}
-            max={120}
-            step={5}
-            className="flex-1"
-          />
-          <span className="text-xs text-muted-foreground w-8 text-right">
-            {edgeData.offset ?? 20}
-          </span>
-        </div>
-      </div>
+      {/* Routing (collapsible) */}
+      <Collapsible open={routingOpen} onOpenChange={setRoutingOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-between px-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-transparent"
+          >
+            Routing
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${routingOpen ? 'rotate-180' : ''}`}
+            />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2 space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Offset</Label>
+            <p className="text-xs text-muted-foreground">
+              Distance from handles before the first turn
+            </p>
+            <div className="flex items-center gap-3">
+              <Slider
+                value={[edgeData.offset ?? 20]}
+                onValueChange={([v]) => onEdgeDataChange({ offset: v })}
+                min={5}
+                max={120}
+                step={5}
+                className="flex-1"
+              />
+              <span className="text-xs text-muted-foreground w-8 text-right">
+                {edgeData.offset ?? 20}
+              </span>
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">Corner Radius</Label>
-        <div className="flex items-center gap-3">
-          <Slider
-            value={[edgeData.borderRadius ?? 8]}
-            onValueChange={([v]) => onEdgeDataChange({ borderRadius: v })}
-            min={0}
-            max={20}
-            step={1}
-            className="flex-1"
-          />
-          <span className="text-xs text-muted-foreground w-8 text-right">
-            {edgeData.borderRadius ?? 8}
-          </span>
-        </div>
-      </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Corner Radius</Label>
+            <div className="flex items-center gap-3">
+              <Slider
+                value={[edgeData.borderRadius ?? 8]}
+                onValueChange={([v]) => onEdgeDataChange({ borderRadius: v })}
+                min={0}
+                max={20}
+                step={1}
+                className="flex-1"
+              />
+              <span className="text-xs text-muted-foreground w-8 text-right">
+                {edgeData.borderRadius ?? 8}
+              </span>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {edgeData.edgeType === 'conditional' && (
         <>

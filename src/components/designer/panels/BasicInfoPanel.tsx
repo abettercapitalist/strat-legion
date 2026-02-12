@@ -23,13 +23,15 @@ import { MultiTeamCombobox } from "@/components/admin/MultiTeamCombobox";
 import { PlayApprovalSection, type PlayApprovalConfig } from "@/components/admin/PlayApprovalSection";
 
 /** Parse team_category: handles JSON array strings, plain UUIDs, and legacy names */
-function parseTeamIds(raw: string | undefined): string[] {
-  if (!raw) return [];
+function parseTeamIds(raw: string | undefined | null): string[] {
+  if (!raw || raw === 'null' || raw === 'undefined') return [];
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === '[]') return [];
   try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed;
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
   } catch { /* not JSON */ }
-  return [raw]; // legacy single value
+  return [trimmed]; // legacy single value
 }
 
 function serializeTeamIds(ids: string[]): string {
