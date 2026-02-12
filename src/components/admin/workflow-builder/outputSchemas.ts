@@ -47,10 +47,3 @@ export interface UpstreamOutput {
   fields: BrickOutputField[];
 }
 
-/** A reference to a specific output from an upstream node */
-export interface InputRef {
-  node_id: string;
-  node_label: string;
-  output_key: string;
-  output_label: string;
-}

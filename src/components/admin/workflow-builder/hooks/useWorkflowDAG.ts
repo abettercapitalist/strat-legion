@@ -83,20 +83,7 @@ export function useWorkflowDAG(
 
   const removeNode = useCallback(
     (nodeId: string) => {
-      setNodes((nds) =>
-        nds.filter((n) => n.id !== nodeId).map((n) => {
-          // Clear any *_ref fields pointing to the deleted node
-          const config = { ...n.data.config };
-          let changed = false;
-          for (const [key, val] of Object.entries(config)) {
-            if (key.endsWith('_ref') && val && typeof val === 'object' && (val as Record<string, unknown>).node_id === nodeId) {
-              config[key] = undefined;
-              changed = true;
-            }
-          }
-          return changed ? { ...n, data: { ...n.data, config } } : n;
-        })
-      );
+      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
     },
