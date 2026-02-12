@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { UpstreamOutput, InputRef } from '../outputSchemas';
-import { UpstreamBindingSelect } from './UpstreamBindingSelect';
+import type { UpstreamOutput } from '../outputSchemas';
+import { extractTemplateVariables, analyzeTemplateCoverage } from '../templateAnalysis';
+import { TemplateGapAnalysis } from './TemplateGapAnalysis';
 import { useTemplates, type Template } from '@/hooks/useTemplates';
 
 interface DocumentationBrickFormProps {
@@ -14,8 +16,6 @@ interface DocumentationBrickFormProps {
 export function DocumentationBrickForm({ config, onConfigChange, upstreamOutputs = [] }: DocumentationBrickFormProps) {
   const { templates, drafts, loading } = useTemplates();
   const allTemplates = [...templates, ...drafts];
-  const dataSourceRef = config.data_source_ref as InputRef | undefined;
-  const collectionUpstream = upstreamOutputs.filter((u) => u.brickCategory === 'collection');
 
   const handleTemplateChange = (templateId: string) => {
     const patch: Record<string, unknown> = { template_id: templateId };
@@ -35,26 +35,14 @@ export function DocumentationBrickForm({ config, onConfigChange, upstreamOutputs
   const currentTemplateId = (config.template_id as string) || '';
   const currentTemplate = allTemplates.find((t) => t.id === currentTemplateId);
 
+  const analyzedVariables = useMemo(() => {
+    if (!currentTemplate?.content) return [];
+    const vars = extractTemplateVariables(currentTemplate.content);
+    return analyzeTemplateCoverage(vars, upstreamOutputs);
+  }, [currentTemplate?.content, upstreamOutputs]);
+
   return (
     <div className="space-y-4">
-      {collectionUpstream.length > 0 && (
-        <div className="space-y-1.5">
-          <UpstreamBindingSelect
-            upstreamOutputs={upstreamOutputs}
-            value={dataSourceRef}
-            onChange={(ref) => onConfigChange({ data_source_ref: ref })}
-            label="Data Source"
-            description="Select the collection brick that provides field data for this document"
-            filterCategories={['collection']}
-          />
-          {dataSourceRef && (
-            <p className="text-[11px] text-muted-foreground">
-              Field mappings can reference collected fields from this source
-            </p>
-          )}
-        </div>
-      )}
-
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Template</Label>
         <p className="text-xs text-muted-foreground">Select the document template to generate</p>
@@ -94,6 +82,13 @@ export function DocumentationBrickForm({ config, onConfigChange, upstreamOutputs
           </p>
         )}
       </div>
+
+      {currentTemplate?.content && analyzedVariables.length > 0 && (
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold">Template Variables</Label>
+          <TemplateGapAnalysis variables={analyzedVariables} />
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Output Format</Label>
