@@ -31,12 +31,6 @@ const FIELD_TYPES: { value: CollectionFieldType; label: string }[] = [
   { value: 'file', label: 'File Upload' },
 ];
 
-const VALIDATION_TYPES = [
-  { value: 'none', label: 'None' },
-  { value: 'email', label: 'Email' },
-  { value: 'number', label: 'Number' },
-  { value: 'url', label: 'URL' },
-];
 
 export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = [] }: CollectionBrickFormProps) {
   const fields = (config.fields as CollectionField[]) || [];
@@ -290,92 +284,65 @@ function FieldCard({ field, index, totalFields, onUpdate, onRemove, onMove }: Fi
         </div>
       )}
 
-      {/* Validation (collapsible) */}
-      <Collapsible>
-        <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-          <ChevronRight className="h-3 w-3 transition-transform [[data-state=open]>&]:rotate-90" />
-          Validation
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
+      {/* Constraints (field-type-aware, collapsible) */}
+      {(field.field_type === 'number' || field.field_type === 'currency' ||
+        field.field_type === 'text' || field.field_type === 'textarea') && (
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <ChevronRight className="h-3 w-3 transition-transform [[data-state=open]>&]:rotate-90" />
+            Constraints
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2 space-y-2">
+            {(field.field_type === 'number' || field.field_type === 'currency') && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Minimum value</Label>
+                  <Input
+                    type="number"
+                    value={field.validation?.min ?? ''}
+                    onChange={(e) => updateValidation({ min: e.target.value ? Number(e.target.value) : undefined })}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Maximum value</Label>
+                  <Input
+                    type="number"
+                    value={field.validation?.max ?? ''}
+                    onChange={(e) => updateValidation({ max: e.target.value ? Number(e.target.value) : undefined })}
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+            {(field.field_type === 'text' || field.field_type === 'textarea') && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Character limit</Label>
+                <Input
+                  type="number"
+                  placeholder="No limit"
+                  value={field.validation?.max_length ?? ''}
+                  onChange={(e) => updateValidation({ max_length: e.target.value ? Number(e.target.value) : undefined })}
+                  className="h-7 text-xs w-32"
+                />
+              </div>
+            )}
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Type</Label>
-              <Select
-                value={field.validation?.type || 'none'}
-                onValueChange={(value) => updateValidation({ type: value === 'none' ? undefined : value })}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  {VALIDATION_TYPES.map((vt) => (
-                    <SelectItem key={vt.value} value={vt.value}>{vt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Pattern (regex)</Label>
+              <Label className="text-xs text-muted-foreground">Error message</Label>
               <Input
-                placeholder="e.g., ^[A-Z]+"
-                value={field.validation?.pattern || ''}
-                onChange={(e) => updateValidation({ pattern: e.target.value || undefined })}
+                placeholder="Custom error message"
+                value={field.validation?.error_message || ''}
+                onChange={(e) => updateValidation({ error_message: e.target.value || undefined })}
                 className="h-7 text-xs"
               />
             </div>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Min</Label>
-              <Input
-                type="number"
-                value={field.validation?.min ?? ''}
-                onChange={(e) => updateValidation({ min: e.target.value ? Number(e.target.value) : undefined })}
-                className="h-7 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Max</Label>
-              <Input
-                type="number"
-                value={field.validation?.max ?? ''}
-                onChange={(e) => updateValidation({ max: e.target.value ? Number(e.target.value) : undefined })}
-                className="h-7 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Min len</Label>
-              <Input
-                type="number"
-                value={field.validation?.min_length ?? ''}
-                onChange={(e) => updateValidation({ min_length: e.target.value ? Number(e.target.value) : undefined })}
-                className="h-7 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Max len</Label>
-              <Input
-                type="number"
-                value={field.validation?.max_length ?? ''}
-                onChange={(e) => updateValidation({ max_length: e.target.value ? Number(e.target.value) : undefined })}
-                className="h-7 text-xs"
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Error message</Label>
-            <Input
-              placeholder="Custom error message"
-              value={field.validation?.error_message || ''}
-              onChange={(e) => updateValidation({ error_message: e.target.value || undefined })}
-              className="h-7 text-xs"
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Reorder buttons */}
-      <div className="flex justify-end gap-1">
+      <div className="flex justify-end items-center gap-1">
+        <span className="text-xs text-muted-foreground mr-0.5">Reorder</span>
         <Button
           type="button"
           variant="ghost"
