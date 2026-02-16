@@ -121,16 +121,13 @@ export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = 
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-semibold">Instructions for assignee</Label>
+        <Label className="text-sm font-semibold">Instructions for assigned user</Label>
         <Textarea
           placeholder="Explain what information is needed and why..."
           value={instructions}
           onChange={(e) => onConfigChange({ instructions: e.target.value })}
           rows={3}
         />
-        <p className="text-xs text-muted-foreground">
-          Data from earlier steps can be inserted automatically. Wrap the field name in double curly braces to pull it in.
-        </p>
       </div>
 
       <div className="space-y-2">
