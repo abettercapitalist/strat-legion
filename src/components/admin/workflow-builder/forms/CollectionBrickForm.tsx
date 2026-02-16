@@ -32,7 +32,7 @@ const FIELD_TYPES: { value: CollectionFieldType; label: string }[] = [
 ];
 
 const VALIDATION_TYPES = [
-  { value: '', label: 'None' },
+  { value: 'none', label: 'None' },
   { value: 'email', label: 'Email' },
   { value: 'number', label: 'Number' },
   { value: 'url', label: 'URL' },
@@ -129,7 +129,7 @@ export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = 
           rows={3}
         />
         <p className="text-xs text-muted-foreground">
-          Use {'{{field_name}}'} to reference upstream data (e.g., &quot;Review the {'{{deal_name}}'} deal&quot;)
+          Data from earlier steps can be inserted automatically. Wrap the field name in double curly braces to pull it in.
         </p>
       </div>
 
@@ -304,8 +304,8 @@ function FieldCard({ field, index, totalFields, onUpdate, onRemove, onMove }: Fi
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Type</Label>
               <Select
-                value={field.validation?.type || ''}
-                onValueChange={(value) => updateValidation({ type: value || undefined })}
+                value={field.validation?.type || 'none'}
+                onValueChange={(value) => updateValidation({ type: value === 'none' ? undefined : value })}
               >
                 <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="None" />
