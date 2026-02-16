@@ -444,6 +444,232 @@ export type Database = {
           },
         ]
       }
+      libraries: {
+        Row: {
+          id: string
+          name: string
+          display_name: string
+          description: string | null
+          library_type: string
+          owner_id: string | null
+          is_active: boolean
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          display_name: string
+          description?: string | null
+          library_type: string
+          owner_id?: string | null
+          is_active?: boolean
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          display_name?: string
+          description?: string | null
+          library_type?: string
+          owner_id?: string | null
+          is_active?: boolean
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      library_artifacts: {
+        Row: {
+          id: string
+          library_id: string
+          name: string
+          display_name: string
+          artifact_type: string
+          content: Json
+          file_url: string | null
+          version: number
+          is_active: boolean
+          tags: string[]
+          metadata: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          library_id: string
+          name: string
+          display_name: string
+          artifact_type: string
+          content?: Json
+          file_url?: string | null
+          version?: number
+          is_active?: boolean
+          tags?: string[]
+          metadata?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          library_id?: string
+          name?: string
+          display_name?: string
+          artifact_type?: string
+          content?: Json
+          file_url?: string | null
+          version?: number
+          is_active?: boolean
+          tags?: string[]
+          metadata?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_artifacts_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_templates: {
+        Row: {
+          id: string
+          library_id: string
+          name: string
+          display_name: string
+          description: string | null
+          template_type: string
+          content: Json
+          parameters: Json
+          version: number
+          is_active: boolean
+          tags: string[]
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          library_id: string
+          name: string
+          display_name: string
+          description?: string | null
+          template_type: string
+          content?: Json
+          parameters?: Json
+          version?: number
+          is_active?: boolean
+          tags?: string[]
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          library_id?: string
+          name?: string
+          display_name?: string
+          description?: string | null
+          template_type?: string
+          content?: Json
+          parameters?: Json
+          version?: number
+          is_active?: boolean
+          tags?: string[]
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_templates_library_id_fkey"
+            columns: ["library_id"]
+            isOneToOne: false
+            referencedRelation: "libraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      node_execution_state: {
+        Row: {
+          id: string
+          workstream_id: string
+          play_id: string
+          node_id: string
+          status: string
+          inputs: Json
+          outputs: Json
+          error: string | null
+          started_at: string | null
+          completed_at: string | null
+          executed_by: string | null
+          retry_count: number
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workstream_id: string
+          play_id: string
+          node_id: string
+          status?: string
+          inputs?: Json
+          outputs?: Json
+          error?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          executed_by?: string | null
+          retry_count?: number
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workstream_id?: string
+          play_id?: string
+          node_id?: string
+          status?: string
+          inputs?: Json
+          outputs?: Json
+          error?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          executed_by?: string | null
+          retry_count?: number
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "node_execution_state_play_id_fkey"
+            columns: ["play_id"]
+            isOneToOne: false
+            referencedRelation: "playbook_plays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_execution_state_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       needs: {
         Row: {
           created_at: string
@@ -1661,11 +1887,14 @@ export type Database = {
           business_objective: string | null
           counterparty_id: string | null
           created_at: string
+          current_node_ids: string[] | null
           expected_close_date: string | null
           id: string
           name: string
           notes: string | null
           owner_id: string | null
+          play_id: string | null
+          playbook_id: string | null
           stage: string | null
           template_id: string | null
           tier: string | null
@@ -1678,11 +1907,14 @@ export type Database = {
           business_objective?: string | null
           counterparty_id?: string | null
           created_at?: string
+          current_node_ids?: string[] | null
           expected_close_date?: string | null
           id?: string
           name: string
           notes?: string | null
           owner_id?: string | null
+          play_id?: string | null
+          playbook_id?: string | null
           stage?: string | null
           template_id?: string | null
           tier?: string | null
@@ -1695,11 +1927,14 @@ export type Database = {
           business_objective?: string | null
           counterparty_id?: string | null
           created_at?: string
+          current_node_ids?: string[] | null
           expected_close_date?: string | null
           id?: string
           name?: string
           notes?: string | null
           owner_id?: string | null
+          play_id?: string | null
+          playbook_id?: string | null
           stage?: string | null
           template_id?: string | null
           tier?: string | null

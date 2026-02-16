@@ -14,7 +14,7 @@ export function CommitmentForm({ config, onSubmit, isSubmitting }: CommitmentFor
   const signers = (config.signers as SignerConfig[] | undefined) || [];
 
   const handleMarkComplete = () => {
-    onSubmit({ action: 'mark_complete', provider });
+    onSubmit({ signatures_complete: true });
   };
 
   return (

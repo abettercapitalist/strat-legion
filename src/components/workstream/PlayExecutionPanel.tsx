@@ -219,20 +219,28 @@ export function PlayExecutionPanel({
         )}
 
         {/* Pending action form for active node */}
-        {activeNode && (
-          <div className="border rounded-lg p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-500" />
-              <span className="font-medium text-sm">Action Required: {activeNode.label}</span>
+        {activeNode && (() => {
+          // Prefer runtime pending_action.config from execution state metadata
+          // over raw node.config (static designer config)
+          const stateMetadata = (activeNode.state?.metadata || {}) as Record<string, unknown>;
+          const pendingConfig = (stateMetadata.config as Record<string, unknown>) || {};
+          const mergedConfig = { ...(activeNode.node.config || {}), ...pendingConfig };
+
+          return (
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="font-medium text-sm">Action Required: {activeNode.label}</span>
+              </div>
+              <PendingActionRenderer
+                category={activeNode.category}
+                config={mergedConfig}
+                onSubmit={handleSubmitAction}
+                isSubmitting={isExecuting}
+              />
             </div>
-            <PendingActionRenderer
-              category={activeNode.category}
-              config={activeNode.node.config || {}}
-              onSubmit={handleSubmitAction}
-              isSubmitting={isExecuting}
-            />
-          </div>
-        )}
+          );
+        })()}
 
         {/* Completed message */}
         {overallStatus === 'completed' && (

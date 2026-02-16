@@ -213,11 +213,22 @@ export async function executePlay(
     if (updateDatabase) {
       // Save node execution states
       for (const nodeResult of result.node_results) {
+        const isWaiting = nodeResult.status === 'waiting_for_input' || nodeResult.status === 'waiting_for_event';
+
+        // Build metadata — persist pending_action details for page-reload resilience
+        const metadata: Record<string, unknown> = {};
+        if (isWaiting && result.pending_action && result.pending_action.node_id === nodeResult.node_id) {
+          metadata.pending_action_type = result.pending_action.type;
+          metadata.brick_id = result.pending_action.brick_id;
+          metadata.description = result.pending_action.description;
+          metadata.config = result.pending_action.config;
+        }
+
         await saveNodeExecutionState({
           workstream_id: workstream.id,
           play_id: playId,
           node_id: nodeResult.node_id,
-          status: nodeResult.status === 'waiting_for_input' || nodeResult.status === 'waiting_for_event'
+          status: isWaiting
             ? 'waiting'
             : nodeResult.status === 'completed'
             ? 'completed'
@@ -233,7 +244,7 @@ export async function executePlay(
           completed_at: nodeResult.completed_at || null,
           executed_by: user?.id || null,
           retry_count: 0,
-          metadata: {},
+          metadata,
         });
       }
 
@@ -299,7 +310,7 @@ async function updateWorkstreamCurrentNodes(
   workstreamId: string,
   currentNodeIds: string[]
 ): Promise<void> {
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('workstreams')
     .update({
       current_node_ids: currentNodeIds,
@@ -348,7 +359,7 @@ async function logPlayActivity(
  * Checks if a workstream has an active play.
  */
 export async function hasActivePlay(workstreamId: string): Promise<boolean> {
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from('workstreams')
     .select('play_id')
     .eq('id', workstreamId)
@@ -370,7 +381,7 @@ export async function getPendingPlayAction(
   config: Record<string, unknown>;
 } | null> {
   // Get workstream with play info
-  const { data: workstream } = await (supabase as any)
+  const { data: workstream } = await supabase
     .from('workstreams')
     .select('play_id, current_node_ids')
     .eq('id', workstreamId)
@@ -382,7 +393,7 @@ export async function getPendingPlayAction(
   const currentNodeIds = (workstream.current_node_ids as string[]) || [];
   if (currentNodeIds.length === 0) return null;
 
-  const { data: states } = await (supabase as any)
+  const { data: states } = await supabase
     .from('node_execution_state')
     .select('*')
     .eq('workstream_id', workstreamId)
@@ -413,7 +424,7 @@ export async function assignPlayToWorkstream(
   playId: string,
   playbookId?: string
 ): Promise<void> {
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('workstreams')
     .update({
       play_id: playId,

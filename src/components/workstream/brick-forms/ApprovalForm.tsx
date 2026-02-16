@@ -15,7 +15,7 @@ export function ApprovalForm({ config, onSubmit, isSubmitting }: ApprovalFormPro
   const decisionOptions = (config.decision_options as string[] | undefined) || ['approve', 'reject', 'request_info'];
 
   const handleDecision = (decision: string) => {
-    onSubmit({ decision, reasoning });
+    onSubmit({ approval_decision: decision, approval_reasoning: reasoning });
   };
 
   return (

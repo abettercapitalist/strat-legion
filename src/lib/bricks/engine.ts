@@ -20,6 +20,7 @@ import type {
   InputSource,
   BrickOutputMapping,
   BrickExecutionCondition,
+  WorkflowEdge,
 } from './types';
 
 import { DEFAULT_ENGINE_CONFIG } from './types';
@@ -323,6 +324,52 @@ export function mapOutputs(
 }
 
 // ============================================================================
+// CONDITIONAL EDGE EVALUATION
+// ============================================================================
+
+/**
+ * Checks whether an edge's condition is satisfied based on source node outputs.
+ *
+ * - `default` edges or edges with no condition always fire.
+ * - `conditional` edges compare `condition.field` / `condition.value` against
+ *   the source node's outputs.
+ * - Also supports the `condition.when` format via `evaluateCondition()` for
+ *   backward compatibility.
+ */
+function isEdgeSatisfied(
+  edge: WorkflowEdge,
+  nodeOutputs: Map<string, Record<string, unknown>>
+): boolean {
+  // Default edges or edges with no condition always fire
+  if (edge.edge_type === 'default' || !edge.condition) return true;
+
+  const condition = edge.condition;
+
+  // Support `{ when: "..." }` format via evaluateCondition
+  if (typeof condition.when === 'string') {
+    const sourceOutputs = nodeOutputs.get(edge.source_node_id) || {};
+    const pseudoContext: ExecutionContext = {
+      workstream: { id: '', name: '', workstream_type_id: null, owner_id: null, counterparty_id: null, annual_value: null, tier: null, stage: null, play_id: null, playbook_id: null, current_node_ids: [] },
+      play_config: {},
+      previous_outputs: sourceOutputs,
+      user: null,
+      execution: { play_id: '', pattern_id: '', playbook_id: null, node_id: '', started_at: '' },
+    };
+    return evaluateCondition({ when: condition.when as string }, pseudoContext);
+  }
+
+  // Support `{ field, value }` format used by the workflow designer
+  if (typeof condition.field === 'string' && 'value' in condition) {
+    const sourceOutputs = nodeOutputs.get(edge.source_node_id) || {};
+    const actualValue = sourceOutputs[condition.field as string];
+    return actualValue === condition.value;
+  }
+
+  // Unknown condition format — default to allowing the edge
+  return true;
+}
+
+// ============================================================================
 // BRICK ENGINE INTERFACE
 // ============================================================================
 
@@ -439,7 +486,8 @@ class BrickEngineImpl implements BrickEngine {
           const sourceNode = dag.nodes.get(edge.source_node_id);
           if (!sourceNode) return false;
           if (sourceNode.node.node_type === 'start') return true;
-          return executedNodes.has(sourceNode.id);
+          if (!executedNodes.has(sourceNode.id)) return false;
+          return isEdgeSatisfied(edge, nodeOutputs);
         });
 
         if (dagNode.node.node_type === 'start' && !executedNodes.has(dagNode.id)) {
