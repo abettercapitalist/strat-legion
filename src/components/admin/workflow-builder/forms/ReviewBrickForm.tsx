@@ -4,6 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus, X } from 'lucide-react';
+import { RoleCombobox } from '@/components/admin/RoleCombobox';
+import { UserCombobox } from './UserCombobox';
 import type { ReviewCriterion } from '@/lib/bricks/types';
 import type { UpstreamOutput } from '../outputSchemas';
 
@@ -84,18 +86,36 @@ export function ReviewBrickForm({ config, onConfigChange, availableDocuments = [
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Reviewer</Label>
         <Select
-          value={(config.reviewer_assignment as Record<string, unknown>)?.type as string || ''}
+          value={((config.reviewer_assignment as Record<string, unknown>)?.type as string) || ''}
           onValueChange={(value) => onConfigChange({ reviewer_assignment: { type: value } })}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select reviewer type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="workstream_owner">Workstream Owner</SelectItem>
+            <SelectItem value="workstream_owner">Play Owner</SelectItem>
             <SelectItem value="role">Specific Role</SelectItem>
             <SelectItem value="user">Specific User</SelectItem>
           </SelectContent>
         </Select>
+        {((config.reviewer_assignment as Record<string, unknown>)?.type as string) === 'role' && (
+          <RoleCombobox
+            value={((config.reviewer_assignment as Record<string, unknown>)?.role_id as string) || undefined}
+            onValueChange={(roleId) =>
+              onConfigChange({ reviewer_assignment: { type: 'role', role_id: roleId } })
+            }
+            placeholder="Select role..."
+          />
+        )}
+        {((config.reviewer_assignment as Record<string, unknown>)?.type as string) === 'user' && (
+          <UserCombobox
+            value={((config.reviewer_assignment as Record<string, unknown>)?.user_id as string) || undefined}
+            onValueChange={(userId, roleId) =>
+              onConfigChange({ reviewer_assignment: { type: 'user', user_id: userId, role_id: roleId } })
+            }
+            placeholder="Select user..."
+          />
+        )}
       </div>
 
       <div className="space-y-2">

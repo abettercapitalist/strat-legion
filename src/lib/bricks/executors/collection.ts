@@ -84,6 +84,19 @@ function validateField(
 }
 
 /**
+ * Resolves {{var}} template variables in a string using context data.
+ */
+function resolveTemplateVars(
+  template: string,
+  previousOutputs: Record<string, unknown>
+): string {
+  return template.replace(
+    /\{\{(\w+)\}\}/g,
+    (_, key) => String(previousOutputs[key] ?? `{{${key}}}`)
+  );
+}
+
+/**
  * Collection executor: handles form field collection, validation, and data gathering.
  */
 export const collectionExecutor: BrickExecutor = async (inputs, context) => {
@@ -116,6 +129,11 @@ export const collectionExecutor: BrickExecutor = async (inputs, context) => {
     }
   }
 
+  // Resolve template variables in instructions
+  const resolvedInstructions = config.instructions
+    ? resolveTemplateVars(config.instructions, context.previous_outputs)
+    : undefined;
+
   // If there are missing required fields, pause for user input
   if (missingFields.length > 0) {
     return {
@@ -130,6 +148,9 @@ export const collectionExecutor: BrickExecutor = async (inputs, context) => {
         config: {
           fields: missingFields,
           all_fields: fields,
+          collected_values: collectedValues,
+          upstream_context: context.previous_outputs,
+          instructions: resolvedInstructions,
           owner_assignment: config.owner_assignment,
           workstream_id: context.workstream.id,
         },
@@ -162,7 +183,12 @@ export const collectionExecutor: BrickExecutor = async (inputs, context) => {
         description: 'Please fix validation errors',
         config: {
           fields,
+          all_fields: fields,
+          collected_values: collectedValues,
+          upstream_context: context.previous_outputs,
+          instructions: resolvedInstructions,
           validation_errors: validationErrors,
+          owner_assignment: config.owner_assignment,
           workstream_id: context.workstream.id,
         },
       },

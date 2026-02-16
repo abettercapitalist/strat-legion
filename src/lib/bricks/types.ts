@@ -148,9 +148,17 @@ export interface ReminderConfig {
 // BRICK-SPECIFIC CONFIG INTERFACES
 // ============================================================================
 
+export interface CollectionSource {
+  type: 'form' | 'integration';
+  integration_id?: string;
+  mapping?: Record<string, string>;
+}
+
 export interface CollectionBrickConfig {
+  source?: CollectionSource;
   owner_assignment?: OwnerAssignment;
   fields: CollectionField[];
+  instructions?: string;
   validation_rules?: Record<string, unknown>;
   sla?: SLAConfig;
   notifications?: NotificationConfig;

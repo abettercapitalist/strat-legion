@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Play, CheckCircle2, Clock, Circle, AlertCircle } from 'lucide-react';
+import { Loader2, Play, CheckCircle2, Clock, Circle, AlertCircle, ShieldAlert } from 'lucide-react';
 import { useWorkflowNodes } from '@/hooks/useWorkflowNodes';
 import { useNodeExecutionStates } from '@/hooks/useNodeExecutionStates';
 import { usePlayExecution } from '@/hooks/usePlayExecution';
+import { useAuth } from '@/contexts/AuthContext';
 import { PendingActionRenderer } from './brick-forms/PendingActionRenderer';
 import { BRICK_CATEGORY_NAMES } from '@/lib/bricks/types';
 import { BRICK_COLORS, BRICK_LABELS } from '@/components/admin/workflow-builder/utils';
@@ -96,9 +97,15 @@ export function PlayExecutionPanel({
   workstream,
   user,
 }: PlayExecutionPanelProps) {
+  const { user: authUser, customRoles, getWorkRoutingRoleIds } = useAuth();
   const { data: dagData, isLoading: nodesLoading } = useWorkflowNodes(playId);
   const { data: execStates = [] } = useNodeExecutionStates(workstreamId, playId);
   const { executePlay: runPlay, resumePlay, isExecuting } = usePlayExecution();
+
+  const currentUserRoleIds = useMemo(
+    () => customRoles.map((r) => r.id),
+    [customRoles],
+  );
 
   const stateMap = useMemo(
     () => new Map(execStates.map(s => [s.node_id, s])),
@@ -225,6 +232,32 @@ export function PlayExecutionPanel({
           const stateMetadata = (activeNode.state?.metadata || {}) as Record<string, unknown>;
           const pendingConfig = (stateMetadata.config as Record<string, unknown>) || {};
           const mergedConfig = { ...(activeNode.node.config || {}), ...pendingConfig };
+
+          // Visibility gate: check if current user can act on this brick
+          const currentUserId = authUser?.id;
+          const assignedUserId = stateMetadata.assigned_user_id as string | null;
+          const assignedRoleId = stateMetadata.assigned_role_id as string | null;
+
+          const canAct = !assignedUserId
+            || assignedUserId === currentUserId
+            || (assignedRoleId != null && currentUserRoleIds.includes(assignedRoleId));
+
+          if (!canAct) {
+            return (
+              <div className="border rounded-lg p-4 space-y-2 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm text-muted-foreground">
+                    Waiting on another team member
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This step is assigned to {assignedUserId ? 'a specific user' : 'a specific role'}.
+                  You&apos;ll be able to act once it&apos;s reassigned or completed.
+                </p>
+              </div>
+            );
+          }
 
           return (
             <div className="border rounded-lg p-4 space-y-3">

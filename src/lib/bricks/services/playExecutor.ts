@@ -15,6 +15,7 @@ import type {
   BrickStatus,
   PlaybookPlay,
   DAG,
+  OwnerAssignment,
 } from '../types';
 import {
   loadPlayById,
@@ -124,6 +125,88 @@ function buildExecutionContext(
 }
 
 // ============================================================================
+// ASSIGNMENT RESOLUTION
+// ============================================================================
+
+interface ResolvedAssignment {
+  user_id: string | null;
+  role_id: string | null;
+}
+
+/**
+ * Resolves who should be assigned a brick based on the owner_assignment config.
+ */
+async function resolveAssignment(
+  ownerAssignment: OwnerAssignment | undefined,
+  workstream: Workstream
+): Promise<ResolvedAssignment> {
+  if (!ownerAssignment) {
+    return { user_id: null, role_id: null };
+  }
+
+  switch (ownerAssignment.type) {
+    case 'user':
+      return {
+        user_id: ownerAssignment.user_id || null,
+        role_id: ownerAssignment.role_id || null,
+      };
+
+    case 'role':
+      return {
+        user_id: null,
+        role_id: ownerAssignment.role_id || null,
+      };
+
+    case 'workstream_owner': {
+      const userId = workstream.owner_id;
+      if (!userId) return { user_id: null, role_id: null };
+
+      // Look up the owner's work-routing role
+      const { data } = await supabase
+        .from('user_roles')
+        .select(`
+          role_id,
+          roles (
+            id,
+            is_work_routing
+          )
+        `)
+        .eq('user_id', userId);
+
+      if (!data || data.length === 0) {
+        return { user_id: userId, role_id: null };
+      }
+
+      const roles = data as unknown as Array<{ role_id: string; roles: { id: string; is_work_routing: boolean } | null }>;
+      const validRoles = roles.filter((r) => r.roles !== null);
+      const workRoutingRole = validRoles.find((r) => r.roles!.is_work_routing);
+      const bestRole = workRoutingRole || validRoles[0];
+
+      return {
+        user_id: userId,
+        role_id: bestRole?.roles?.id || null,
+      };
+    }
+
+    default:
+      return { user_id: null, role_id: null };
+  }
+}
+
+/**
+ * Finds a replacement user for a role when the original user is unavailable.
+ */
+async function findReplacementForRole(roleId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role_id', roleId)
+    .limit(1);
+
+  return data?.[0]?.user_id || null;
+}
+
+// ============================================================================
 // PLAY EXECUTION
 // ============================================================================
 
@@ -222,6 +305,13 @@ export async function executePlay(
           metadata.brick_id = result.pending_action.brick_id;
           metadata.description = result.pending_action.description;
           metadata.config = result.pending_action.config;
+
+          // Resolve and persist assignment for role-based fallback
+          const ownerConfig = (result.pending_action.config?.owner_assignment ??
+            result.pending_action.config?.reviewer_assignment) as OwnerAssignment | undefined;
+          const assignment = await resolveAssignment(ownerConfig, workstream);
+          metadata.assigned_user_id = assignment.user_id;
+          metadata.assigned_role_id = assignment.role_id;
         }
 
         await saveNodeExecutionState({
@@ -280,6 +370,7 @@ export async function executePlay(
 
 /**
  * Resumes a paused play execution with user-provided input.
+ * Includes fallback: if the assigned user is gone, reassign to another user with the same role.
  */
 export async function resumePlayExecution(
   workstream: Workstream,
@@ -288,6 +379,58 @@ export async function resumePlayExecution(
   userInput: Record<string, unknown>,
   options: PlayExecutionOptions = {}
 ): Promise<PlayExecutionOutcome> {
+  // Check for role-based fallback on the waiting node
+  const currentNodeIds = workstream.current_node_ids || [];
+  if (currentNodeIds.length > 0) {
+    const { data: waitingStates } = await supabase
+      .from('node_execution_state')
+      .select('*')
+      .eq('workstream_id', workstream.id)
+      .eq('play_id', playId)
+      .in('node_id', currentNodeIds)
+      .eq('status', 'waiting');
+
+    for (const state of waitingStates || []) {
+      const meta = (state.metadata as Record<string, unknown>) || {};
+      const assignedUserId = meta.assigned_user_id as string | null;
+      const assignedRoleId = meta.assigned_role_id as string | null;
+
+      if (assignedUserId) {
+        // Verify user still exists
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', assignedUserId)
+          .maybeSingle();
+
+        if (!profile && assignedRoleId) {
+          // User gone — find replacement via role
+          const replacementUserId = await findReplacementForRole(assignedRoleId);
+          if (replacementUserId) {
+            await saveNodeExecutionState({
+              workstream_id: workstream.id,
+              play_id: playId,
+              node_id: state.node_id,
+              status: 'waiting',
+              inputs: (state.inputs as Record<string, unknown>) || {},
+              outputs: (state.outputs as Record<string, unknown>) || {},
+              error: state.error || null,
+              started_at: state.started_at || new Date().toISOString(),
+              completed_at: null,
+              executed_by: state.executed_by || null,
+              retry_count: (state.retry_count as number) || 0,
+              metadata: {
+                ...meta,
+                assigned_user_id: replacementUserId,
+                reassigned_from: assignedUserId,
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+
   // Merge user input with additional config and re-execute
   return executePlay(workstream, playId, user, {
     ...options,
@@ -379,6 +522,8 @@ export async function getPendingPlayAction(
   node_id: string;
   description: string;
   config: Record<string, unknown>;
+  assigned_user_id: string | null;
+  assigned_role_id: string | null;
 } | null> {
   // Get workstream with play info
   const { data: workstream } = await supabase
@@ -413,6 +558,8 @@ export async function getPendingPlayAction(
     node_id: state.node_id,
     description: (metadata.description as string) || 'Action required',
     config: (metadata.config as Record<string, unknown>) || {},
+    assigned_user_id: (metadata.assigned_user_id as string) || null,
+    assigned_role_id: (metadata.assigned_role_id as string) || null,
   };
 }
 
