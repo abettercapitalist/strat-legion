@@ -354,6 +354,7 @@ export type Database = {
       counterparties: {
         Row: {
           address: string | null
+          business_domain: string | null
           counterparty_type: string | null
           created_at: string
           entity_type: string | null
@@ -369,6 +370,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          business_domain?: string | null
           counterparty_type?: string | null
           created_at?: string
           entity_type?: string | null
@@ -384,6 +386,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          business_domain?: string | null
           counterparty_type?: string | null
           created_at?: string
           entity_type?: string | null

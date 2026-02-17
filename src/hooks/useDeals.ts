@@ -62,7 +62,7 @@ function mapTierToPriority(tier: string | null): Deal["priority"] {
   return tierMap[tier?.toLowerCase() || "standard"] || "medium";
 }
 
-function formatCurrency(value: number | null): string {
+export function formatCurrency(value: number | null): string {
   if (!value) return "$0";
   if (value >= 1000) {
     return `$${Math.round(value / 1000)}K`;
@@ -210,8 +210,106 @@ function getDueDateLabel(daysWaiting: number): string {
   return "Overdue";
 }
 
-function getUrgencyFromDays(daysWaiting: number): "high" | "medium" | "low" {
+export function getUrgencyFromDays(daysWaiting: number): "high" | "medium" | "low" {
   if (daysWaiting >= 3) return "high";
   if (daysWaiting >= 1) return "medium";
   return "low";
+}
+
+export interface SalesApproval {
+  id: string;
+  workstreamId: string;
+  dealName: string;
+  customer: string;
+  arr: number | null;
+  dealTier: string | null;
+  submittedAt: string | null;
+  currentGate: number;
+  status: string;
+  templateName: string | null;
+  ownerName: string | null;
+  urgency: "high" | "medium" | "low";
+}
+
+export function useSalesApprovalQueue() {
+  return useQuery({
+    queryKey: ["sales-approval-queue"],
+    queryFn: async () => {
+      const { data: approvals, error } = await supabase
+        .from("workstream_approvals")
+        .select(`
+          *,
+          workstream:workstreams(
+            id,
+            name,
+            annual_value,
+            tier,
+            owner_id,
+            counterparty:counterparties(name),
+            workstream_type:workstream_types(team_category)
+          ),
+          template:approval_templates(name)
+        `)
+        .eq("status", "pending")
+        .order("submitted_at", { ascending: true });
+
+      if (error) throw error;
+
+      // Filter to only sales workstreams
+      const salesApprovals = (approvals || []).filter(
+        (a) => teamCategoryIncludes(a.workstream?.workstream_type?.team_category, "sales")
+      );
+
+      // Collect unique owner IDs to fetch profile names
+      const ownerIds = [
+        ...new Set(
+          salesApprovals
+            .map((a) => a.workstream?.owner_id)
+            .filter((id): id is string => !!id)
+        ),
+      ];
+
+      let ownerMap: Record<string, string> = {};
+      if (ownerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", ownerIds);
+
+        if (profiles) {
+          ownerMap = Object.fromEntries(
+            profiles.map((p) => [p.id, p.full_name || ""])
+          );
+        }
+      }
+
+      const queue: SalesApproval[] = salesApprovals.map((a) => {
+        const daysWaiting = a.submitted_at
+          ? Math.floor(
+              (Date.now() - new Date(a.submitted_at).getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          : 0;
+
+        return {
+          id: a.id,
+          workstreamId: a.workstream?.id || "",
+          dealName: a.workstream?.name || "Unknown Deal",
+          customer: a.workstream?.counterparty?.name || "Unknown",
+          arr: a.workstream?.annual_value ?? null,
+          dealTier: a.workstream?.tier ?? null,
+          submittedAt: a.submitted_at,
+          currentGate: a.current_gate || 1,
+          status: a.status || "pending",
+          templateName: a.template?.name || null,
+          ownerName: a.workstream?.owner_id
+            ? ownerMap[a.workstream.owner_id] || null
+            : null,
+          urgency: getUrgencyFromDays(daysWaiting),
+        };
+      });
+
+      return queue;
+    },
+  });
 }
