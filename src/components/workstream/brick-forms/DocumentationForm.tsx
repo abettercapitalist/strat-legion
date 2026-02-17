@@ -18,6 +18,20 @@ export function DocumentationForm({ config, onSubmit, isSubmitting }: Documentat
   const [polledStatus, setPolledStatus] = useState<string | null>(docStatus || null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [templateName, setTemplateName] = useState<string | null>(null);
+
+  // Fetch template name for display
+  useEffect(() => {
+    if (!templateId) return;
+    supabase
+      .from('templates')
+      .select('name')
+      .eq('id', templateId)
+      .single()
+      .then(({ data }) => {
+        if (data?.name) setTemplateName(data.name);
+      });
+  }, [templateId]);
 
   // Poll workstream_documents for status changes when generating
   useEffect(() => {
@@ -112,7 +126,7 @@ export function DocumentationForm({ config, onSubmit, isSubmitting }: Documentat
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <FileText className="h-4 w-4" />
         <span>{outputName}</span>
-        {templateId && <span className="text-xs">({templateId})</span>}
+        {templateId && <span className="text-xs">({templateName || templateId})</span>}
       </div>
       <Button
         onClick={() => onSubmit({ action: 'generate', template_id: templateId, output_name: outputName })}

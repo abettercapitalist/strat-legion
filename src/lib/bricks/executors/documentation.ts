@@ -37,11 +37,22 @@ export const documentationExecutor: BrickExecutor = async (inputs, context) => {
     }
 
     if (doc.status === 'ready' || doc.status === 'completed') {
+      // Generate a signed URL so downstream consumers get a usable HTTPS link
+      let documentUrl: string = doc.storage_path;
+      if (doc.storage_path) {
+        const { data: signedData } = await supabase.storage
+          .from('workstream-documents')
+          .createSignedUrl(doc.storage_path, 3600);
+        if (signedData?.signedUrl) {
+          documentUrl = signedData.signedUrl;
+        }
+      }
+
       return {
         status: 'completed',
         outputs: {
           document_id: doc.id,
-          document_url: doc.storage_path,
+          document_url: documentUrl,
           format: doc.file_format,
           name: doc.title,
           template_used: doc.template_id,
@@ -107,6 +118,7 @@ export const documentationExecutor: BrickExecutor = async (inputs, context) => {
         document_type: documentType,
         title,
         field_mapping: config.field_mapping || {},
+        collected_data: context.previous_outputs,
       },
     }
   );

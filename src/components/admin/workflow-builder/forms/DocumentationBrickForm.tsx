@@ -93,16 +93,15 @@ export function DocumentationBrickForm({ config, onConfigChange, upstreamOutputs
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Output Format</Label>
         <Select
-          value={(config.output_format as string) || 'pdf'}
+          value={(config.output_format as string) || 'docx'}
           onValueChange={(value) => onConfigChange({ output_format: value })}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="pdf">PDF</SelectItem>
             <SelectItem value="docx">Word (DOCX)</SelectItem>
-            <SelectItem value="html">HTML</SelectItem>
+            <SelectItem value="pdf">PDF</SelectItem>
           </SelectContent>
         </Select>
       </div>
