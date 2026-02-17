@@ -26,13 +26,10 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
@@ -108,19 +105,10 @@ const systemFolders: FolderItem[] = [
 ];
 
 // File type configurations
-const fileTypes = {
-  documents: [
-    { value: "docx", label: "Word Document (.docx)", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-    { value: "pages", label: "Pages Document (.pages)", mime: "application/x-iwork-pages-sffpages" },
-    { value: "rtf", label: "Rich Text Format (.rtf)", mime: "application/rtf" },
-  ],
-  ebook: [
-    { value: "epub", label: "EPUB (.epub)", mime: "application/epub+zip" },
-  ],
-  pdf: [
-    { value: "pdf", label: "PDF Document (.pdf)", mime: "application/pdf" },
-  ],
-};
+const fileTypes = [
+  { value: "docx", label: "Word Document (.docx)", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  { value: "pdf", label: "PDF Document (.pdf)", mime: "application/pdf" },
+];
 
 function FolderTree({
   folders,
@@ -329,71 +317,85 @@ export function SaveTemplateDialog({
     }
   };
 
-  const getFileExtension = () => {
-    return selectedFileType;
-  };
-
-  const getMimeType = () => {
-    const allTypes = [...fileTypes.documents, ...fileTypes.ebook, ...fileTypes.pdf];
-    return allTypes.find(t => t.value === selectedFileType)?.mime || "text/html";
-  };
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleDownload = async () => {
     const baseName = templateName || "untitled-template";
-    const extension = getFileExtension();
-    const fileName = `${baseName}.${extension}`;
-    const mimeType = getMimeType();
-    
-    // For this prototype, we'll still use HTML content but with the chosen extension
-    const blob = new Blob([templateContent], { type: mimeType });
-    
-    // Try to use the File System Access API for native file picker
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: fileName,
-          types: [
-            {
-              description: `${extension.toUpperCase()} Document`,
-              accept: { [mimeType]: [`.${extension}`] },
-            },
-          ],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        
-        toast({
-          title: "Template downloaded",
-          description: "The template has been saved to your computer.",
-          duration: 7000,
-        });
-        handleOpenChange(false);
-        return;
-      } catch (err) {
-        // User cancelled or API not supported, fall back
-        if ((err as Error).name === 'AbortError') {
-          return; // User cancelled
+    const format = selectedFileType as "docx" | "pdf";
+
+    setIsExporting(true);
+    try {
+      // Call edge function for real DOCX/PDF conversion
+      const { data: result, error: fnError } = await supabase.functions.invoke(
+        "export-template",
+        { body: { html: templateContent, format, filename: baseName } }
+      );
+
+      if (fnError) throw new Error(fnError.message);
+      if (!result?.data) throw new Error("No data returned from export");
+
+      // Decode base64 response to binary
+      const binaryString = atob(result.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const blob = new Blob([bytes], { type: result.content_type });
+      const fileName = result.filename;
+
+      // Try File System Access API for native save dialog
+      if ("showSaveFilePicker" in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: fileName,
+            types: [
+              {
+                description: `${format.toUpperCase()} Document`,
+                accept: { [result.content_type]: [`.${format}`] },
+              },
+            ],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+
+          toast({
+            title: "Template downloaded",
+            description: `"${fileName}" has been saved to your computer.`,
+          });
+          handleOpenChange(false);
+          return;
+        } catch (err) {
+          if ((err as Error).name === "AbortError") return;
         }
       }
+
+      // Fallback: direct download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Template downloaded",
+        description: `"${fileName}" has been saved to your computer.`,
+      });
+      handleOpenChange(false);
+    } catch (err) {
+      console.error("Export error:", err);
+      toast({
+        title: "Export failed",
+        description: "Could not generate the document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
     }
-    
-    // Fallback: direct download
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Template downloaded",
-      description: "The template has been saved to your computer.",
-      duration: 7000,
-    });
-    handleOpenChange(false);
   };
 
   const handleDiscard = () => {
@@ -493,48 +495,37 @@ export function SaveTemplateDialog({
                     <SelectValue placeholder="Select format" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Document Formats</SelectLabel>
-                      {fileTypes.documents.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>eBook Formats</SelectLabel>
-                      {fileTypes.ebook.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <Separator className="my-1" />
-                    <SelectGroup>
-                      <SelectLabel>Export Only</SelectLabel>
-                      {fileTypes.pdf.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                    {fileTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <p className="text-xs text-muted-foreground">
-                {selectedFileType === "pdf" 
+                {selectedFileType === "pdf"
                   ? "PDF is best for final documents. It cannot be easily edited."
                   : "This format can be edited in compatible word processors."
                 }
               </p>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => showBackInDownload ? setMode("choice") : handleOpenChange(false)}>
+              <Button variant="outline" onClick={() => showBackInDownload ? setMode("choice") : handleOpenChange(false)} disabled={isExporting}>
                 Cancel
               </Button>
-              <Button onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-2" />
-                Download
+              <Button onClick={handleDownload} disabled={isExporting}>
+                {isExporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </>

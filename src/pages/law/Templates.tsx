@@ -2,8 +2,9 @@ import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, Upload, ChevronDown, Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Search, MoreVertical, Copy, Archive, Eye, FolderOpen, Trash2, FileUp, ChevronDown, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import mammoth from "mammoth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,29 +75,51 @@ export default function Templates() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const content = event.target?.result as string || "";
-        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-        
-        try {
-          await createTemplate(nameWithoutExt, content, "Sales", "Draft");
-          
-          toast({
-            title: "Template imported",
-            description: `"${nameWithoutExt}" has been imported as a draft.`,
-          });
-        } catch (err) {
-          toast({
-            title: "Import failed",
-            description: "Could not import the template. Please try again.",
-            variant: "destructive",
-          });
+    if (!file) return;
+    e.target.value = "";
+
+    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+    const extension = file.name.split(".").pop()?.toLowerCase();
+
+    try {
+      let htmlContent: string;
+
+      if (extension === "docx") {
+        // Convert DOCX to HTML using mammoth (preserves headings, bold, lists, tables)
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        htmlContent = result.value;
+        if (result.messages.length > 0) {
+          console.log("Mammoth conversion messages:", result.messages);
         }
-      };
-      reader.readAsText(file);
-      e.target.value = "";
+      } else {
+        // Plain text files — wrap lines in paragraphs
+        const text = await file.text();
+        htmlContent = text
+          .split("\n")
+          .filter((line) => line.trim())
+          .map((line) => `<p>${line}</p>`)
+          .join("\n");
+      }
+
+      const template = await createTemplate(nameWithoutExt, htmlContent, "Sales", "Draft");
+
+      toast({
+        title: "Template imported",
+        description: `"${nameWithoutExt}" has been imported as a draft.`,
+      });
+
+      // Navigate to the editor so the user can review and refine
+      if (template) {
+        navigate(`/law/templates/${template.id}/edit`);
+      }
+    } catch (err) {
+      console.error("Import error:", err);
+      toast({
+        title: "Import failed",
+        description: "Could not import the template. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -316,8 +339,8 @@ export default function Templates() {
               Import with AI Parsing
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleImportTemplate}>
-              <Upload className="h-4 w-4 mr-2" />
-              Import Raw File
+              <FileUp className="h-4 w-4 mr-2" />
+              Import Document
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
