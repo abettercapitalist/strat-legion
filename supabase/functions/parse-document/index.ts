@@ -1,40 +1,109 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import JSZip from "https://esm.sh/jszip@3.10.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Extract text from DOCX using JSZip
-async function extractTextFromDocx(base64Content: string): Promise<string> {
+interface UnstructuredElement {
+  type: string;
+  text: string;
+  metadata?: {
+    text_as_html?: string;
+  };
+}
+
+// Extract text and HTML from PDF/DOCX via Unstructured.io API
+async function extractViaUnstructured(base64Content: string, fileName: string): Promise<UnstructuredElement[]> {
+  const UNSTRUCTURED_API_KEY = Deno.env.get("UNSTRUCTURED_API_KEY");
+  if (!UNSTRUCTURED_API_KEY) {
+    throw new Error("UNSTRUCTURED_API_KEY not configured");
+  }
+
+  // Decode base64 to binary
   const binaryString = atob(base64Content);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  
-  const zip = await JSZip.loadAsync(bytes);
-  const documentXml = await zip.file("word/document.xml")?.async("text");
-  
-  if (!documentXml) {
-    throw new Error("Could not find document.xml in DOCX file");
+
+  const formData = new FormData();
+  formData.append("files", new Blob([bytes]), fileName);
+  formData.append("strategy", "hi_res");
+
+  const response = await fetch("https://api.unstructured.io/general/v0/general", {
+    method: "POST",
+    headers: {
+      "unstructured-api-key": UNSTRUCTURED_API_KEY,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Unstructured API error:", response.status, errorText);
+    throw new Error(`Document extraction failed (${response.status})`);
   }
-  
-  // Strip XML tags and extract text content
-  const text = documentXml
-    .replace(/<w:p[^>]*>/g, '\n') // Paragraphs
-    .replace(/<w:tab[^>]*\/>/g, '\t') // Tabs
-    .replace(/<[^>]+>/g, '') // Remove all XML tags
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/\n{3,}/g, '\n\n') // Reduce multiple newlines
-    .trim();
-  
-  return text;
+
+  const elements: UnstructuredElement[] = await response.json();
+  return elements;
+}
+
+// Convert Unstructured elements to plain text for AI clause parsing
+function elementsToText(elements: UnstructuredElement[]): string {
+  return elements.map(el => {
+    switch (el.type) {
+      case "Title":
+        return `\n\n${el.text}\n`;
+      case "ListItem":
+        return `\n- ${el.text}`;
+      case "NarrativeText":
+      default:
+        return `\n${el.text}`;
+    }
+  }).join("").trim();
+}
+
+// Convert Unstructured elements to HTML for template content
+function elementsToHtml(elements: UnstructuredElement[]): string {
+  const parts: string[] = [];
+  let inList = false;
+
+  for (const el of elements) {
+    if (el.type === "ListItem") {
+      if (!inList) {
+        parts.push("<ul>");
+        inList = true;
+      }
+      parts.push(`<li>${el.text}</li>`);
+      continue;
+    }
+
+    // Close any open list
+    if (inList) {
+      parts.push("</ul>");
+      inList = false;
+    }
+
+    switch (el.type) {
+      case "Title":
+        parts.push(`<h2>${el.text}</h2>`);
+        break;
+      case "Table":
+        parts.push(el.metadata?.text_as_html || `<p>${el.text}</p>`);
+        break;
+      case "NarrativeText":
+      default:
+        parts.push(`<p>${el.text}</p>`);
+        break;
+    }
+  }
+
+  if (inList) {
+    parts.push("</ul>");
+  }
+
+  return parts.join("\n");
 }
 
 serve(async (req) => {
@@ -64,32 +133,34 @@ serve(async (req) => {
     console.log("Parsing document:", fileName, "Type:", fileType);
 
     let documentText = "";
+    let extractedHtml: string | undefined;
 
     // Handle different file types
     if (fileType === 'text/plain' || fileType === 'text/rtf') {
       // Plain text - decode from base64
       const binaryString = atob(fileContent);
       documentText = binaryString;
-    } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
-               fileName.endsWith('.docx')) {
-      // DOCX - extract text using JSZip
+    } else if (
+      fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      fileName.endsWith('.docx') ||
+      fileType === 'application/pdf' ||
+      fileName.endsWith('.pdf')
+    ) {
+      // PDF and DOCX - extract via Unstructured.io
       try {
-        documentText = await extractTextFromDocx(fileContent);
+        const elements = await extractViaUnstructured(fileContent, fileName);
+        documentText = elementsToText(elements);
+        extractedHtml = elementsToHtml(elements);
       } catch (extractError) {
-        console.error("DOCX extraction error:", extractError);
+        console.error("Unstructured extraction error:", extractError);
         return new Response(
-          JSON.stringify({ success: false, error: 'Failed to parse Word document. Please ensure the file is not corrupted.' }),
+          JSON.stringify({ success: false, error: extractError instanceof Error ? extractError.message : 'Failed to extract document content.' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     } else if (fileType === 'application/msword' || fileName.endsWith('.doc')) {
       return new Response(
         JSON.stringify({ success: false, error: 'Legacy .doc format not supported. Please save as .docx and try again.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else if (fileType === 'application/pdf') {
-      return new Response(
-        JSON.stringify({ success: false, error: 'PDF parsing coming soon. Please convert to DOCX or TXT for now.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
@@ -166,7 +237,7 @@ Be thorough in extracting ALL clauses from the document. Preserve the original t
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again in a moment.' }),
@@ -179,7 +250,7 @@ Be thorough in extracting ALL clauses from the document. Preserve the original t
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to parse document' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -211,7 +282,7 @@ Be thorough in extracting ALL clauses from the document. Preserve the original t
     console.log("Document parsed successfully:", parsedDocument.suggestedName);
 
     return new Response(
-      JSON.stringify({ success: true, data: parsedDocument }),
+      JSON.stringify({ success: true, data: parsedDocument, extractedHtml }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

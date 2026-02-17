@@ -24,6 +24,7 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [parsedDoc, setParsedDoc] = useState<ParsedDocument | null>(null);
+  const [extractedHtml, setExtractedHtml] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -38,6 +39,7 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
     setProgress(0);
     setError(null);
     setParsedDoc(null);
+    setExtractedHtml(null);
     setSelectedFile(null);
   }, []);
 
@@ -79,6 +81,9 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
       }
 
       setParsedDoc(result.data);
+      if (result.extractedHtml) {
+        setExtractedHtml(result.extractedHtml);
+      }
       setProgress(100);
       setState('review');
 
@@ -124,12 +129,16 @@ export function DocumentUploadModal({ open, onOpenChange, onSuccess }: DocumentU
 
       await createClausesBatch(clausesData);
 
-      // Generate template content from parsed clauses (using index for section numbers)
-      const clauseContent = parsedDoc.clauses.map((clause, index) => 
-        `<h2>${index + 1}. ${clause.title}</h2>\n<p>${clause.text}</p>`
-      ).join('\n\n');
-
-      const fullContent = `<h1>${parsedDoc.suggestedName}</h1>\n\n${clauseContent}`;
+      // Use Unstructured HTML if available (preserves original formatting), otherwise fall back to clause-based generation
+      let fullContent: string;
+      if (extractedHtml) {
+        fullContent = extractedHtml;
+      } else {
+        const clauseContent = parsedDoc.clauses.map((clause, index) =>
+          `<h2>${index + 1}. ${clause.title}</h2>\n<p>${clause.text}</p>`
+        ).join('\n\n');
+        fullContent = `<h1>${parsedDoc.suggestedName}</h1>\n\n${clauseContent}`;
+      }
 
       // Save template to database
       const template = await createTemplate(

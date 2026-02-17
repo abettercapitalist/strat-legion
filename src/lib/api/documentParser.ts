@@ -30,6 +30,7 @@ export interface ParsedDocument {
 export interface ParseDocumentResponse {
   success: boolean;
   data?: ParsedDocument;
+  extractedHtml?: string;
   error?: string;
 }
 
