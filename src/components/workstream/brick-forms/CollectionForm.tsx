@@ -234,6 +234,73 @@ function renderField(
           )}
         </div>
       );
+    case 'deadline': {
+      const totalHours = typeof value === 'number' ? value : 0;
+      const days = Math.floor(totalHours / 24);
+      const hours = totalHours % 24;
+      return (
+        <div className="flex gap-2">
+          <div className="space-y-1 flex-1">
+            <Label className="text-xs text-muted-foreground">Days</Label>
+            <Input
+              type="number"
+              min={0}
+              value={days}
+              onChange={(e) => {
+                const d = Math.max(0, Number(e.target.value) || 0);
+                onChange(d * 24 + hours);
+              }}
+            />
+          </div>
+          <div className="space-y-1 flex-1">
+            <Label className="text-xs text-muted-foreground">Hours</Label>
+            <Input
+              type="number"
+              min={0}
+              max={23}
+              value={hours}
+              onChange={(e) => {
+                const h = Math.min(23, Math.max(0, Number(e.target.value) || 0));
+                onChange(days * 24 + h);
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+    case 'address': {
+      // TODO: integrate address autocomplete provider
+      const addr = (typeof value === 'object' && value !== null ? value : {}) as Record<string, string>;
+      const set = (key: string, v: string) => onChange({ ...addr, [key]: v });
+      return (
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">Street</Label>
+            <Input value={addr.street || ''} onChange={(e) => set('street', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">City</Label>
+              <Input value={addr.city || ''} onChange={(e) => set('city', e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">State</Label>
+              <Input value={addr.state || ''} onChange={(e) => set('state', e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">ZIP</Label>
+              <Input value={addr.zip || ''} onChange={(e) => set('zip', e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Country</Label>
+              <Input value={addr.country || ''} onChange={(e) => set('country', e.target.value)} />
+            </div>
+          </div>
+        </div>
+      );
+    }
     default:
       return (
         <Input

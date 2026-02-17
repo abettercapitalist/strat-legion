@@ -66,7 +66,9 @@ export type CollectionFieldType =
   | 'file'
   | 'meeting_request'
   | 'decision'
-  | 'assignment';
+  | 'assignment'
+  | 'deadline'
+  | 'address';
 
 export interface CollectionField {
   name: string;

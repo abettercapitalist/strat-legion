@@ -7,9 +7,25 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, X, ChevronUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, X, ChevronUp, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { RoleCombobox } from '@/components/admin/RoleCombobox';
 import { UserCombobox } from './UserCombobox';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { CollectionField, CollectionFieldType } from '@/lib/bricks/types';
 import type { UpstreamOutput } from '../outputSchemas';
 
@@ -25,10 +41,12 @@ const FIELD_TYPES: { value: CollectionFieldType; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'currency', label: 'Currency' },
   { value: 'date', label: 'Date' },
+  { value: 'deadline', label: 'Deadline' },
   { value: 'select', label: 'Dropdown' },
   { value: 'multi_select', label: 'Multi-Select' },
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'file', label: 'File Upload' },
+  { value: 'address', label: 'Address' },
 ];
 
 
@@ -37,6 +55,13 @@ export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = 
   const ownerAssignment = (config.owner_assignment as Record<string, unknown>) || {};
   const ownerType = (ownerAssignment.type as string) || '';
   const instructions = (config.instructions as string) || '';
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const fieldIds = fields.map((_, i) => `field-${i}`);
 
   const updateField = (index: number, updates: Partial<CollectionField>) => {
     const newFields = fields.map((f, i) => (i === index ? { ...f, ...updates } : f));
@@ -62,6 +87,18 @@ export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = 
     if (newIndex < 0 || newIndex >= fields.length) return;
     const newFields = [...fields];
     [newFields[index], newFields[newIndex]] = [newFields[newIndex], newFields[index]];
+    onConfigChange({ fields: newFields });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = fieldIds.indexOf(String(active.id));
+    const newIndex = fieldIds.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newFields = [...fields];
+    const [moved] = newFields.splice(oldIndex, 1);
+    newFields.splice(newIndex, 0, moved);
     onConfigChange({ fields: newFields });
   };
 
@@ -129,7 +166,7 @@ export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = 
         <Input
           type="number"
           placeholder="e.g., 24"
-          value={(config.sla?.deadline_hours as number) || ''}
+          value={(config.sla as Record<string, unknown>)?.deadline_hours as number || ''}
           onChange={(e) =>
             onConfigChange({ sla: { ...((config.sla as Record<string, unknown>) || {}), deadline_hours: e.target.value ? Number(e.target.value) : undefined } })
           }
@@ -148,25 +185,31 @@ export function CollectionBrickForm({ config, onConfigChange, upstreamOutputs = 
         {fields.length === 0 && (
           <p className="text-xs text-muted-foreground italic">No fields defined. Add fields to collect information.</p>
         )}
-        {fields.map((field, index) => (
-          <FieldCard
-            key={index}
-            field={field}
-            index={index}
-            totalFields={fields.length}
-            onUpdate={(updates) => updateField(index, updates)}
-            onRemove={() => removeField(index)}
-            onMove={(dir) => moveField(index, dir)}
-          />
-        ))}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={fieldIds} strategy={verticalListSortingStrategy}>
+            {fields.map((field, index) => (
+              <SortableFieldCard
+                key={fieldIds[index]}
+                id={fieldIds[index]}
+                field={field}
+                index={index}
+                totalFields={fields.length}
+                onUpdate={(updates) => updateField(index, updates)}
+                onRemove={() => removeField(index)}
+                onMove={(dir) => moveField(index, dir)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
     </div>
   );
 }
 
-// ── Field Card ──────────────────────────────────────────────────────────
+// ── Sortable Field Card ─────────────────────────────────────────────────
 
-interface FieldCardProps {
+interface SortableFieldCardProps {
+  id: string;
   field: CollectionField;
   index: number;
   totalFields: number;
@@ -175,7 +218,21 @@ interface FieldCardProps {
   onMove: (direction: 'up' | 'down') => void;
 }
 
-function FieldCard({ field, index, totalFields, onUpdate, onRemove, onMove }: FieldCardProps) {
+function SortableFieldCard({ id, field, index, totalFields, onUpdate, onRemove, onMove }: SortableFieldCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const [optionInput, setOptionInput] = useState('');
   const showOptions = field.field_type === 'select' || field.field_type === 'multi_select';
 
@@ -198,9 +255,22 @@ function FieldCard({ field, index, totalFields, onUpdate, onRemove, onMove }: Fi
   };
 
   return (
-    <div className="p-3 border rounded-md space-y-3 bg-muted/30">
-      {/* Row 1: label, type, required, remove */}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="p-3 border rounded-md space-y-3 bg-muted/30"
+      {...(isDragging ? { style: { ...style, opacity: 0.5 } } : { style })}
+    >
+      {/* Row 1: drag handle, label, type, required, remove */}
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
         <Input
           placeholder="Field label"
           value={field.label}
@@ -226,7 +296,7 @@ function FieldCard({ field, index, totalFields, onUpdate, onRemove, onMove }: Fi
             onCheckedChange={(checked) => onUpdate({ required: checked })}
             className="scale-75"
           />
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Req</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Required</span>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="h-8 w-8 p-0">
           <X className="h-3.5 w-3.5" />
@@ -342,7 +412,6 @@ function FieldCard({ field, index, totalFields, onUpdate, onRemove, onMove }: Fi
 
       {/* Reorder buttons */}
       <div className="flex justify-end items-center gap-1">
-        <span className="text-xs text-muted-foreground mr-0.5">Reorder</span>
         <Button
           type="button"
           variant="ghost"
