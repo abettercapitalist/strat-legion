@@ -7,3 +7,6 @@ ALTER TABLE public.templates
     FOREIGN KEY (workstream_type_id)
     REFERENCES public.workstream_types(id)
     ON DELETE SET NULL;
+
+-- Force PostgREST to pick up the recreated FK so embedded queries still work.
+NOTIFY pgrst, 'reload schema';
