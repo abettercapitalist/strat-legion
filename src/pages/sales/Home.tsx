@@ -1,121 +1,167 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Clock, 
-  AlertCircle, 
-  FileText, 
+import {
+  Clock,
+  FileText,
   Users,
-  ArrowRight,
-  CheckCircle2,
-  Target
+  Target,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
+import {
+  PieChart,
+  Pie,
+  Cell,
   ResponsiveContainer,
   AreaChart,
   Area,
   XAxis,
   YAxis,
-  Tooltip
+  Tooltip,
 } from "recharts";
 import { UnifiedNeedsDashboard } from "@/components/dashboard";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUserRole, getTeamRolesForUser } from "@/hooks/useCurrentUserRole";
+import { supabase } from "@/integrations/supabase/client";
 
-interface PriorityTask {
-  id: string;
-  title: string;
-  dealName: string;
-  dealValue: string;
-  dueDate: string;
-  type: "approval" | "action" | "followup";
-  urgency: "high" | "medium" | "low";
-  route: string;
+// --- Pipeline data from workstreams ---
+function useSalesPipeline() {
+  const [data, setData] = useState<{ name: string; value: number; color: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const { data: workstreams } = await supabase
+        .from("workstreams")
+        .select("stage, annual_value");
+
+      if (cancelled || !workstreams) return;
+
+      const stages: Record<string, number> = {};
+      for (const w of workstreams) {
+        const stage = w.stage || "draft";
+        stages[stage] = (stages[stage] || 0) + (Number(w.annual_value) || 0);
+      }
+
+      const stageColors: Record<string, string> = {
+        draft: "hsl(var(--muted-foreground))",
+        negotiation: "hsl(var(--status-warning))",
+        approval: "hsl(var(--primary))",
+        signature: "hsl(var(--status-success))",
+        closed: "hsl(var(--muted-foreground))",
+      };
+
+      setData(
+        Object.entries(stages).map(([stage, value]) => ({
+          name: stage.charAt(0).toUpperCase() + stage.slice(1),
+          value: Math.round(value / 1000),
+          color: stageColors[stage] || "hsl(var(--muted-foreground))",
+        })),
+      );
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return data;
 }
 
-const priorityTasks: PriorityTask[] = [
-  {
-    id: "1",
-    title: "Manager approval needed",
-    dealName: "Meridian Software",
-    dealValue: "$85K ARR",
-    dueDate: "Today",
-    type: "approval",
-    urgency: "high",
-    route: "/sales/approvals",
-  },
-  {
-    id: "2",
-    title: "Send revised proposal",
-    dealName: "Cascade Analytics",
-    dealValue: "$62K ARR",
-    dueDate: "Tomorrow",
-    type: "action",
-    urgency: "high",
-    route: "/sales/deals",
-  },
-  {
-    id: "3",
-    title: "Schedule renewal call",
-    dealName: "Northwind Traders",
-    dealValue: "$45K ARR",
-    dueDate: "This week",
-    type: "followup",
-    urgency: "medium",
-    route: "/sales/deals",
-  },
-];
+// --- Weekly activity from workstream_activity ---
+function useWeeklyActivity() {
+  const [data, setData] = useState<{ day: string; count: number }[]>([]);
 
-// Pipeline distribution data for donut chart
-const pipelineData = [
-  { name: "Draft", value: 45, color: "hsl(var(--muted-foreground))" },
-  { name: "Negotiation", value: 119, color: "hsl(var(--status-warning))" },
-  { name: "Approval", value: 85, color: "hsl(var(--primary))" },
-  { name: "Signature", value: 38, color: "hsl(var(--status-success))" },
-];
+  useEffect(() => {
+    let cancelled = false;
 
-// Weekly activity trend
-const activityTrend = [
-  { day: "Mon", deals: 2, tasks: 4 },
-  { day: "Tue", deals: 3, tasks: 6 },
-  { day: "Wed", deals: 2, tasks: 3 },
-  { day: "Thu", deals: 4, tasks: 7 },
-  { day: "Fri", deals: 5, tasks: 5 },
-  { day: "Today", deals: 3, tasks: 4 },
-];
+    (async () => {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-// Target progress
-const targetProgress = {
-  personal: { current: 287, goal: 350, label: "Your Target" },
-  team: { current: 420, goal: 500, label: "Team Target" },
-};
+      const { data: activity } = await supabase
+        .from("workstream_activity")
+        .select("created_at")
+        .gte("created_at", sevenDaysAgo.toISOString())
+        .order("created_at", { ascending: true });
 
-// Flow visibility data is now fetched from useFlowVisibility hook
+      if (cancelled || !activity) return;
 
-function getUrgencyStyles(urgency: string) {
-  switch (urgency) {
-    case "high":
-      return "bg-status-error/10 text-status-error border-status-error/20";
-    case "medium":
-      return "bg-status-warning/10 text-status-warning border-status-warning/20";
-    default:
-      return "bg-muted text-muted-foreground border-border";
-  }
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const counts: Record<string, number> = {};
+
+      // Initialize last 7 days
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const label = i === 0 ? "Today" : days[d.getDay()];
+        counts[label] = 0;
+      }
+
+      for (const a of activity) {
+        const d = new Date(a.created_at);
+        const daysAgo = Math.floor((Date.now() - d.getTime()) / 86400000);
+        const label = daysAgo === 0 ? "Today" : days[d.getDay()];
+        if (label in counts) counts[label]++;
+      }
+
+      setData(Object.entries(counts).map(([day, count]) => ({ day, count })));
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return data;
 }
 
-function getTypeIcon(type: string) {
-  switch (type) {
-    case "approval":
-      return <Clock className="h-4 w-4" />;
-    case "action":
-      return <AlertCircle className="h-4 w-4" />;
-    default:
-      return <CheckCircle2 className="h-4 w-4" />;
-  }
+// --- Target progress from workstreams annual_value ---
+function useTargetProgress() {
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase
+        .from("workstreams")
+        .select("annual_value");
+
+      if (cancelled || !data) return;
+
+      const sum = data.reduce((acc, w) => acc + (Number(w.annual_value) || 0), 0);
+      setTotal(Math.round(sum / 1000));
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return total;
+}
+
+// --- User profile name ---
+function useProfileName() {
+  const { user } = useAuth();
+  const [name, setName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setName(data?.full_name || null);
+    })();
+
+    return () => { cancelled = true; };
+  }, [user]);
+
+  return name;
 }
 
 // Custom tooltip for area chart
@@ -125,7 +171,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted-foreground">
-          {payload[0].value} deals active
+          {payload[0].value} activities
         </p>
       </div>
     );
@@ -135,17 +181,24 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function SalesHome() {
   const { labels } = useTheme();
-  const { role, isLoading: isRoleLoading } = useCurrentUserRole();
-  const totalPipeline = pipelineData.reduce((acc, item) => acc + item.value, 0);
-  
-  // Get team roles based on user's role
+  const { role } = useCurrentUserRole();
   const teamRoles = getTeamRolesForUser(role);
+  const effectiveTeamRoles = teamRoles.length > 0 ? teamRoles : ["account_executive", "sales_manager", "finance_reviewer"];
+
+  const profileName = useProfileName();
+  const pipelineData = useSalesPipeline();
+  const activityTrend = useWeeklyActivity();
+  const totalPipelineK = useTargetProgress();
+
+  const totalPipeline = pipelineData.reduce((acc, item) => acc + item.value, 0);
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight">Welcome back, John</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">
+          Welcome back{profileName ? `, ${profileName.split(" ")[0]}` : ""}
+        </h1>
         <p className="text-lg text-muted-foreground mt-2">
           Here's what needs your attention today
         </p>
@@ -153,7 +206,7 @@ export default function SalesHome() {
 
       {/* Hero Visualization Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Pipeline Donut - Main Visual */}
+        {/* Pipeline Donut */}
         <Card className="lg:col-span-5 border-border overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
@@ -161,48 +214,50 @@ export default function SalesHome() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-6">
-              <div className="relative w-40 h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pipelineData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={70}
-                      paddingAngle={3}
-                      dataKey="value"
-                      strokeWidth={0}
-                    >
-                      {pipelineData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                {/* Center text */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-semibold">${totalPipeline}K</span>
-                  <span className="text-xs text-muted-foreground">Total</span>
+            {pipelineData.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No deals in pipeline</p>
+            ) : (
+              <div className="flex items-center gap-6">
+                <div className="relative w-40 h-40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pipelineData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                        strokeWidth={0}
+                      >
+                        {pipelineData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-semibold">${totalPipeline}K</span>
+                    <span className="text-xs text-muted-foreground">Total</span>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2">
+                  {pipelineData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-sm">{item.name}</span>
+                      </div>
+                      <span className="text-sm font-medium">${item.value}K</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              {/* Legend */}
-              <div className="flex-1 space-y-2">
-                {pipelineData.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-sm">{item.name}</span>
-                    </div>
-                    <span className="text-sm font-medium">${item.value}K</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -214,83 +269,71 @@ export default function SalesHome() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-36">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={activityTrend}>
-                  <defs>
-                    <linearGradient id="colorDeals" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="day" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                  />
-                  <YAxis hide />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="deals"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorDeals)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {activityTrend.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No activity this week</p>
+            ) : (
+              <div className="h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={activityTrend}>
+                    <defs>
+                      <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="day"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                    />
+                    <YAxis hide />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorActivity)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Target Progress */}
+        {/* Pipeline Total */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Team Target */}
           <Card className="border-border">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 rounded-lg bg-muted">
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <span className="text-sm text-muted-foreground">Team Target</span>
+                <span className="text-sm text-muted-foreground">Total Pipeline</span>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-2xl font-semibold">${targetProgress.team.current}K</span>
-                  <span className="text-sm text-muted-foreground">of ${targetProgress.team.goal}K</span>
-                </div>
-                <div className="h-2 bg-border rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary rounded-full transition-all duration-500"
-                    style={{ width: `${(targetProgress.team.current / targetProgress.team.goal) * 100}%` }}
-                  />
-                </div>
+                <span className="text-2xl font-semibold">${totalPipelineK}K</span>
+                <p className="text-sm text-muted-foreground">Across all stages</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Personal Target */}
           <Card className="border-border">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 rounded-lg bg-primary/10">
                   <Target className="h-4 w-4 text-primary" />
                 </div>
-                <span className="text-sm text-muted-foreground">Your Target</span>
+                <span className="text-sm text-muted-foreground">Active {labels.deals}</span>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-2xl font-semibold">${targetProgress.personal.current}K</span>
-                  <span className="text-sm text-muted-foreground">of ${targetProgress.personal.goal}K</span>
-                </div>
-                <div className="h-2 bg-border rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary rounded-full transition-all duration-500"
-                    style={{ width: `${(targetProgress.personal.current / targetProgress.personal.goal) * 100}%` }}
-                  />
-                </div>
+                <span className="text-2xl font-semibold">
+                  {pipelineData.reduce((acc, d) => acc + (d.name !== "Closed" ? 1 : 0), 0)} stages
+                </span>
+                <p className="text-sm text-muted-foreground">With deals in progress</p>
               </div>
             </CardContent>
           </Card>
@@ -303,7 +346,7 @@ export default function SalesHome() {
         <UnifiedNeedsDashboard
           modulePrefix="sales"
           userRole={role || "account_executive"}
-          teamRoles={teamRoles.length > 0 ? teamRoles : ["account_executive", "sales_manager", "finance_reviewer"]}
+          teamRoles={effectiveTeamRoles}
         />
       </div>
 
@@ -322,7 +365,7 @@ export default function SalesHome() {
             </CardContent>
           </Card>
         </Link>
-        
+
         <Link to="/sales/customers">
           <Card className="border-border hover:border-primary/30 hover:shadow-md transition-all cursor-pointer h-full group">
             <CardContent className="pt-6">
@@ -350,7 +393,7 @@ export default function SalesHome() {
             </CardContent>
           </Card>
         </Link>
-        
+
         <Link to="/sales/approvals">
           <Card className="border-border hover:border-primary/30 hover:shadow-md transition-all cursor-pointer h-full group">
             <CardContent className="pt-6">

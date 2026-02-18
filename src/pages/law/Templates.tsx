@@ -76,17 +76,18 @@ export default function Templates() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    e.target.value = "";
 
+    // Read the file before clearing the input — clearing can release the file reference
+    const arrayBuffer = await file.arrayBuffer();
     const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
     const extension = file.name.split(".").pop()?.toLowerCase();
+    e.target.value = "";
 
     try {
       let htmlContent: string;
 
       if (extension === "docx") {
         // Convert DOCX to HTML using mammoth (preserves headings, bold, lists, tables)
-        const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer });
         htmlContent = result.value;
         if (result.messages.length > 0) {
@@ -94,7 +95,7 @@ export default function Templates() {
         }
       } else {
         // Plain text files — wrap lines in paragraphs
-        const text = await file.text();
+        const text = new TextDecoder().decode(arrayBuffer);
         htmlContent = text
           .split("\n")
           .filter((line) => line.trim())

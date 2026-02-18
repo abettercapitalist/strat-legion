@@ -1,89 +1,152 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Library, Clock, AlertCircle, CheckCircle2, ArrowRight, Plus } from "lucide-react";
+import { FileText, Clock, AlertCircle, CheckCircle2, Plus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCurrentUserRole, getTeamRolesForUser } from "@/hooks/useCurrentUserRole";
 import { useUnifiedNeeds } from "@/hooks/useUnifiedNeeds";
-import { 
-  MetricRing, 
-  StatusBadge, 
+import { useTemplates } from "@/hooks/useTemplates";
+import { useClauses } from "@/hooks/useClauses";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
+import {
+  MetricRing,
+  StatusBadge,
   VisualBreakdown,
   WorkloadHistoryMini,
-  UnifiedNeedsDashboard
+  UnifiedNeedsDashboard,
 } from "@/components/dashboard";
 
-// Mock data for draft templates and clauses
-const draftTemplates = [
-  { id: 1, name: "Untitled Draft - Dec 03 2024", lastModified: "2 hours ago" },
-  { id: 2, name: "Partnership Agreement v2", lastModified: "Yesterday" },
-];
+// --- Activity type → icon mapping ---
+const ACTIVITY_ICONS: Record<string, typeof CheckCircle2> = {
+  approval_approved: CheckCircle2,
+  approval_rejected: AlertCircle,
+  created: FileText,
+  stage_changed: CheckCircle2,
+  document_uploaded: FileText,
+  default: CheckCircle2,
+};
 
-const clausesNeedingReview = [
-  { id: 1, name: "Limitation of Liability", reason: "Low success rate (42%)", priority: "high" as const },
-  { id: 2, name: "Indemnification", reason: "Frequently negotiated", priority: "medium" as const },
-];
+// --- Recent Activity hook (lightweight, home-page only) ---
+function useRecentActivity(userId: string | undefined) {
+  const [activities, setActivities] = useState<
+    { id: string; action: string; item: string; time: string; iconKey: string }[]
+  >([]);
 
-const recentActivity = [
-  { id: 1, action: "Template published", item: "Enterprise SaaS Agreement", time: "1 hour ago", icon: CheckCircle2 },
-  { id: 2, action: "Change request approved", item: "Payment Terms clause", time: "3 hours ago", icon: CheckCircle2 },
-  { id: 3, action: "Clause created", item: "Data Processing Addendum", time: "Yesterday", icon: FileText },
-];
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
 
-// Mock workload history data (last 30 days)
-const workloadHistory = [
-  { date: "Nov 18", userLoad: 45, teamLoad: 52 },
-  { date: "Nov 19", userLoad: 52, teamLoad: 55 },
-  { date: "Nov 20", userLoad: 48, teamLoad: 51 },
-  { date: "Nov 21", userLoad: 55, teamLoad: 54 },
-  { date: "Nov 22", userLoad: 62, teamLoad: 58 },
-  { date: "Nov 23", userLoad: 58, teamLoad: 56 },
-  { date: "Nov 24", userLoad: 45, teamLoad: 48 },
-  { date: "Nov 25", userLoad: 42, teamLoad: 50 },
-  { date: "Nov 26", userLoad: 65, teamLoad: 55 },
-  { date: "Nov 27", userLoad: 70, teamLoad: 60 },
-  { date: "Nov 28", userLoad: 68, teamLoad: 62 },
-  { date: "Nov 29", userLoad: 72, teamLoad: 65 },
-  { date: "Nov 30", userLoad: 65, teamLoad: 63 },
-  { date: "Dec 1", userLoad: 58, teamLoad: 60 },
-  { date: "Dec 2", userLoad: 55, teamLoad: 58 },
-  { date: "Dec 3", userLoad: 60, teamLoad: 55 },
-];
+    (async () => {
+      const { data } = await supabase
+        .from("workstream_activity")
+        .select("id, activity_type, description, created_at, workstreams(name)")
+        .eq("actor_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(5);
 
-// Mock pipeline distribution
-const pipelineDistribution = [
-  { label: "Draft", value: 3, color: "hsl(var(--stage-draft))" },
-  { label: "Negotiation", value: 5, color: "hsl(var(--stage-negotiation))" },
-  { label: "Approval", value: 2, color: "hsl(var(--stage-approval))" },
-  { label: "Signature", value: 1, color: "hsl(var(--stage-signature))" },
-];
+      if (cancelled || !data) return;
+
+      setActivities(
+        data.map((a: any) => ({
+          id: a.id,
+          action: a.description,
+          item: (a.workstreams as any)?.name ?? "",
+          time: formatDistanceToNow(new Date(a.created_at), { addSuffix: true }),
+          iconKey: a.activity_type,
+        })),
+      );
+    })();
+
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  return activities;
+}
+
+// --- Pipeline distribution hook ---
+function usePipelineDistribution() {
+  const [segments, setSegments] = useState<
+    { label: string; value: number; color: string }[]
+  >([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase
+        .from("workstreams")
+        .select("stage");
+
+      if (cancelled || !data) return;
+
+      const counts: Record<string, number> = {};
+      for (const w of data) {
+        const stage = w.stage || "draft";
+        counts[stage] = (counts[stage] || 0) + 1;
+      }
+
+      const stageColors: Record<string, string> = {
+        draft: "hsl(var(--stage-draft))",
+        negotiation: "hsl(var(--stage-negotiation))",
+        approval: "hsl(var(--stage-approval))",
+        signature: "hsl(var(--stage-signature))",
+        closed: "hsl(var(--stage-closed, 200 10% 50%))",
+      };
+
+      setSegments(
+        Object.entries(counts).map(([stage, value]) => ({
+          label: stage.charAt(0).toUpperCase() + stage.slice(1),
+          value,
+          color: stageColors[stage] || "hsl(var(--muted-foreground))",
+        })),
+      );
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return segments;
+}
 
 export default function LawHome() {
   const { labels } = useTheme();
-  const { role, isLoading: isRoleLoading } = useCurrentUserRole();
-
-  // Get team roles based on user's role
+  const { user } = useAuth();
+  const { role } = useCurrentUserRole();
   const teamRoles = getTeamRolesForUser(role);
+  const effectiveTeamRoles = teamRoles.length > 0 ? teamRoles : ["legal_ops", "contract_counsel", "general_counsel"];
 
-  // Use the same data source as the UnifiedNeedsDashboard for consistent counts
-  const { myActions } = useUnifiedNeeds(
-    role || "legal_ops",
-    teamRoles.length > 0 ? teamRoles : ["legal_ops", "contract_counsel", "general_counsel"]
-  );
+  const { myActions } = useUnifiedNeeds(role || "legal_ops", effectiveTeamRoles);
+  const { drafts: draftTemplates, loading: templatesLoading } = useTemplates();
+  const { clauses, loading: clausesLoading } = useClauses();
+  const recentActivity = useRecentActivity(user?.id);
+  const pipelineDistribution = usePipelineDistribution();
 
-  // Calculate engagement percentage (mock: based on completed vs pending)
-  const engagementScore = 72;
-  
+  // Recent clauses (most recently updated, up to 3)
+  const recentClauses = clauses
+    .slice()
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 3);
+
+  // Engagement: ratio of completed needs to total (simple metric)
+  const completedCount = myActions.totalCount > 0
+    ? Math.max(0, myActions.totalCount - myActions.overdueCount)
+    : 0;
+  const engagementScore = myActions.totalCount > 0
+    ? Math.round((completedCount / (completedCount + myActions.totalCount)) * 100)
+    : 100;
+
   return (
     <div className="space-y-6">
       {/* Three-Part Hero Section */}
       <div className="grid grid-cols-12 gap-6 items-stretch">
         {/* Left: MetricRing (25%) */}
         <div className="col-span-12 md:col-span-3 flex items-center justify-center">
-          <MetricRing 
-            value={engagementScore} 
-            max={100} 
+          <MetricRing
+            value={engagementScore}
+            max={100}
             label={labels.engagement}
             sublabel="This month"
             size="lg"
@@ -99,13 +162,22 @@ export default function LawHome() {
                   Good morning
                 </h1>
                 <p className="text-lg text-muted-foreground mt-2">
-                  You have <span className="font-semibold text-foreground">{myActions.totalCount}</span> items waiting for your action
+                  You have{" "}
+                  <span className="font-semibold text-foreground">
+                    {myActions.totalCount}
+                  </span>{" "}
+                  items waiting for your action
                   {myActions.overdueCount > 0 && (
-                    <span>, including <span className="text-destructive font-semibold">{myActions.overdueCount} overdue</span></span>
+                    <span>
+                      , including{" "}
+                      <span className="text-destructive font-semibold">
+                        {myActions.overdueCount} overdue
+                      </span>
+                    </span>
                   )}
                 </p>
               </div>
-              
+
               <div className="flex gap-3">
                 <NavLink to="/law/new">
                   <Button className="gap-2">
@@ -114,21 +186,16 @@ export default function LawHome() {
                   </Button>
                 </NavLink>
                 <NavLink to="/law/matters">
-                  <Button variant="outline">
-                    View Active {labels.matters}
-                  </Button>
+                  <Button variant="outline">View Active {labels.matters}</Button>
                 </NavLink>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right: WorkloadHistoryMini (30%) */}
+        {/* Right: placeholder — workload history needs real time-series data */}
         <div className="col-span-12 md:col-span-3">
-          <WorkloadHistoryMini 
-            data={workloadHistory} 
-            title="30-Day Workload"
-          />
+          <WorkloadHistoryMini data={[]} title="30-Day Workload" />
         </div>
       </div>
 
@@ -136,17 +203,19 @@ export default function LawHome() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">What Needs Attention</h2>
-          <Card className="px-4 py-2 border-0 bg-muted/50">
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-muted-foreground">Pipeline</p>
-              <VisualBreakdown segments={pipelineDistribution} className="w-32" />
-            </div>
-          </Card>
+          {pipelineDistribution.length > 0 && (
+            <Card className="px-4 py-2 border-0 bg-muted/50">
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">Pipeline</p>
+                <VisualBreakdown segments={pipelineDistribution} className="w-32" />
+              </div>
+            </Card>
+          )}
         </div>
-        <UnifiedNeedsDashboard 
-          modulePrefix="law" 
+        <UnifiedNeedsDashboard
+          modulePrefix="law"
           userRole={role || "legal_ops"}
-          teamRoles={teamRoles.length > 0 ? teamRoles : ["legal_ops", "contract_counsel", "general_counsel"]}
+          teamRoles={effectiveTeamRoles}
         />
       </div>
 
@@ -163,24 +232,37 @@ export default function LawHome() {
                 </CardTitle>
                 <CardDescription>Unfinished templates in progress</CardDescription>
               </div>
-              <StatusBadge 
-                status="neutral" 
-                label={String(draftTemplates.length)} 
+              <StatusBadge
+                status="neutral"
+                label={String(draftTemplates.length)}
               />
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {draftTemplates.map((draft) => (
-              <div key={draft.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <div>
-                  <p className="font-medium text-sm">{draft.name}</p>
-                  <p className="text-sm text-muted-foreground">Last modified {draft.lastModified}</p>
-                </div>
-                <Button variant="ghost" size="sm">
-                  Continue
-                </Button>
-              </div>
-            ))}
+            {templatesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : draftTemplates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No drafts in progress</p>
+            ) : (
+              draftTemplates.slice(0, 3).map((draft) => (
+                <NavLink key={draft.id} to={`/law/templates/${draft.id}/edit`}>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                    <div>
+                      <p className="font-medium text-sm">{draft.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Last modified{" "}
+                        {formatDistanceToNow(new Date(draft.updated_at), {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      Continue
+                    </Button>
+                  </div>
+                </NavLink>
+              ))
+            )}
             <NavLink to="/law/templates">
               <Button variant="outline" className="w-full mt-2">
                 View All Templates
@@ -189,35 +271,43 @@ export default function LawHome() {
           </CardContent>
         </Card>
 
-        {/* Clauses Needing Attention */}
+        {/* Clauses — recently updated */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <AlertCircle className="h-5 w-5" />
-                  Clauses Needing Attention
+                  Recent Clauses
                 </CardTitle>
-                <CardDescription>Based on negotiation patterns</CardDescription>
+                <CardDescription>Recently updated in the library</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {clausesNeedingReview.map((clause) => (
-              <div key={clause.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <div>
-                  <p className="font-medium text-sm">{clause.name}</p>
-                  <p className="text-sm text-muted-foreground">{clause.reason}</p>
-                </div>
-                <StatusBadge 
-                  status={clause.priority === 'high' ? 'critical' : 'warning'} 
-                  label={clause.priority} 
-                />
-              </div>
-            ))}
-            <NavLink to="/law/dashboard">
+            {clausesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : recentClauses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No clauses yet</p>
+            ) : (
+              recentClauses.map((clause) => (
+                <NavLink key={clause.id} to={`/law/clauses/${clause.id}/edit`}>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                    <div>
+                      <p className="font-medium text-sm">{clause.title}</p>
+                      <p className="text-sm text-muted-foreground">{clause.category}</p>
+                    </div>
+                    <StatusBadge
+                      status={clause.risk_level === "high" ? "critical" : clause.risk_level === "medium" ? "warning" : "neutral"}
+                      label={clause.risk_level}
+                    />
+                  </div>
+                </NavLink>
+              ))
+            )}
+            <NavLink to="/law/clauses">
               <Button variant="outline" className="w-full mt-2">
-                View Learning Dashboard
+                View All Clauses
               </Button>
             </NavLink>
           </CardContent>
@@ -233,16 +323,26 @@ export default function LawHome() {
             <CardDescription>Your latest actions</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <activity.icon className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{activity.action}</p>
-                  <p className="text-sm text-muted-foreground">{activity.item}</p>
-                </div>
-                <span className="text-sm text-muted-foreground">{activity.time}</span>
-              </div>
-            ))}
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recent activity</p>
+            ) : (
+              recentActivity.map((activity) => {
+                const Icon = ACTIVITY_ICONS[activity.iconKey] || ACTIVITY_ICONS.default;
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                  >
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{activity.action}</p>
+                      <p className="text-sm text-muted-foreground">{activity.item}</p>
+                    </div>
+                    <span className="text-sm text-muted-foreground">{activity.time}</span>
+                  </div>
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </div>

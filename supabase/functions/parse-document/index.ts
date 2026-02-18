@@ -122,13 +122,6 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
-      return new Response(
-        JSON.stringify({ success: false, error: 'AI service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     console.log("Parsing document:", fileName, "Type:", fileType);
 
@@ -178,6 +171,26 @@ serve(async (req) => {
     }
 
     console.log("Extracted text length:", documentText.length);
+
+    // If AI key is not available, skip clause parsing and return extraction only
+    if (!LOVABLE_API_KEY) {
+      console.log("LOVABLE_API_KEY not configured — skipping AI clause parsing");
+      const stubName = fileName.replace(/\.[^.]+$/, '');
+      const parsedDocument = {
+        documentType: "Unknown",
+        suggestedName: stubName,
+        suggestedCategory: "Services" as const,
+        parties: [],
+        effectiveDate: null,
+        clauses: [],
+        definitions: [],
+        summary: "Document imported without AI clause analysis.",
+      };
+      return new Response(
+        JSON.stringify({ success: true, data: parsedDocument, extractedHtml }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const systemPrompt = `You are a legal document parser that extracts structured information from contracts and legal documents.
 

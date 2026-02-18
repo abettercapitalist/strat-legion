@@ -202,9 +202,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           .from("user_customizations")
           .select("sports_theme")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== "PGRST116") {
+        if (error) {
           console.error("Error loading theme:", error);
         }
 

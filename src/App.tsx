@@ -15,6 +15,7 @@ import { AdminLayout } from "./components/AdminLayout";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Landing from "./pages/Landing";
+const SuperDocPoc = lazy(() => import("./pages/lab/SuperDocPoc"));
 
 // Law Module Pages
 import LawTemplates from "./pages/law/Templates";
@@ -107,6 +108,9 @@ const App = () => (
               <Route path="responses" element={<ResponseLibrary />} />
               <Route path="settings" element={<div className="text-center py-16 text-muted-foreground">Settings - Coming Soon</div>} />
             </Route>
+
+            {/* Lab / PoC Routes */}
+            <Route path="/lab/superdoc" element={<Suspense fallback={<div className="flex items-center justify-center h-screen">Loading SuperDoc...</div>}><SuperDocPoc /></Suspense>} />
 
             {/* Catch-all 404 route */}
             <Route path="*" element={<NotFound />} />

@@ -1,0 +1,65 @@
+/* Equity Text B */
+@font-face {
+  font-family: "Equity Text B";
+  src: url("/fonts/Equity Text B Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Equity Text B";
+  src: url("/fonts/Equity Text B Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Equity Text B";
+  src: url("/fonts/Equity Text B Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Equity Text B";
+  src: url("/fonts/Equity Text B Bold Italic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* Equity Caps B */
+@font-face {
+  font-family: "Equity Caps B";
+  src: url("/fonts/Equity Caps B Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Equity Caps B";
+  src: url("/fonts/Equity Caps B Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* Concourse T3 */
+@font-face {
+  font-family: "Concourse T3";
+  src: url("/fonts/Concourse T3 Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Concourse T3";
+  src: url("/fonts/Concourse T3 Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Concourse T3";
+  src: url("/fonts/Concourse T3 Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Concourse T3";
+  src: url("/fonts/Concourse T3 Bold Italic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+}
