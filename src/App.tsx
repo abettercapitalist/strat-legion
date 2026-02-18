@@ -41,7 +41,6 @@ const CreatePlaybook = lazy(() => import("./pages/admin/CreatePlaybook"));
 // Sales Module Pages
 import SalesHome from "./pages/sales/Home";
 import SalesDeals from "./pages/sales/Deals";
-import CreateDeal from "./pages/sales/CreateDeal";
 import DealDetail from "./pages/sales/DealDetail";
 import DealReview from "./pages/sales/DealReview";
 import SalesCustomers from "./pages/sales/Customers";
@@ -100,7 +99,7 @@ const App = () => (
               <Route path="new" element={<SelectPlay module="sales" />} />
               <Route path="new/:playId" element={<CreateWorkstream module="sales" />} />
               <Route path="deals" element={<SalesDeals />} />
-              <Route path="deals/new" element={<CreateDeal />} />
+              <Route path="deals/new" element={<Navigate to="/sales/new" replace />} />
               <Route path=":id" element={<WorkstreamDetail module="sales" />} />
               <Route path="review" element={<DealReview />} />
               <Route path="customers" element={<SalesCustomers />} />

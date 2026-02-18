@@ -1,0 +1,30 @@
+-- Clean up corrupted test user auth records so we can recreate via Admin API
+-- First remove profiles and roles (cascade won't help since they're in different schemas)
+
+DELETE FROM public.user_roles WHERE user_id IN (
+  'aaaa0001-0001-0001-0001-000000000001',
+  'aaaa0002-0002-0002-0002-000000000002',
+  'aaaa0003-0003-0003-0003-000000000003',
+  'aaaa0004-0004-0004-0004-000000000004'
+);
+
+DELETE FROM public.profiles WHERE id IN (
+  'aaaa0001-0001-0001-0001-000000000001',
+  'aaaa0002-0002-0002-0002-000000000002',
+  'aaaa0003-0003-0003-0003-000000000003',
+  'aaaa0004-0004-0004-0004-000000000004'
+);
+
+DELETE FROM auth.identities WHERE user_id IN (
+  'aaaa0001-0001-0001-0001-000000000001',
+  'aaaa0002-0002-0002-0002-000000000002',
+  'aaaa0003-0003-0003-0003-000000000003',
+  'aaaa0004-0004-0004-0004-000000000004'
+);
+
+DELETE FROM auth.users WHERE id IN (
+  'aaaa0001-0001-0001-0001-000000000001',
+  'aaaa0002-0002-0002-0002-000000000002',
+  'aaaa0003-0003-0003-0003-000000000003',
+  'aaaa0004-0004-0004-0004-000000000004'
+);

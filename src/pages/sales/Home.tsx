@@ -25,9 +25,54 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentUserRole, getTeamRolesForUser } from "@/hooks/useCurrentUserRole";
 import { supabase } from "@/integrations/supabase/client";
 
+// --- Resolve sales team IDs for filtering ---
+function useSalesTeamIds() {
+  const [teamIds, setTeamIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const { data: teams } = await supabase
+        .from("teams")
+        .select("id, name, parent_id");
+
+      if (cancelled || !teams) return;
+
+      const salesRoot = teams.find((t) => t.name === "sales");
+      if (!salesRoot) {
+        setTeamIds(new Set(teams.filter((t) => t.name.startsWith("sales")).map((t) => t.id)));
+        return;
+      }
+
+      const ids = new Set<string>([salesRoot.id]);
+      for (const t of teams) {
+        if (t.parent_id && ids.has(t.parent_id)) ids.add(t.id);
+      }
+      setTeamIds(ids);
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return teamIds;
+}
+
+function teamCategoryMatchesAny(raw: string | null | undefined, teamIds: Set<string>): boolean {
+  // Untagged workstream types are visible in all modules
+  if (!raw) return true;
+  if (teamIds.size === 0) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.some((id: string) => teamIds.has(id));
+  } catch { /* not JSON */ }
+  return raw.toLowerCase() === "sales";
+}
+
 // --- Pipeline data from workstreams ---
 function useSalesPipeline() {
   const [data, setData] = useState<{ name: string; value: number; color: string }[]>([]);
+  const salesTeamIds = useSalesTeamIds();
 
   useEffect(() => {
     let cancelled = false;
@@ -35,12 +80,13 @@ function useSalesPipeline() {
     (async () => {
       const { data: workstreams } = await supabase
         .from("workstreams")
-        .select("stage, annual_value");
+        .select("stage, annual_value, workstream_type:workstream_types(team_category)");
 
       if (cancelled || !workstreams) return;
 
       const stages: Record<string, number> = {};
       for (const w of workstreams) {
+        if (!teamCategoryMatchesAny((w as any).workstream_type?.team_category, salesTeamIds)) continue;
         const stage = w.stage || "draft";
         stages[stage] = (stages[stage] || 0) + (Number(w.annual_value) || 0);
       }
@@ -63,7 +109,7 @@ function useSalesPipeline() {
     })();
 
     return () => { cancelled = true; };
-  }, []);
+  }, [salesTeamIds]);
 
   return data;
 }
@@ -114,9 +160,10 @@ function useWeeklyActivity() {
   return data;
 }
 
-// --- Target progress from workstreams annual_value ---
+// --- Target progress from workstreams annual_value (sales only) ---
 function useTargetProgress() {
   const [total, setTotal] = useState(0);
+  const salesTeamIds = useSalesTeamIds();
 
   useEffect(() => {
     let cancelled = false;
@@ -124,16 +171,18 @@ function useTargetProgress() {
     (async () => {
       const { data } = await supabase
         .from("workstreams")
-        .select("annual_value");
+        .select("annual_value, workstream_type:workstream_types(team_category)");
 
       if (cancelled || !data) return;
 
-      const sum = data.reduce((acc, w) => acc + (Number(w.annual_value) || 0), 0);
+      const sum = data
+        .filter((w) => teamCategoryMatchesAny((w as any).workstream_type?.team_category, salesTeamIds))
+        .reduce((acc, w) => acc + (Number(w.annual_value) || 0), 0);
       setTotal(Math.round(sum / 1000));
     })();
 
     return () => { cancelled = true; };
-  }, []);
+  }, [salesTeamIds]);
 
   return total;
 }

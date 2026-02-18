@@ -252,10 +252,10 @@ export default function MyDeals() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-popover border-border">
-            <DropdownMenuItem onClick={() => navigate("/sales/deals/new?type=new")}>
+            <DropdownMenuItem onClick={() => navigate("/sales/new")}>
               New Customer {labels.deal}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/sales/deals/new?type=renewal")}>
+            <DropdownMenuItem onClick={() => navigate("/sales/new")}>
               Renewal {labels.deal}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -664,7 +664,7 @@ export default function MyDeals() {
                 <Button variant="outline" onClick={() => setSelectedDeal(null)}>
                   Close
                 </Button>
-                <Link to={`/sales/deals/${selectedDeal.id}`}>
+                <Link to={`/sales/${selectedDeal.id}`}>
                   <Button>
                     View Full Deal
                     <ArrowRight className="ml-2 h-4 w-4" />

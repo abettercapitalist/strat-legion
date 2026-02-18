@@ -1,14 +1,49 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-/** Check if a team_category value (JSON array, UUID, or legacy name) contains a given value */
-function teamCategoryIncludes(raw: string | null | undefined, needle: string): boolean {
-  if (!raw) return false;
+/**
+ * Resolve "sales" team IDs from the teams table.
+ * Returns a Set of UUIDs whose `name` starts with "sales" (handles sub-teams too).
+ */
+async function getSalesTeamIds(): Promise<Set<string>> {
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, parent_id");
+
+  if (!teams) return new Set();
+
+  // Find the root "sales" team and any sub-teams
+  const salesRoot = teams.find((t) => t.name === "sales");
+  if (!salesRoot) {
+    // Fallback: match any team whose name starts with "sales"
+    return new Set(teams.filter((t) => t.name.startsWith("sales")).map((t) => t.id));
+  }
+
+  const ids = new Set<string>([salesRoot.id]);
+  // Include child teams
+  for (const t of teams) {
+    if (t.parent_id && ids.has(t.parent_id)) {
+      ids.add(t.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Check if a team_category value matches the sales team.
+ * Handles JSON arrays of UUIDs, single UUIDs, and legacy string names.
+ * Returns true for null/empty team_category (untagged = visible everywhere).
+ */
+function teamCategoryMatchesAny(raw: string | null | undefined, teamIds: Set<string>): boolean {
+  // Untagged workstream types are visible in all modules
+  if (!raw) return true;
+  if (teamIds.size === 0) return false;
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.includes(needle);
+    if (Array.isArray(parsed)) return parsed.some((id: string) => teamIds.has(id));
   } catch { /* not JSON */ }
-  return raw === needle;
+  // Legacy: plain string like "Sales" or "sales"
+  return raw.toLowerCase() === "sales";
 }
 
 export interface Deal {
@@ -86,21 +121,24 @@ export function useDeals() {
   return useQuery({
     queryKey: ["sales-deals"],
     queryFn: async () => {
-      // Fetch workstreams with sales-related workstream types
-      const { data: workstreams, error } = await supabase
-        .from("workstreams")
-        .select(`
-          *,
-          counterparty:counterparties(*),
-          workstream_type:workstream_types(*)
-        `)
-        .order("updated_at", { ascending: false });
+      // Fetch sales team IDs and workstreams in parallel
+      const [salesTeamIds, { data: workstreams, error }] = await Promise.all([
+        getSalesTeamIds(),
+        supabase
+          .from("workstreams")
+          .select(`
+            *,
+            counterparty:counterparties(*),
+            workstream_type:workstream_types(*)
+          `)
+          .order("updated_at", { ascending: false }),
+      ]);
 
       if (error) throw error;
 
       // Filter to only sales workstreams
       const salesWorkstreams = (workstreams || []).filter(
-        (w) => teamCategoryIncludes(w.workstream_type?.team_category, "sales")
+        (w) => teamCategoryMatchesAny(w.workstream_type?.team_category, salesTeamIds)
       );
 
       // Map to Deal interface
@@ -141,25 +179,28 @@ export function usePendingApprovals() {
   return useQuery({
     queryKey: ["sales-pending-approvals"],
     queryFn: async () => {
-      const { data: approvals, error } = await supabase
-        .from("workstream_approvals")
-        .select(`
-          *,
-          workstream:workstreams(
-            name,
-            counterparty:counterparties(name),
-            workstream_type:workstream_types(team_category)
-          ),
-          template:approval_templates(name)
-        `)
-        .eq("status", "pending")
-        .order("submitted_at", { ascending: true });
+      const [salesTeamIds, { data: approvals, error }] = await Promise.all([
+        getSalesTeamIds(),
+        supabase
+          .from("workstream_approvals")
+          .select(`
+            *,
+            workstream:workstreams(
+              name,
+              counterparty:counterparties(name),
+              workstream_type:workstream_types(team_category)
+            ),
+            template:approval_templates(name)
+          `)
+          .eq("status", "pending")
+          .order("submitted_at", { ascending: true }),
+      ]);
 
       if (error) throw error;
 
       // Filter to only sales workstreams
       const salesApprovals = (approvals || []).filter(
-        (a) => teamCategoryIncludes(a.workstream?.workstream_type?.team_category, "sales")
+        (a) => teamCategoryMatchesAny(a.workstream?.workstream_type?.team_category, salesTeamIds)
       );
 
       const pendingApprovals: PendingApproval[] = salesApprovals.map((a) => {
@@ -235,29 +276,32 @@ export function useSalesApprovalQueue() {
   return useQuery({
     queryKey: ["sales-approval-queue"],
     queryFn: async () => {
-      const { data: approvals, error } = await supabase
-        .from("workstream_approvals")
-        .select(`
-          *,
-          workstream:workstreams(
-            id,
-            name,
-            annual_value,
-            tier,
-            owner_id,
-            counterparty:counterparties(name),
-            workstream_type:workstream_types(team_category)
-          ),
-          template:approval_templates(name)
-        `)
-        .eq("status", "pending")
-        .order("submitted_at", { ascending: true });
+      const [salesTeamIds, { data: approvals, error }] = await Promise.all([
+        getSalesTeamIds(),
+        supabase
+          .from("workstream_approvals")
+          .select(`
+            *,
+            workstream:workstreams(
+              id,
+              name,
+              annual_value,
+              tier,
+              owner_id,
+              counterparty:counterparties(name),
+              workstream_type:workstream_types(team_category)
+            ),
+            template:approval_templates(name)
+          `)
+          .eq("status", "pending")
+          .order("submitted_at", { ascending: true }),
+      ]);
 
       if (error) throw error;
 
       // Filter to only sales workstreams
       const salesApprovals = (approvals || []).filter(
-        (a) => teamCategoryIncludes(a.workstream?.workstream_type?.team_category, "sales")
+        (a) => teamCategoryMatchesAny(a.workstream?.workstream_type?.team_category, salesTeamIds)
       );
 
       // Collect unique owner IDs to fetch profile names
