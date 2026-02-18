@@ -1,4 +1,4 @@
-import { Settings, BookOpen, Home, Users, Target, FolderOpen, ClipboardCheck } from "lucide-react";
+import { Settings, BookOpen, Home, Users, Target, FolderOpen, ClipboardCheck, Clock } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/PB-Logo.png";
@@ -14,47 +14,54 @@ import {
   useSidebar,
 } from "./ui/sidebar";
 import { useTheme } from "@/contexts/ThemeContext";
+import { usePendingApprovals } from "@/hooks/useDeals";
 
-const getNavigation = (dealsLabel: string, reviewLabel: string) => [
-  { 
-    name: "Home", 
-    href: "/sales", 
+const getNavigation = (dealsLabel: string, reviewLabel: string, approvalCount: number) => [
+  {
+    name: "Home",
+    href: "/sales",
     icon: Home,
-    badge: undefined,
+    badge: undefined as number | undefined,
   },
-  { 
-    name: `Active ${dealsLabel}`, 
-    href: "/sales/deals", 
+  {
+    name: `Active ${dealsLabel}`,
+    href: "/sales/deals",
     icon: FolderOpen,
     badge: undefined,
   },
-  { 
-    name: reviewLabel, 
-    href: "/sales/review", 
+  {
+    name: reviewLabel,
+    href: "/sales/review",
     icon: ClipboardCheck,
-    badge: 2,
+    badge: undefined,
   },
-  { 
-    name: "My Customers", 
-    href: "/sales/customers", 
+  {
+    name: "Approvals",
+    href: "/sales/approvals",
+    icon: Clock,
+    badge: approvalCount > 0 ? approvalCount : undefined,
+  },
+  {
+    name: "My Customers",
+    href: "/sales/customers",
     icon: Users,
     badge: undefined,
   },
-  { 
-    name: "My Targets", 
-    href: "/sales/targets", 
+  {
+    name: "My Targets",
+    href: "/sales/targets",
     icon: Target,
     badge: undefined,
   },
-  { 
-    name: "Response Library", 
-    href: "/sales/responses", 
+  {
+    name: "Response Library",
+    href: "/sales/responses",
     icon: BookOpen,
     badge: undefined,
   },
-  { 
-    name: "Settings", 
-    href: "/sales/settings", 
+  {
+    name: "Settings",
+    href: "/sales/settings",
     icon: Settings,
     badge: undefined,
   },
@@ -66,7 +73,8 @@ export function SalesSidebar() {
   const { labels } = useTheme();
   const isCollapsed = state === "collapsed";
   
-  const navigation = getNavigation(labels.deals, labels.performanceReview);
+  const { data: pendingApprovals } = usePendingApprovals();
+  const navigation = getNavigation(labels.deals, labels.performanceReview, pendingApprovals?.length ?? 0);
 
   return (
     <Sidebar 

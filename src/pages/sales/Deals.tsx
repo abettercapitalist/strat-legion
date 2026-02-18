@@ -36,9 +36,6 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useNeedsFilter } from "@/hooks/useNeedsFilter";
 import { NeedsFilterBar } from "@/components/filters/NeedsFilterBar";
 
-// Static targets (could be fetched from settings/targets table in future)
-const teamTarget = { current: 420000, goal: 500000 };
-const personalTarget = { current: 287000, goal: 350000 };
 
 type Need = {
   id: string;
@@ -353,68 +350,44 @@ export default function MyDeals() {
         </CardContent>
       </Card>
 
-      {/* Targets Row */}
+      {/* Pipeline Summary Row */}
       <div className="grid grid-cols-2 gap-6">
-        {/* Team Target */}
+        {/* Total Pipeline */}
         <Card className="border-border">
           <CardContent className="pt-5 pb-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-muted">
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Team Target</p>
-                  <p className="text-xl font-semibold">
-                    ${(teamTarget.current / 1000).toFixed(0)}K 
-                    <span className="text-sm font-normal text-muted-foreground ml-1">
-                      of ${(teamTarget.goal / 1000).toFixed(0)}K
-                    </span>
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-muted">
+                <Users className="h-5 w-5 text-muted-foreground" />
               </div>
-              <div className="w-32">
-                <div className="h-2 bg-border rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${(teamTarget.current / teamTarget.goal) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground text-right mt-1">
-                  {Math.round((teamTarget.current / teamTarget.goal) * 100)}%
+              <div>
+                <p className="text-sm text-muted-foreground">Total Pipeline</p>
+                <p className="text-xl font-semibold">
+                  ${totalPipeline}K
+                  <span className="text-sm font-normal text-muted-foreground ml-1">
+                    across {deals.length} {labels.deals.toLowerCase()}
+                  </span>
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Personal Target */}
+        {/* Active Deals */}
         <Card className="border-border">
           <CardContent className="pt-5 pb-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-primary/10">
-                  <Target className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Your Target</p>
-                  <p className="text-xl font-semibold">
-                    ${(personalTarget.current / 1000).toFixed(0)}K 
-                    <span className="text-sm font-normal text-muted-foreground ml-1">
-                      of ${(personalTarget.goal / 1000).toFixed(0)}K
-                    </span>
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-primary/10">
+                <Target className="h-5 w-5 text-primary" />
               </div>
-              <div className="w-32">
-                <div className="h-2 bg-border rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${(personalTarget.current / personalTarget.goal) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground text-right mt-1">
-                  {Math.round((personalTarget.current / personalTarget.goal) * 100)}%
+              <div>
+                <p className="text-sm text-muted-foreground">Active {labels.deals}</p>
+                <p className="text-xl font-semibold">
+                  {filteredDeals.length}
+                  {activeFilter !== "all" && (
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      of {deals.length} ({filterLabel})
+                    </span>
+                  )}
                 </p>
               </div>
             </div>

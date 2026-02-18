@@ -2,43 +2,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Copy } from "lucide-react";
-import { useState } from "react";
+import { Search, Copy, BookOpen, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-const responses = [
-  {
-    id: "1",
-    request: "Customer requests Net 90 payment terms",
-    summary: "Offer annual upfront discount alternative",
-    successRate: 70,
-    timesUsed: 42,
-    fullResponse: "We understand the request for extended payment terms. We can offer Net 90 with a 5% increase in annual fees, or we can provide a 10% discount for annual upfront payment. Most customers find the upfront discount more valuable.",
-    rationale: "Protects cash flow while providing customer flexibility",
-    context: "Use for enterprise customers with established payment processes",
-  },
-  {
-    id: "2",
-    request: "Customer wants 20% discount from list price",
-    summary: "Volume commitment counter-offer",
-    successRate: 65,
-    timesUsed: 38,
-    fullResponse: "We appreciate your interest in a volume discount. We can offer 15% off list price with a 3-year commitment and minimum of 500 seats. For your initial year at 200 seats, we can offer 10% off with expansion pricing locked in.",
-    rationale: "Balances discount with commitment and expansion opportunity",
-    context: "Best for growing companies with clear expansion path",
-  },
-  {
-    id: "3",
-    request: "Customer asks for monthly billing instead of annual",
-    summary: "Quarterly billing compromise",
-    successRate: 80,
-    timesUsed: 56,
-    fullResponse: "We can offer quarterly billing at the same annual rate, providing you flexibility while maintaining predictable cash flow. Many customers find this strikes the right balance. Monthly billing would require a 15% increase in total annual cost.",
-    rationale: "Reduces cash flow risk while accommodating customer preference",
-    context: "Works well for mid-market customers",
-  },
-];
+interface ResponseEntry {
+  id: string;
+  title: string;
+  response_text: string;
+  category: string | null;
+  success_rate: number | null;
+  usage_count: number | null;
+  tags: string[] | null;
+}
 
-const categories = ["All", "Payment Terms", "Pricing", "Volume", "Duration"];
+function useResponseLibrary() {
+  return useQuery({
+    queryKey: ["response-library"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("response_library")
+        .select("id, title, response_text, category, success_rate, usage_count, tags")
+        .order("usage_count", { ascending: false, nullsFirst: false });
+
+      if (error) throw error;
+      return (data ?? []) as ResponseEntry[];
+    },
+  });
+}
 
 function getSuccessColor(rate: number) {
   if (rate >= 70) return "bg-status-success/10 text-status-success border-status-success/20";
@@ -47,7 +39,62 @@ function getSuccessColor(rate: number) {
 }
 
 export default function ResponseLibrary() {
-  const [selectedResponse, setSelectedResponse] = useState(responses[0]);
+  const { data: responses = [], isLoading } = useResponseLibrary();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All");
+
+  // Derive categories from data
+  const categories = useMemo(() => {
+    const cats = new Set(responses.map((r) => r.category).filter(Boolean) as string[]);
+    return ["All", ...Array.from(cats).sort()];
+  }, [responses]);
+
+  // Filter responses
+  const filtered = useMemo(() => {
+    return responses.filter((r) => {
+      if (activeCategory !== "All" && r.category !== activeCategory) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          r.title.toLowerCase().includes(q) ||
+          r.response_text.toLowerCase().includes(q) ||
+          (r.tags ?? []).some((t) => t.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [responses, activeCategory, search]);
+
+  const selectedResponse = filtered.find((r) => r.id === selectedId) ?? filtered[0] ?? null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (responses.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-semibold">Response Library</h1>
+          <p className="text-muted-foreground mt-2">
+            Proven responses to common customer requests
+          </p>
+        </div>
+        <div className="text-center py-16">
+          <BookOpen className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+          <p className="text-lg font-medium text-muted-foreground">No responses yet</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Add responses to build your team's knowledge base
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -61,14 +108,20 @@ export default function ResponseLibrary() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search responses..." className="pl-10" />
+          <Input
+            placeholder="Search responses..."
+            className="pl-10"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
         <div className="flex gap-2">
           {categories.map((cat) => (
             <Button
               key={cat}
-              variant={cat === "All" ? "default" : "outline"}
+              variant={cat === activeCategory ? "default" : "outline"}
               size="sm"
+              onClick={() => setActiveCategory(cat)}
             >
               {cat}
             </Button>
@@ -79,121 +132,144 @@ export default function ResponseLibrary() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left: Response List */}
         <div className="space-y-3">
-          {responses.map((response) => (
+          {filtered.map((response) => (
             <Card
               key={response.id}
               className={`cursor-pointer transition-all ${
-                selectedResponse.id === response.id
+                selectedResponse?.id === response.id
                   ? "border-primary bg-primary/5"
                   : "hover:border-muted-foreground/30"
               }`}
-              onClick={() => setSelectedResponse(response)}
+              onClick={() => setSelectedId(response.id)}
             >
               <CardContent className="p-4 space-y-3">
                 <h3 className="font-medium text-sm leading-snug">
-                  {response.request}
+                  {response.title}
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  {response.summary}
-                </p>
+                {response.category && (
+                  <p className="text-xs text-muted-foreground">
+                    {response.category}
+                  </p>
+                )}
                 <div className="flex gap-2 pt-1">
-                  <Badge
-                    variant="outline"
-                    className={getSuccessColor(response.successRate)}
-                  >
-                    {response.successRate}% success
-                  </Badge>
-                  <Badge variant="outline" className="bg-muted text-xs">
-                    {response.timesUsed} uses
-                  </Badge>
+                  {response.success_rate != null && (
+                    <Badge
+                      variant="outline"
+                      className={getSuccessColor(response.success_rate)}
+                    >
+                      {response.success_rate}% success
+                    </Badge>
+                  )}
+                  {response.usage_count != null && response.usage_count > 0 && (
+                    <Badge variant="outline" className="bg-muted text-xs">
+                      {response.usage_count} uses
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
+          {filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No responses match your search
+            </p>
+          )}
         </div>
 
         {/* Right: Response Detail */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardContent className="p-6 space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold mb-2">
-                  {selectedResponse.request}
-                </h2>
-                <div className="flex gap-2">
-                  <Badge
-                    variant="outline"
-                    className={getSuccessColor(selectedResponse.successRate)}
-                  >
-                    {selectedResponse.successRate}% Success Rate
-                  </Badge>
-                  <Badge variant="outline" className="bg-muted">
-                    Used {selectedResponse.timesUsed} times
-                  </Badge>
+        {selectedResponse && (
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold mb-2">
+                    {selectedResponse.title}
+                  </h2>
+                  <div className="flex gap-2">
+                    {selectedResponse.success_rate != null && (
+                      <Badge
+                        variant="outline"
+                        className={getSuccessColor(selectedResponse.success_rate)}
+                      >
+                        {selectedResponse.success_rate}% Success Rate
+                      </Badge>
+                    )}
+                    {selectedResponse.usage_count != null && (
+                      <Badge variant="outline" className="bg-muted">
+                        Used {selectedResponse.usage_count} times
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">Recommended Response</h3>
-                  <Button variant="outline" size="sm">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Recommended Response</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard.writeText(selectedResponse.response_text)}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Response
+                    </Button>
+                  </div>
+                  <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg text-sm leading-relaxed whitespace-pre-wrap">
+                    {selectedResponse.response_text}
+                  </div>
+                </div>
+
+                {selectedResponse.tags && selectedResponse.tags.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-medium">Tags</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedResponse.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="bg-muted text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <h3 className="font-medium">Statistics</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-4 bg-muted/30 rounded-lg">
+                      <div className="text-2xl font-semibold">
+                        {selectedResponse.usage_count ?? 0}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Times Used</div>
+                    </div>
+                    <div className="p-4 bg-muted/30 rounded-lg">
+                      <div className="text-2xl font-semibold">
+                        {selectedResponse.success_rate ?? "—"}%
+                      </div>
+                      <div className="text-sm text-muted-foreground">Success Rate</div>
+                    </div>
+                    <div className="p-4 bg-muted/30 rounded-lg">
+                      <div className="text-2xl font-semibold">
+                        {selectedResponse.category ?? "—"}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Category</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-6 border-t">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => navigator.clipboard.writeText(selectedResponse.response_text)}
+                  >
                     <Copy className="h-4 w-4 mr-2" />
-                    Copy Response
+                    Copy & Close
                   </Button>
                 </div>
-                <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg text-sm leading-relaxed">
-                  {selectedResponse.fullResponse}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="font-medium">Rationale</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {selectedResponse.rationale}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="font-medium">When to Use</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {selectedResponse.context}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="font-medium">Success Statistics</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <div className="text-2xl font-semibold">
-                      {selectedResponse.timesUsed}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Times Used</div>
-                  </div>
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <div className="text-2xl font-semibold">
-                      {selectedResponse.successRate}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">Success Rate</div>
-                  </div>
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <div className="text-2xl font-semibold">4.2</div>
-                    <div className="text-sm text-muted-foreground">Avg Days to Close</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-6 border-t">
-                <Button variant="outline" className="flex-1">
-                  Use in Deal
-                </Button>
-                <Button className="flex-1">
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy & Close
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

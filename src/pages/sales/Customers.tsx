@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,16 +10,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  Users, 
-  TrendingUp, 
+import {
+  Users,
+  TrendingUp,
   Calendar,
   Mail,
   Phone,
   Building2,
   ArrowRight,
   Briefcase,
-  UserPlus
+  UserPlus,
+  Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -52,119 +55,88 @@ interface Customer {
   renewalDate?: string;
 }
 
-const customers: Customer[] = [
-  {
-    id: "1",
-    name: "Meridian Software",
-    type: "new",
-    industry: "Technology",
-    totalArr: "$85K",
-    arrValue: 85,
-    activeDeals: 1,
-    closedDeals: 0,
-    lastActivity: "2 days ago",
-    primaryContact: {
-      name: "Sarah Mitchell",
-      title: "VP of Operations",
-      email: "s.mitchell@meridian.io",
-      phone: "(555) 234-5678",
-    },
-  },
-  {
-    id: "2",
-    name: "Cascade Analytics",
-    type: "new",
-    industry: "Data & Analytics",
-    totalArr: "$62K",
-    arrValue: 62,
-    activeDeals: 1,
-    closedDeals: 0,
-    lastActivity: "Yesterday",
-    primaryContact: {
-      name: "Michael Chen",
-      title: "Director of Procurement",
-      email: "m.chen@cascade.com",
-      phone: "(555) 345-6789",
-    },
-  },
-  {
-    id: "3",
-    name: "Northwind Traders",
-    type: "existing",
-    industry: "Retail",
-    totalArr: "$45K",
-    arrValue: 45,
-    activeDeals: 1,
-    closedDeals: 2,
-    lastActivity: "3 days ago",
-    primaryContact: {
-      name: "Emily Rodriguez",
-      title: "IT Director",
-      email: "e.rodriguez@northwind.com",
-      phone: "(555) 456-7890",
-    },
-    relationshipStart: "Jan 2023",
-    renewalDate: "Jan 10, 2025",
-  },
-  {
-    id: "4",
-    name: "Alpine Industries",
-    type: "new",
-    industry: "Manufacturing",
-    totalArr: "$38K",
-    arrValue: 38,
-    activeDeals: 1,
-    closedDeals: 0,
-    lastActivity: "1 day ago",
-    primaryContact: {
-      name: "David Park",
-      title: "CFO",
-      email: "d.park@alpine-ind.com",
-      phone: "(555) 567-8901",
-    },
-  },
-  {
-    id: "5",
-    name: "Summit Healthcare",
-    type: "existing",
-    industry: "Healthcare",
-    totalArr: "$57K",
-    arrValue: 57,
-    activeDeals: 1,
-    closedDeals: 1,
-    lastActivity: "Today",
-    primaryContact: {
-      name: "Jennifer Walsh",
-      title: "Chief Compliance Officer",
-      email: "j.walsh@summithealth.org",
-      phone: "(555) 678-9012",
-    },
-    relationshipStart: "Mar 2024",
-    renewalDate: "Mar 15, 2025",
-  },
-];
+function useCustomers() {
+  return useQuery({
+    queryKey: ["sales-customers"],
+    queryFn: async () => {
+      // Fetch counterparties with their workstreams
+      const { data: counterparties, error } = await supabase
+        .from("counterparties")
+        .select("*")
+        .order("name");
 
-// Data for customer type distribution
-const customerTypeData = [
-  { name: "Prospects", value: 3, color: "hsl(var(--primary))" },
-  { name: "Customers", value: 2, color: "hsl(var(--status-success))" },
-];
+      if (error) throw error;
+      if (!counterparties) return [];
 
-// Data for ARR by customer
-const arrByCustomer = customers
-  .sort((a, b) => b.arrValue - a.arrValue)
-  .map(c => ({
-    name: c.name.split(' ')[0], // First word only for chart
-    arr: c.arrValue,
-    type: c.type,
-  }));
+      // Fetch workstreams linked to these counterparties for deal counts / ARR
+      const counterpartyIds = counterparties.map((c) => c.id);
+      const { data: workstreams } = await supabase
+        .from("workstreams")
+        .select("id, counterparty_id, annual_value, status, updated_at")
+        .in("counterparty_id", counterpartyIds.length > 0 ? counterpartyIds : ["__none__"]);
 
-const customerStats = {
-  total: 5,
-  newCustomers: 3,
-  existingCustomers: 2,
-  totalPipelineValue: "$287K",
-};
+      // Group workstreams by counterparty
+      const wsMap = new Map<string, typeof workstreams>();
+      for (const w of workstreams ?? []) {
+        if (!w.counterparty_id) continue;
+        const list = wsMap.get(w.counterparty_id) ?? [];
+        list.push(w);
+        wsMap.set(w.counterparty_id, list);
+      }
+
+      return counterparties.map((c): Customer => {
+        const deals = wsMap.get(c.id) ?? [];
+        const activeDeals = deals.filter(
+          (d) => d.status !== "completed" && d.status !== "cancelled"
+        ).length;
+        const closedDeals = deals.filter((d) => d.status === "completed").length;
+        const totalArrValue = deals.reduce((sum, d) => sum + (d.annual_value ?? 0), 0);
+        const lastUpdate = deals
+          .map((d) => d.updated_at)
+          .filter(Boolean)
+          .sort()
+          .reverse()[0];
+
+        const isExisting = c.relationship_status === "customer" || c.relationship_status === "active" || closedDeals > 0;
+
+        return {
+          id: c.id,
+          name: c.name,
+          type: isExisting ? "existing" : "new",
+          industry: c.business_domain ?? c.counterparty_type ?? "—",
+          totalArr: totalArrValue > 0
+            ? `$${Math.round(totalArrValue / 1000)}K`
+            : "$0",
+          arrValue: Math.round(totalArrValue / 1000),
+          activeDeals,
+          closedDeals,
+          lastActivity: lastUpdate ? formatRelativeDate(lastUpdate) : "No activity",
+          primaryContact: {
+            name: c.primary_contact_name ?? "—",
+            title: c.entity_type ?? "—",
+            email: c.primary_contact_email ?? "—",
+            phone: c.primary_contact_phone ?? "—",
+          },
+          relationshipStart: isExisting
+            ? new Date(c.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+            : undefined,
+        };
+      });
+    },
+  });
+}
+
+function formatRelativeDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 // Custom tooltip for bar chart
 const CustomTooltip = ({ active, payload }: any) => {
@@ -183,8 +155,53 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export default function Customers() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const { data: customers = [], isLoading } = useCustomers();
 
   const totalArr = customers.reduce((acc, c) => acc + c.arrValue, 0);
+  const newCount = customers.filter((c) => c.type === "new").length;
+  const existingCount = customers.filter((c) => c.type === "existing").length;
+
+  const customerTypeData = [
+    { name: "Prospects", value: newCount, color: "hsl(var(--primary))" },
+    { name: "Customers", value: existingCount, color: "hsl(var(--status-success))" },
+  ];
+
+  const arrByCustomer = [...customers]
+    .sort((a, b) => b.arrValue - a.arrValue)
+    .slice(0, 8) // top 8 for readability
+    .map((c) => ({
+      name: c.name.length > 12 ? c.name.split(" ")[0] : c.name,
+      arr: c.arrValue,
+      type: c.type,
+    }));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (customers.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-4xl font-semibold tracking-tight">My Customers</h1>
+          <p className="text-lg text-muted-foreground mt-2">
+            Relationships and account history
+          </p>
+        </div>
+        <div className="text-center py-16">
+          <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+          <p className="text-lg font-medium text-muted-foreground">No customers yet</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Counterparties from your deals will appear here
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -213,9 +230,9 @@ export default function Customers() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={arrByCustomer} layout="vertical" barSize={24}>
                   <XAxis type="number" hide />
-                  <YAxis 
-                    type="category" 
-                    dataKey="name" 
+                  <YAxis
+                    type="category"
+                    dataKey="name"
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
@@ -224,12 +241,12 @@ export default function Customers() {
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="arr" radius={[0, 6, 6, 0]}>
                     {arrByCustomer.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.type === "new" 
-                          ? "hsl(var(--primary))" 
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.type === "new"
+                          ? "hsl(var(--primary))"
                           : "hsl(var(--status-success))"
-                        } 
+                        }
                       />
                     ))}
                   </Bar>
@@ -277,7 +294,7 @@ export default function Customers() {
                   </ResponsiveContainer>
                   {/* Center text */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xl font-semibold">{customerStats.total}</span>
+                    <span className="text-xl font-semibold">{customers.length}</span>
                     <span className="text-[10px] text-muted-foreground">Total</span>
                   </div>
                 </div>
@@ -288,14 +305,14 @@ export default function Customers() {
                       <UserPlus className="h-4 w-4 text-primary" />
                       <span className="text-sm">Prospects</span>
                     </div>
-                    <span className="font-semibold">{customerStats.newCustomers}</span>
+                    <span className="font-semibold">{newCount}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-4 w-4 text-status-success" />
                       <span className="text-sm">Customers</span>
                     </div>
-                    <span className="font-semibold">{customerStats.existingCustomers}</span>
+                    <span className="font-semibold">{existingCount}</span>
                   </div>
                 </div>
               </div>
@@ -311,20 +328,24 @@ export default function Customers() {
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
-              {customers
-                .filter(c => c.renewalDate)
-                .map(customer => (
-                  <div 
-                    key={customer.id}
-                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => setSelectedCustomer(customer)}
-                  >
-                    <span className="text-sm font-medium">{customer.name}</span>
-                    <Badge variant="outline" className="text-xs bg-status-warning/10 text-status-warning border-status-warning/20">
-                      {customer.renewalDate}
-                    </Badge>
-                  </div>
-                ))}
+              {customers.filter((c) => c.renewalDate).length > 0 ? (
+                customers
+                  .filter((c) => c.renewalDate)
+                  .map((customer) => (
+                    <div
+                      key={customer.id}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
+                      onClick={() => setSelectedCustomer(customer)}
+                    >
+                      <span className="text-sm font-medium">{customer.name}</span>
+                      <Badge variant="outline" className="text-xs bg-status-warning/10 text-status-warning border-status-warning/20">
+                        {customer.renewalDate}
+                      </Badge>
+                    </div>
+                  ))
+              ) : (
+                <p className="text-sm text-muted-foreground py-2">No upcoming renewals</p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -345,19 +366,19 @@ export default function Customers() {
           </thead>
           <tbody className="divide-y divide-border">
             {customers.map((customer) => (
-              <tr 
-                key={customer.id} 
+              <tr
+                key={customer.id}
                 className="hover:bg-muted/20 transition-colors cursor-pointer group"
                 onClick={() => setSelectedCustomer(customer)}
               >
                 <td className="px-6 py-4">
                   <div>
                     <span className="font-medium text-foreground group-hover:text-primary transition-colors">{customer.name}</span>
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className={`ml-2 text-xs ${
-                        customer.type === "new" 
-                          ? "bg-primary/10 text-primary border-primary/20" 
+                        customer.type === "new"
+                          ? "bg-primary/10 text-primary border-primary/20"
                           : "bg-status-success/10 text-status-success border-status-success/20"
                       }`}
                     >
@@ -386,11 +407,11 @@ export default function Customers() {
               <DialogHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className={`mb-2 ${
-                        selectedCustomer.type === "new" 
-                          ? "bg-primary/10 text-primary border-primary/20" 
+                        selectedCustomer.type === "new"
+                          ? "bg-primary/10 text-primary border-primary/20"
                           : "bg-status-success/10 text-status-success border-status-success/20"
                       }`}
                     >
@@ -440,27 +461,6 @@ export default function Customers() {
                   )}
                 </div>
               </div>
-
-              {selectedCustomer.renewalDate && (
-                <Card className="mt-4 border-status-warning/30 bg-status-warning/5">
-                  <CardContent className="pt-4 pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-status-warning/10">
-                          <Calendar className="h-4 w-4 text-status-warning" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Renewal Due</p>
-                          <p className="text-lg font-semibold">{selectedCustomer.renewalDate}</p>
-                        </div>
-                      </div>
-                      <Button size="sm" variant="outline">
-                        Schedule Call
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               <div className="mt-4">
                 <h4 className="text-sm font-medium text-muted-foreground mb-3">Deal History</h4>
