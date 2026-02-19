@@ -106,7 +106,11 @@ export function MyPerformanceTab({
                   style={{ width: `${100 - speedComparison.percentile}%` }}
                 />
               </div>
-              <p className="text-sm text-primary">→ You're in the top {speedComparison.percentile}% for speed</p>
+              <p className={`text-sm ${speedComparison.yourSpeed === 0 && speedComparison.teamAverage === 0 ? "text-muted-foreground" : "text-primary"}`}>
+                → {speedComparison.yourSpeed === 0 && speedComparison.teamAverage === 0
+                  ? "No approvals processed yet this period"
+                  : `You're helping the team maintain a ${speedComparison.teamAverage}h average`}
+              </p>
             </div>
 
             {/* Quality */}
@@ -125,7 +129,11 @@ export function MyPerformanceTab({
                   style={{ width: `${qualityComparison.yourQuality}%` }}
                 />
               </div>
-              <p className="text-sm text-status-success">→ You're in the top {qualityComparison.percentile}% for quality</p>
+              <p className={`text-sm ${qualityComparison.yourQuality === 0 && qualityComparison.teamAverage === 0 ? "text-muted-foreground" : "text-status-success"}`}>
+                → {qualityComparison.yourQuality === 0 && qualityComparison.teamAverage === 0
+                  ? "No decisions recorded yet this period"
+                  : `You're contributing to the team's ${qualityComparison.teamAverage}% approval rate`}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -175,21 +183,31 @@ export function MyPerformanceTab({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="p-4 rounded-lg bg-muted/30 space-y-3">
-            <p className="font-medium">Team performance is improving:</p>
+            <p className="font-medium">
+              {teamStats.avgApprovalTime < teamStats.previousAvgTime
+                ? "Team performance is improving:"
+                : teamStats.avgApprovalTime > teamStats.previousAvgTime
+                  ? "Team performance needs attention:"
+                  : "Team performance snapshot:"}
+            </p>
             <ul className="space-y-2 text-sm">
               <li className="flex items-center gap-2">
                 <span className="text-muted-foreground">•</span>
-                Avg approval time: {teamStats.avgApprovalTime}h 
-                <Badge variant="secondary" className="text-status-success">
-                  ↓ from {teamStats.previousAvgTime}h last month
-                </Badge>
+                Avg approval time: {teamStats.avgApprovalTime}h
+                {teamStats.previousAvgTime > 0 && teamStats.avgApprovalTime !== teamStats.previousAvgTime && (
+                  <Badge variant="secondary" className={teamStats.avgApprovalTime < teamStats.previousAvgTime ? "text-status-success" : "text-status-error"}>
+                    {teamStats.avgApprovalTime < teamStats.previousAvgTime ? "↓" : "↑"} from {teamStats.previousAvgTime}h last month
+                  </Badge>
+                )}
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-muted-foreground">•</span>
                 Auto-approval rate: {teamStats.autoApprovalRate}%
-                <Badge variant="secondary" className="text-status-success">
-                  ↑ from {teamStats.previousAutoRate}%
-                </Badge>
+                {teamStats.previousAutoRate > 0 && teamStats.autoApprovalRate !== teamStats.previousAutoRate && (
+                  <Badge variant="secondary" className={teamStats.autoApprovalRate > teamStats.previousAutoRate ? "text-status-success" : "text-status-error"}>
+                    {teamStats.autoApprovalRate > teamStats.previousAutoRate ? "↑" : "↓"} from {teamStats.previousAutoRate}%
+                  </Badge>
+                )}
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-muted-foreground">•</span>
@@ -197,10 +215,16 @@ export function MyPerformanceTab({
               </li>
             </ul>
           </div>
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-status-warning" />
-            Your contributions helped the team get faster.
-          </p>
+          {teamStats.teamHelps > 0 && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-status-warning" />
+              {teamStats.avgApprovalTime < teamStats.previousAvgTime
+                ? "Your contributions helped the team get faster."
+                : teamStats.teamHelps >= 10
+                  ? `You've been active — ${teamStats.teamHelps} contributions this period.`
+                  : `You contributed ${teamStats.teamHelps} time${teamStats.teamHelps !== 1 ? "s" : ""} this period.`}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

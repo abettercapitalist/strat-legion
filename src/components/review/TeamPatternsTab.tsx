@@ -65,6 +65,11 @@ export function TeamPatternsTab({
                     <span className="text-sm font-semibold">{metric.avgDays.toFixed(1)} days</span>
                   </div>
                 ))}
+                {closureByType.length === 0 && (
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <span className="text-sm text-muted-foreground">No data for this period</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -78,6 +83,11 @@ export function TeamPatternsTab({
                     <span className="text-sm font-semibold">{metric.avgDays.toFixed(1)} days avg</span>
                   </div>
                 ))}
+                {closureByRoute.length === 0 && (
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <span className="text-sm text-muted-foreground">No data for this period</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
